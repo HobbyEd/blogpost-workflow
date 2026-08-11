@@ -1,0 +1,31 @@
+{
+  "_toelichting": "Referentieband voor scripts/leesbaarheid.py, berekend uit de tien gepubliceerde delen van de reeks 'De anatomie van agents'. Die drafts staan onder posts/ en vallen buiten versiebeheer, dus zonder dit bestand verliest het script zijn norm op een andere machine. Herberekenen: python3 scripts/leesbaarheid.py --herbereken-band",
+  "gegenereerd_op": "2026-08-11",
+  "bron_aantal_posts": 10,
+  "band": {
+    "n": [
+      91,
+      153
+    ],
+    "gem": [
+      16.08,
+      19.66
+    ],
+    "sd": [
+      7.6,
+      12.69
+    ],
+    "pct_lang": [
+      14.06,
+      26.8
+    ],
+    "pct_kort": [
+      25.77,
+      39.58
+    ],
+    "onder": [
+      1.37,
+      8.12
+    ]
+  }
+}

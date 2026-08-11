@@ -1,0 +1,15 @@
+# Per-post werkmappen worden niet geversioneerd (git-scheiding uit het ontwerp).
+# De workflow-code onder .claude/ wél. Elke blogpost krijgt een eigen map
+# onder posts/<slug>/ met state.md, outline.md, draft.md, visuals/, publish.log.
+/posts/
+
+#voeg de .env waarin o.a. api-key naar grok staat toe. 
+.env 
+
+# Python bytecode-cache (o.a. van py_compile en de scripts/MCP-server)
+__pycache__/
+*.pyc
+
+# Scratch / systeem
+.DS_Store
+Thumbs.db

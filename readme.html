@@ -1,0 +1,1115 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blogpost Agentic Workflow - Documentatie</title>
+    <!-- Google Fonts: Outfit & Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0b0f19;
+            --card-bg: #151b2c;
+            --card-hover-bg: #1a2238;
+            --text-main: #f3f4f6;
+            --text-muted: #9ca3af;
+            --accent-primary: #8a2be2;
+            --accent-secondary: #00d2ff;
+            --accent-gradient: linear-gradient(135deg, #8a2be2 0%, #00d2ff 100%);
+            --border-color: rgba(255, 255, 255, 0.08);
+            --border-hover: rgba(255, 255, 255, 0.15);
+            --glow-color: rgba(138, 43, 226, 0.15);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            line-height: 1.6;
+            padding: 0;
+            overflow-x: hidden;
+        }
+
+        /* Layout */
+        .wrapper {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* Sidebar Navigation */
+        aside {
+            width: 280px;
+            background-color: rgba(15, 22, 38, 0.8);
+            border-right: 1px solid var(--border-color);
+            padding: 40px 24px;
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+            backdrop-filter: blur(12px);
+            z-index: 10;
+        }
+
+        .logo {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.5rem;
+            font-weight: 800;
+            background: var(--accent-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 40px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .logo::before {
+            content: '';
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: var(--accent-gradient);
+            box-shadow: 0 0 10px var(--accent-secondary);
+        }
+
+        nav ul {
+            list-style: none;
+        }
+
+        nav li {
+            margin-bottom: 12px;
+        }
+
+        nav a {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 0.95rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            padding: 10px 16px;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+        }
+
+        nav a:hover, nav a.active {
+            color: var(--text-main);
+            background-color: var(--card-bg);
+            border-left: 3px solid var(--accent-secondary);
+            padding-left: 20px;
+        }
+
+        /* Main Content */
+        main {
+            margin-left: 280px;
+            flex: 1;
+            padding: 60px 80px;
+            max-width: 1200px;
+        }
+
+        header {
+            margin-bottom: 60px;
+            position: relative;
+        }
+
+        h1 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 3rem;
+            font-weight: 800;
+            margin-bottom: 16px;
+            letter-spacing: -0.03em;
+            background: var(--accent-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle {
+            font-size: 1.2rem;
+            color: var(--text-muted);
+            font-weight: 300;
+        }
+
+        section {
+            margin-bottom: 70px;
+            scroll-margin-top: 60px;
+        }
+
+        h2 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin-bottom: 24px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        h2::before {
+            content: '';
+            display: inline-block;
+            width: 6px;
+            height: 24px;
+            border-radius: 3px;
+            background: var(--accent-gradient);
+        }
+
+        p {
+            color: var(--text-muted);
+            margin-bottom: 20px;
+            font-size: 1.05rem;
+        }
+
+        /* Cards & Grids */
+        .card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 28px;
+            margin-bottom: 24px;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, rgba(138, 43, 226, 0.05) 0%, rgba(0, 210, 255, 0.05) 100%);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-4px);
+            border-color: var(--border-hover);
+            box-shadow: 0 12px 30px var(--glow-color);
+            background-color: var(--card-hover-bg);
+        }
+
+        .card:hover::before {
+            opacity: 1;
+        }
+
+        .card h3 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.3rem;
+            margin-bottom: 12px;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+        }
+
+        /* Split view */
+        .split {
+            display: flex;
+            gap: 30px;
+        }
+
+        .split-col {
+            flex: 1;
+        }
+
+        /* Table design */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            background-color: var(--card-bg);
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+        }
+
+        th, td {
+            padding: 16px 20px;
+            text-align: left;
+        }
+
+        th {
+            background-color: rgba(255, 255, 255, 0.02);
+            font-family: 'Outfit', sans-serif;
+            font-weight: 600;
+            color: var(--text-main);
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        td {
+            border-bottom: 1px solid var(--border-color);
+            color: var(--text-muted);
+            font-size: 0.95rem;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        tr:hover td {
+            color: var(--text-main);
+            background-color: rgba(255, 255, 255, 0.01);
+        }
+
+        /* Directory structure styling */
+        .dir-tree {
+            font-family: 'Courier New', Courier, monospace;
+            background-color: #080c14;
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 24px;
+            color: #10b981;
+            font-size: 0.95rem;
+            line-height: 1.5;
+            overflow-x: auto;
+            white-space: pre;
+        }
+
+        .dir-tree .comment {
+            color: #6b7280;
+            font-style: italic;
+        }
+
+        .dir-tree .folder {
+            color: #3b82f6;
+            font-weight: bold;
+        }
+
+        .dir-tree .file {
+            color: #eab308;
+        }
+
+        /* Badge component */
+        .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .badge-det {
+            background-color: rgba(0, 210, 255, 0.1);
+            color: var(--accent-secondary);
+            border: 1px solid rgba(0, 210, 255, 0.2);
+        }
+
+        .badge-agent {
+            background-color: rgba(138, 43, 226, 0.1);
+            color: #a855f7;
+            border: 1px solid rgba(138, 43, 226, 0.2);
+        }
+
+        /* Interactive pulse dot */
+        .pulse {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #10b981;
+            box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+            animation: pulse-animation 2s infinite;
+            display: inline-block;
+            margin-right: 8px;
+        }
+
+        @keyframes pulse-animation {
+            0% {
+                transform: scale(0.95);
+                box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+            }
+            70% {
+                transform: scale(1);
+                box-shadow: 0 0 0 6px rgba(16, 185, 129, 0);
+            }
+            100% {
+                transform: scale(0.95);
+                box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+            }
+        }
+
+        /* Verticale Fasering Lijst */
+        .vertical-phase-list {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            margin-top: 28px;
+            margin-bottom: 40px;
+            position: relative;
+        }
+
+        .vertical-phase-list::before {
+            content: '';
+            position: absolute;
+            top: 24px;
+            bottom: 24px;
+            left: 27px;
+            width: 2px;
+            background: linear-gradient(180deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+            opacity: 0.35;
+            z-index: 1;
+        }
+
+        .vertical-phase-item {
+            position: relative;
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 22px 26px 22px 68px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 2;
+        }
+
+        .vertical-phase-item:hover {
+            background-color: var(--card-hover-bg);
+            border-color: var(--border-hover);
+            box-shadow: 0 8px 25px var(--glow-color);
+            transform: translateX(4px);
+        }
+
+        .vertical-phase-marker {
+            position: absolute;
+            left: 14px;
+            top: 22px;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: var(--card-bg);
+            border: 2px solid var(--accent-secondary);
+            color: var(--accent-secondary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.75rem;
+            font-weight: 800;
+            box-shadow: 0 0 10px rgba(0, 210, 255, 0.3);
+            z-index: 3;
+        }
+
+        .vertical-phase-content {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .vertical-phase-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .vertical-phase-title-group {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .vertical-phase-nr {
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--accent-secondary);
+            background: rgba(0, 210, 255, 0.08);
+            padding: 2px 8px;
+            border-radius: 4px;
+            border: 1px solid rgba(0, 210, 255, 0.2);
+        }
+
+        .vertical-phase-item h4 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.2rem;
+            color: var(--text-main);
+            font-weight: 700;
+            margin: 0;
+        }
+
+        .vertical-phase-badges {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .vertical-phase-intentie {
+            font-size: 0.95rem;
+            color: var(--text-muted);
+            line-height: 1.55;
+            margin-top: 4px;
+        }
+
+        .vertical-phase-intentie strong {
+            color: var(--text-main);
+            font-weight: 600;
+        }
+
+        .vertical-phase-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            padding-top: 10px;
+            margin-top: 6px;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .vertical-phase-meta code {
+            color: var(--accent-secondary);
+            font-family: 'Courier New', Courier, monospace;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+
+        .vertical-phase-gate-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #10b981;
+            background-color: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.25);
+            padding: 3px 10px;
+            border-radius: 999px;
+        }
+
+        .badge-model {
+            background-color: rgba(255, 255, 255, 0.05);
+            color: var(--text-muted);
+            border: 1px solid var(--border-color);
+        }
+
+        @media (max-width: 600px) {
+            .vertical-phase-item {
+                padding-left: 54px;
+            }
+            .vertical-phase-list::before {
+                left: 21px;
+            }
+            .vertical-phase-marker {
+                left: 8px;
+                width: 26px;
+                height: 26px;
+            }
+        }
+
+        @media (max-width: 900px) {
+            aside {
+                display: none;
+            }
+            main {
+                margin-left: 0;
+                padding: 40px 24px;
+            }
+            .grid-2 {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="wrapper">
+        <!-- Sidebar -->
+        <aside>
+            <div class="logo">BLOGPOST WORKFLOW</div>
+            <nav>
+                <ul>
+                    <li><a href="#doelstelling" class="active">Doelstelling</a></li>
+                    <li><a href="#fasen">De fasen</a></li>
+                    <li><a href="#architectuur">Deterministisch vs Agentisch</a></li>
+                    <li><a href="#implementatie">Staat, gates &amp; modus</a></li>
+                    <li><a href="#omgevingsvariabelen">Omgevingsvariabelen</a></li>
+                    <li><a href="#mappenstructuur">Mappenstructuur</a></li>
+                    <li><a href="#reflectie">Engine Reflectie</a></li>
+                </ul>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main>
+            <header>
+                <h1>Blogpost Agentic Workflow</h1>
+                <div class="subtitle">Architectuur, implementatierichtlijnen en engine-reflectie</div>
+            </header>
+
+            <!-- 1. Doelstelling -->
+            <section id="doelstelling">
+                <h2>Doelstelling van de Workflow</h2>
+                <div class="card">
+                    <h3><span class="pulse"></span>Gedeeltelijke Automatisering met Menselijke Controle</h3>
+                    <p>Het doel van de <strong>blogpost-agentic-workflow</strong> is het structureren, versnellen en goedkoper maken van het schrijfproces voor <strong>edwinvandillen.nl</strong>. In plaats van een volledig autonome agent die zonder toezicht publiceert, fungeert het systeem als een betrouwbare <em>co-pilot</em>.</p>
+                    <p>De workflow elimineert mechanische taken (zoals SVG-rendering en HTML-conversie naar Gutenberg-blokken) en structureert creatieve fasen (onderzoek, stijlcontrole en reviews). Door strategische <strong>menselijke gates</strong> tussen elke stap te plaatsen, behoudt de auteur (Edwin) de volledige redactionele controle en de uiteindelijke stem in het betoog.</p>
+                </div>
+            </section>
+
+            <!-- 1b. De fasen: visuele tijdslijn -->
+            <section id="fasen">
+                <h2>De fasen van de workflow</h2>
+                <p>Elke fase heeft één specifieke verantwoordelijkheid en levert precies één reviewbaar tussenartefact op. De output van fase N is de input van fase N+1. Tussen de fasen staan <strong>mens-gates</strong>: de orkestrator stopt, legt het tussenresultaat voor en wacht op een beslissing &mdash; doorgaan (approve), bijsturen (reject), of instellingen aanpassen.</p>
+
+                <div class="vertical-phase-list">
+                    <div class="vertical-phase-item">
+                        <div class="vertical-phase-marker">0</div>
+                        <div class="vertical-phase-content">
+                            <div class="vertical-phase-header">
+                                <div class="vertical-phase-title-group">
+                                    <span class="vertical-phase-nr">Fase 0</span>
+                                    <h4>Intake</h4>
+                                </div>
+                                <div class="vertical-phase-badges">
+                                    <span class="badge badge-det">CLI Orchestrator</span>
+                                    <span class="badge badge-model">Opus</span>
+                                </div>
+                            </div>
+                            <div class="vertical-phase-intentie">
+                                <strong>Intentie &amp; Werking:</strong> Het initiëren van een nieuw blogpost-traject via <code>orchestrate.py init</code>: bepalen van het onderwerp, werktitel en slug uitvragen of opvragen via de backlog, en de werkmap met <code>state.json</code> klaarzettend voor de orkestratie.
+                            </div>
+                            <div class="vertical-phase-meta">
+                                <span><strong>Uitvoerder:</strong> <code>scripts/orchestrate.py init</code></span>
+                                <span><strong>Artefact:</strong> <code>posts/[slug]/state.json</code> + <code>state.md</code></span>
+                                <span class="vertical-phase-gate-badge"><span class="pulse"></span>Menselijke Gate</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="vertical-phase-item">
+                        <div class="vertical-phase-marker">1</div>
+                        <div class="vertical-phase-content">
+                            <div class="vertical-phase-header">
+                                <div class="vertical-phase-title-group">
+                                    <span class="vertical-phase-nr">Fase 1</span>
+                                    <h4>Outline &amp; verrijking</h4>
+                                </div>
+                                <div class="vertical-phase-badges">
+                                    <span class="badge badge-agent">blogpost-onderzoeker</span>
+                                    <span class="badge badge-model">Opus</span>
+                                </div>
+                            </div>
+                            <div class="vertical-phase-intentie">
+                                <strong>Intentie &amp; Werking:</strong> Het inhoudelijk verkennen en verrijken van het onderwerp door eerdere artikelen te analyseren, relevante bronnen, denkers en theorie te verzamelen en een gestructureerd raamwerk met bronverwijzingen op te stellen.
+                            </div>
+                            <div class="vertical-phase-meta">
+                                <span><strong>Uitvoerder:</strong> <code>blogpost-onderzoeker</code> (subagent)</span>
+                                <span><strong>Artefact:</strong> <code>outline.md</code></span>
+                                <span class="vertical-phase-gate-badge"><span class="pulse"></span>Menselijke Gate</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="vertical-phase-item">
+                        <div class="vertical-phase-marker">2</div>
+                        <div class="vertical-phase-content">
+                            <div class="vertical-phase-header">
+                                <div class="vertical-phase-title-group">
+                                    <span class="vertical-phase-nr">Fase 2</span>
+                                    <h4>Draft schrijven</h4>
+                                </div>
+                                <div class="vertical-phase-badges">
+                                    <span class="badge badge-agent">blogpost-schrijver</span>
+                                    <span class="badge badge-model">Sonnet</span>
+                                </div>
+                            </div>
+                            <div class="vertical-phase-intentie">
+                                <strong>Intentie &amp; Werking:</strong> De goedgekeurde outline uitwerken tot een volledig conceptartikel in de authentieke huisstijl en auteurstem, met een scherpe thesis en kernquote. Verzint geen feiten buiten de outline.
+                            </div>
+                            <div class="vertical-phase-meta">
+                                <span><strong>Uitvoerder:</strong> <code>blogpost-schrijver</code> (subagent)</span>
+                                <span><strong>Artefact:</strong> <code>draft.md</code></span>
+                                <span class="vertical-phase-gate-badge"><span class="pulse"></span>Menselijke Gate</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="vertical-phase-item">
+                        <div class="vertical-phase-marker">2b</div>
+                        <div class="vertical-phase-content">
+                            <div class="vertical-phase-header">
+                                <div class="vertical-phase-title-group">
+                                    <span class="vertical-phase-nr">Fase 2b</span>
+                                    <h4>Stijl- &amp; Leesbaarheid-controle</h4>
+                                </div>
+                                <div class="vertical-phase-badges">
+                                    <span class="badge badge-det">stijl-check</span>
+                                    <span class="badge badge-agent">leesbaarheid-check</span>
+                                    <span class="badge badge-model">Haiku</span>
+                                </div>
+                            </div>
+                            <div class="vertical-phase-intentie">
+                                <strong>Intentie &amp; Werking:</strong> Geautomatiseerde dubbele toetsing van de draft: <code>stijl-check</code> voert Grep-lexicale checks uit (em-dash, emoji) plus modeloordelen op superlatieven; <code>leesbaarheid-check</code> toetst zinslengte, ritme en voorkomt houterige tekst. Rapporteert zonder tekst direct te wijzigen.
+                            </div>
+                            <div class="vertical-phase-meta">
+                                <span><strong>Uitvoerder:</strong> <code>stijl-check</code> &amp; <code>leesbaarheid-check</code></span>
+                                <span><strong>Artefact:</strong> 2x rapport (in beslislog)</span>
+                                <span class="vertical-phase-gate-badge"><span class="pulse"></span>Menselijke Gate</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="vertical-phase-item">
+                        <div class="vertical-phase-marker">2c</div>
+                        <div class="vertical-phase-content">
+                            <div class="vertical-phase-header">
+                                <div class="vertical-phase-title-group">
+                                    <span class="vertical-phase-nr">Fase 2c</span>
+                                    <h4>Reeks-consistentie</h4>
+                                </div>
+                                <div class="vertical-phase-badges">
+                                    <span class="badge badge-det">reeks-consistentie-check</span>
+                                    <span class="badge badge-model">Haiku</span>
+                                </div>
+                            </div>
+                            <div class="vertical-phase-intentie">
+                                <strong>Intentie &amp; Werking:</strong> Het borgen van redactionele samenhang met eerdere artikelen binnen dezelfde reeks door te toetsen op titel-overlap met de reeksnaam, terminologie-consistentie en feitelijke juistheid van "zie deel X"-verwijzingen.
+                            </div>
+                            <div class="vertical-phase-meta">
+                                <span><strong>Uitvoerder:</strong> <code>reeks-consistentie-check</code></span>
+                                <span><strong>Artefact:</strong> rapport (in beslislog)</span>
+                                <span class="vertical-phase-gate-badge"><span class="pulse"></span>Menselijke Gate</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="vertical-phase-item">
+                        <div class="vertical-phase-marker">3</div>
+                        <div class="vertical-phase-content">
+                            <div class="vertical-phase-header">
+                                <div class="vertical-phase-title-group">
+                                    <span class="vertical-phase-nr">Fase 3</span>
+                                    <h4>Kritiek (Grok)</h4>
+                                </div>
+                                <div class="vertical-phase-badges">
+                                    <span class="badge badge-agent">grok-reviewer</span>
+                                    <span class="badge badge-model">Haiku + Grok-4.3 MCP</span>
+                                </div>
+                            </div>
+                            <div class="vertical-phase-intentie">
+                                <strong>Intentie &amp; Werking:</strong> Het conceptartikel via een lokale MCP-server voorleggen aan een kritische Grok-persona voor scherpe inhoudelijke tegenspraak. Blinde vlekken en zwakke redeneringen worden blootgelegd zonder samen te vatten.
+                            </div>
+                            <div class="vertical-phase-meta">
+                                <span><strong>Uitvoerder:</strong> <code>grok-reviewer</code> + <code>grok_review_server.py</code></span>
+                                <span><strong>Artefact:</strong> <code>grok-feedback.md</code></span>
+                                <span class="vertical-phase-gate-badge"><span class="pulse"></span>Menselijke Gate (uitstelbaar via <code>defer_critique</code>)</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="vertical-phase-item">
+                        <div class="vertical-phase-marker">4</div>
+                        <div class="vertical-phase-content">
+                            <div class="vertical-phase-header">
+                                <div class="vertical-phase-title-group">
+                                    <span class="vertical-phase-nr">Fase 4</span>
+                                    <h4>Synthese</h4>
+                                </div>
+                                <div class="vertical-phase-badges">
+                                    <span class="badge badge-agent">blogpost-onderzoeker</span>
+                                    <span class="badge badge-model">Opus</span>
+                                </div>
+                            </div>
+                            <div class="vertical-phase-intentie">
+                                <strong>Intentie &amp; Werking:</strong> De ontvangen Grok-kritiekpunten afwegen en vertalen naar een concreet tekstaanpassingsvoorstel. De auteur beslist per punt over overname, aanpassing of afwijzing.
+                            </div>
+                            <div class="vertical-phase-meta">
+                                <span><strong>Uitvoerder:</strong> <code>blogpost-onderzoeker</code> (hergebruik)</span>
+                                <span><strong>Artefact:</strong> <code>synthese.md</code></span>
+                                <span class="vertical-phase-gate-badge" style="color: #ef4444; background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.25);"><span class="pulse" style="background:#ef4444; box-shadow:0 0 0 0 rgba(239,68,68,0.7);"></span>Harde Gate (altijd stoppen, ook in Yolo)</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="vertical-phase-item">
+                        <div class="vertical-phase-marker">5</div>
+                        <div class="vertical-phase-content">
+                            <div class="vertical-phase-header">
+                                <div class="vertical-phase-title-group">
+                                    <span class="vertical-phase-nr">Fase 5</span>
+                                    <h4>Visuals</h4>
+                                </div>
+                                <div class="vertical-phase-badges">
+                                    <span class="badge badge-agent">blogpost-visuals</span>
+                                    <span class="badge badge-model">Sonnet</span>
+                                </div>
+                            </div>
+                            <div class="vertical-phase-intentie">
+                                <strong>Intentie &amp; Werking:</strong> De tekst visueel ondersteunen door het ontwerpen van spaarzame SVG-diagrammen in het huisstijl-palet. Automatisch gerendert naar PNG via <code>scripts/render_svg.py</code> (Headless Chrome) en ingevoegd in de draft.
+                            </div>
+                            <div class="vertical-phase-meta">
+                                <span><strong>Uitvoerder:</strong> <code>blogpost-visuals</code> + <code>render_svg.py</code></span>
+                                <span><strong>Artefact:</strong> <code>visuals/*.svg</code> + <code>.png</code></span>
+                                <span class="vertical-phase-gate-badge"><span class="pulse"></span>Menselijke Gate</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="vertical-phase-item">
+                        <div class="vertical-phase-marker">5b</div>
+                        <div class="vertical-phase-content">
+                            <div class="vertical-phase-header">
+                                <div class="vertical-phase-title-group">
+                                    <span class="vertical-phase-nr">Fase 5b</span>
+                                    <h4>Bron- &amp; Feitencheck (Factcheck)</h4>
+                                </div>
+                                <div class="vertical-phase-badges">
+                                    <span class="badge badge-agent">bron-check</span>
+                                    <span class="badge badge-model">Haiku / Sonnet</span>
+                                </div>
+                            </div>
+                            <div class="vertical-phase-intentie">
+                                <strong>Intentie &amp; Werking:</strong> Alle citaten en scherpe claims in de draft verifiëren tegen de daadwerkelijke brondocumenten (web/PDF) via <code>scripts/haal_bron.py</code> om foute citaten en hallucinaties vóór publicatie uit te sluiten.
+                            </div>
+                            <div class="vertical-phase-meta">
+                                <span><strong>Uitvoerder:</strong> <code>bron-check</code> + <code>haal_bron.py</code></span>
+                                <span><strong>Artefact:</strong> <code>feitencheck.md</code></span>
+                                <span class="vertical-phase-gate-badge" style="color: #ef4444; background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.25);"><span class="pulse" style="background:#ef4444; box-shadow:0 0 0 0 rgba(239,68,68,0.7);"></span>Harde Gate (verplicht vóór deploy)</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="vertical-phase-item">
+                        <div class="vertical-phase-marker">★</div>
+                        <div class="vertical-phase-content">
+                            <div class="vertical-phase-header">
+                                <div class="vertical-phase-title-group">
+                                    <span class="vertical-phase-nr" style="color: #eab308; background: rgba(234, 179, 8, 0.1); border-color: rgba(234, 179, 8, 0.3);">Herkeuring</span>
+                                    <h4>Post-synthese Herkeuring</h4>
+                                </div>
+                                <div class="vertical-phase-badges">
+                                    <span class="badge badge-det">stijl-check</span>
+                                    <span class="badge badge-agent">leesbaarheid-check</span>
+                                </div>
+                            </div>
+                            <div class="vertical-phase-intentie">
+                                <strong>Intentie &amp; Werking:</strong> Verplichte extra herkeuring van gewijzigde passages na de synthese en visuals-fase op de draft, om te garanderen dat ingevoegde tekst de stijl- en leesbaarheidsnormen niet alsnog schendt.
+                            </div>
+                            <div class="vertical-phase-meta">
+                                <span><strong>Uitvoerder:</strong> <code>stijl-check</code> &amp; <code>leesbaarheid-check</code></span>
+                                <span><strong>Actie:</strong> Extra controleaanroepen op gewijzigde passages</span>
+                                <span class="vertical-phase-gate-badge"><span class="pulse"></span>Interne Hercontrole</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="vertical-phase-item">
+                        <div class="vertical-phase-marker">6</div>
+                        <div class="vertical-phase-content">
+                            <div class="vertical-phase-header">
+                                <div class="vertical-phase-title-group">
+                                    <span class="vertical-phase-nr">Fase 6</span>
+                                    <h4>Deploy (concept)</h4>
+                                </div>
+                                <div class="vertical-phase-badges">
+                                    <span class="badge badge-det">blogpost-deploy</span>
+                                    <span class="badge badge-model">Haiku</span>
+                                </div>
+                            </div>
+                            <div class="vertical-phase-intentie">
+                                <strong>Intentie &amp; Werking:</strong> De definitieve markdown-tekst en afbeeldingen via <code>scripts/deploy_post.py</code> omzetten naar WordPress Gutenberg-blokken en via de REST API uitsluitend als <strong>concept</strong> wegzetten. Nooit een automatische live publicatie.
+                            </div>
+                            <div class="vertical-phase-meta">
+                                <span><strong>Uitvoerder:</strong> <code>blogpost-deploy</code> + <code>deploy_post.py</code></span>
+                                <span><strong>Artefact:</strong> WP concept-ID + edit-URL</span>
+                                <span class="vertical-phase-gate-badge" style="color: #ef4444; background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.25);"><span class="pulse" style="background:#ef4444; box-shadow:0 0 0 0 rgba(239,68,68,0.7);"></span>Harde Gate (vereist `approve --deploy`)</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 2. Deterministisch vs Agentisch -->
+            <section id="architectuur">
+                <h2>Deterministisch vs. Agentisch &amp; Control Plane vs. Content Plane</h2>
+                <p>De workflow scheidt strikt de <strong>Control Plane</strong> (strikte fasevolgorde, logica en status in code) van de <strong>Content Plane</strong> (creatieve tekstgeneratie, analyse en oordeelsvorming door LLM-agents).</p>
+                
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Component / Stap</th>
+                            <th>Type</th>
+                            <th>Beschrijving &amp; Technologie</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Control Plane CLI Engine</strong> (`scripts/orchestrate.py`)</td>
+                            <td><span class="badge badge-det">Deterministisch (Code)</span></td>
+                            <td>Beheert de state machine, transitiegrafiek, pre-/postconditions en flags. Draait op Python stdlib en dwingt fasen strikt af.</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Gutenberg Blokken Compiler</strong> (`scripts/deploy_post.py`)</td>
+                            <td><span class="badge badge-det">Deterministisch (Code)</span></td>
+                            <td>Zet markdown-elementen direct om naar Gutenberg blok-markup (HTML met commentaartags). Communiceert via de WordPress REST API.</td>
+                        </tr>
+                        <tr>
+                            <td><strong>SVG naar PNG Renderer</strong> (`scripts/render_svg.py`)</td>
+                            <td><span class="badge badge-det">Deterministisch (Code)</span></td>
+                            <td>Rendert SVG's naar Retina-ready PNG's via headless Google Chrome. Lost Windows-paden en boundingbox-fouten deterministisch op.</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Bron-fetcher &amp; PDF Extractor</strong> (`scripts/haal_bron.py`)</td>
+                            <td><span class="badge badge-det">Deterministisch (Code)</span></td>
+                            <td>Haalt bronteksten en PDF-documenten van het web op om tekst te extraheren t.b.v. de feitencheck.</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Lexicale Stijlcheck</strong> (`scripts/stijl_lexicaal.py`)</td>
+                            <td><span class="badge badge-det">Deterministisch (Code)</span></td>
+                            <td>Controleert via reguliere expressies harde schrijfregels, zoals het uitsluiten van gedachtestrepen (em-dash), emoji en uitroepingstekens.</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Leesbaarheidsanalyse</strong> (`scripts/leesbaarheid.py`)</td>
+                            <td><span class="badge badge-det">Deterministisch (Code)</span></td>
+                            <td>Berekent zinslengte, lettergreep-gemiddelden en de Flesch-Douma leesbaarheidsindex tegen <code>reference/leesbaarheid-band.json</code>.</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Onderzoek &amp; Outline</strong> (`blogpost-onderzoeker.md`)</td>
+                            <td><span class="badge badge-agent">Agentisch</span></td>
+                            <td>Gedreven door <strong>Opus</strong>. Analyseert eerdere blogs voor context, doet web-onderzoek en structureert de hoofdlijnen van de post.</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Draft Schrijven</strong> (`blogpost-schrijver.md`)</td>
+                            <td><span class="badge badge-agent">Agentisch</span></td>
+                            <td>Gedreven door <strong>Sonnet</strong>. Vertaalt de outline naar een lopend verhaal, strikt gekalibreerd op de specifieke huisstijl.</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Stijloordeel</strong> (`stijl-check.md`)</td>
+                            <td><span class="badge badge-agent">Agentisch</span></td>
+                            <td>Gedreven door <strong>Haiku</strong>. Evalueert superlatieven, negatief-eerst-zinnen en de onderbouwing van scherpe claims.</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Leesbaarheidscontrole</strong> (`leesbaarheid-check.md`)</td>
+                            <td><span class="badge badge-agent">Agentisch</span></td>
+                            <td>Gedreven door <strong>Haiku</strong>. Toetst zinslengte, ritme en leesbaarheid om te voorkomen dat stijl-correcties tot een houterige tekst leiden.</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Kritische Feedback</strong> (`grok-reviewer.md`)</td>
+                            <td><span class="badge badge-agent">Agentisch</span></td>
+                            <td>Gedreven door <strong>Grok-4.3 (via MCP)</strong>. Legt de draft voor aan een strenge, kritische persona voor scherpe inhoudelijke tegenspraak.</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Reeks-consistentie</strong> (`reeks-consistentie-check.md`)</td>
+                            <td><span class="badge badge-agent">Agentisch</span></td>
+                            <td>Gedreven door <strong>Haiku</strong>. Vergelijkt de draft met eerdere delen van dezelfde reeks: titel-overlap met de reeksnaam, terminologie-consistentie en verwijzingen.</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Synthese &amp; Keuzes</strong> (`blogpost-onderzoeker.md`)</td>
+                            <td><span class="badge badge-agent">Agentisch</span></td>
+                            <td>Gedreven door <strong>Opus</strong>. Weegt de Grok-feedback af en stelt concrete tekstaanpassingen voor ter beoordeling van de auteur.</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Visuals</strong> (`blogpost-visuals.md`)</td>
+                            <td><span class="badge badge-agent">Agentisch</span></td>
+                            <td>Gedreven door <strong>Sonnet</strong>. Stelt spaarzaam visuals voor, maakt ze als SVG in het huisstijl-palet en rendert ze via het deterministische script.</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Bron- &amp; Feitencheck</strong> (`bron-check.md`)</td>
+                            <td><span class="badge badge-agent">Agentisch</span></td>
+                            <td>Gedreven door <strong>Haiku / Sonnet</strong>. Verifieert elk citaat en elke bewerende claim direct tegen de originele met <code>haal_bron.py</code> opgehaalde tekst.</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Deploy als concept</strong> (`blogpost-deploy.md`)</td>
+                            <td><span class="badge badge-det">Deterministisch (Haiku)</span></td>
+                            <td>Gedreven door <strong>Haiku</strong>, roept uitsluitend het vaste script <code>deploy_post.py</code> aan na <code>approve --deploy</code>. Zet de post altijd als concept weg.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </section>
+
+            <!-- 3. Workflow Executie -->
+            <section id="implementatie">
+                <h2>Staat, gates &amp; modus</h2>
+                <div class="grid-2">
+                    <div class="card">
+                        <h3>Control Plane in Code: `scripts/orchestrate.py`</h3>
+                        <p>De fasevolgorde en status worden niet langer door een LLM-prompt op de hoofdthread geïnterpreteerd. Een strikte Python CLI (<code>scripts/orchestrate.py</code>) fungeert als de <strong>Control Plane</strong>.</p>
+                        <p>De Host (Claude Code, AGY CLI of Grok) roept <code>python3 scripts/orchestrate.py next</code> aan om de eerstvolgende toegestane actie en `agent_brief` op te vragen. Illegale fasensprongen worden door de CLI met een exitcode 2 geblokkeerd.</p>
+                    </div>
+                    <div class="card">
+                        <h3>Enige bron van waarheid: `state.json`</h3>
+                        <p>Elk artikel heeft een machine-leesbaar <code>posts/[slug]/state.json</code> manifest. Dit is de <strong>enige bron van waarheid</strong> over de actieve fase, status, artefacten en vlaggen.</p>
+                        <p>Het bestand <code>state.md</code> dient uitsluitend nog als menselijk beslislogboek en reeks-context. De statustabel wordt dynamisch gegenereerd via <code>python3 scripts/orchestrate.py table</code>.</p>
+                    </div>
+                    <div class="card">
+                        <h3>Drie Harde Gates (altijd menselijk akkoord)</h3>
+                        <p>De meeste fasen zijn omkeerbaar en safe-to-fail (soft gates). Drie fasen zijn echter <strong>harde gates</strong> die ook in <code>yolo_mode</code> de keten altijd stoppen:</p>
+                        <p><strong>1. Synthese (Fase 4):</strong> Redactionele keuzes raken de authentieke stem van de auteur.<br>
+                           <strong>2. Feitencheck (Fase 5b):</strong> Citaten en bronverwijzingen moeten feitelijk klopen vóór vrijgave.<br>
+                           <strong>3. Deploy (Fase 6):</strong> Externe upload vereist expliciete <code>approve --deploy</code>.</p>
+                    </div>
+                    <div class="card">
+                        <h3>yolo_mode &amp; Expliciete Vlaggen (Flags)</h3>
+                        <p>In <code>yolo_mode: true</code> doorloopt de CLI soft gates (outline, draft, stijl, reeks, critique, visuals) automatisch via <code>yolo_advanced</code>.</p>
+                        <p>Afwijkingen van de lineaire keten worden <strong>nooit stilzwijgend</strong> toegestaan, maar expliciet vastgelegd als CLI-vlaggen: <code>skip_synthesis</code>, <code>defer_critique</code>, <code>skip_factcheck</code>.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 3b. Omgevingsvariabelen & Credentials -->
+            <section id="omgevingsvariabelen">
+                <h2>Omgevingsvariabelen &amp; Credentials</h2>
+                <p>Geheimen en omgevingsspecifieke instellingen (zoals API-sleutels en WordPress-wachtwoorden) worden nooit geversioneerd in Git. Alle benodigde variabelen staan gedefinieerd in het sjabloonbestand <code>.env_template</code>.</p>
+
+                <div class="card">
+                    <h3>Instellen van de werkomgeving (<code>.env</code>)</h3>
+                    <p>Kopieer voorafgaand aan het eerste gebruik het sjabloonbestand naar een lokaal <code>.env</code> bestand:</p>
+                    <pre class="dir-tree" style="padding: 12px 16px; margin-bottom: 16px;">cp .env_template .env</pre>
+                    <p>Het bestand <code>.env</code> is opgenomen in <code>.gitignore</code> en blijft strikt lokaal.</p>
+                </div>
+
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Variabele</th>
+                            <th>Standaard / Voorbeeld</th>
+                            <th>Fase &amp; Doel</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>GROK_API_KEY</code></td>
+                            <td><code>xai-9XGYY...</code></td>
+                            <td><strong>Fase 3 (Kritiek Grok):</strong> API-sleutel voor xAI Grok-4.3 via de lokale MCP server (<code>.claude/mcp/grok_review_server.py</code>).</td>
+                        </tr>
+                        <tr>
+                            <td><code>GROK_MODEL</code></td>
+                            <td><code>grok-4.3</code></td>
+                            <td><strong>Fase 3:</strong> Specificeert het te gebruiken Grok-model (standaard <code>grok-4.3</code>).</td>
+                        </tr>
+                        <tr>
+                            <td><code>WP_SITE_URL</code></td>
+                            <td><code>https://edwinvandillen.nl</code></td>
+                            <td><strong>Fase 6 (Deploy):</strong> De basis-URL van de WordPress installatie waarnaar concept-posts worden geüpload.</td>
+                        </tr>
+                        <tr>
+                            <td><code>WP_USERNAME</code></td>
+                            <td><code>edwin</code></td>
+                            <td><strong>Fase 6 (Deploy):</strong> De WordPress gebruikersnaam voor REST API authenticatie.</td>
+                        </tr>
+                        <tr>
+                            <td><code>WP_APPLICATION_TOKEN</code></td>
+                            <td><code>u5Yu ERau...</code></td>
+                            <td><strong>Fase 6 (Deploy):</strong> Het WordPress Application Wachtwoord (gegenereerd in WordPress wp-admin onder Profiel &rarr; Applicatiewachtwoorden).</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </section>
+
+            <!-- 4. Mappenstructuur -->
+            <section id="mappenstructuur">
+                <h2>Directory Opbouw</h2>
+                <p>De directory is zo ingericht dat de workflow-code, scripts en agentdefinities (onder versiebeheer) volledig gescheiden zijn van de daadwerkelijke blogpost-werkbestanden (lokaal onder <code>posts/</code>, genegeerd door Git).</p>
+                
+                <pre class="dir-tree">
+<span class="folder">01. Blogpost agents/</span>
+├── <span class="folder">.claude/</span>                      <span class="comment"># AI-assistent configuratie &amp; agents (onder versiebeheer)</span>
+│   ├── <span class="folder">agents/</span>                   <span class="comment"># Definities van subagents</span>
+│   │   ├── <span class="file">blogpost-deploy.md</span>
+│   │   ├── <span class="file">blogpost-onderzoeker.md</span>
+│   │   ├── <span class="file">blogpost-schrijver.md</span>
+│   │   ├── <span class="file">blogpost-visuals.md</span>
+│   │   ├── <span class="file">bron-check.md</span>          <span class="comment"># Bron- en feitencheck (fase 5b)</span>
+│   │   ├── <span class="file">grok-reviewer.md</span>
+│   │   ├── <span class="file">leesbaarheid-check.md</span>  <span class="comment"># Leesbaarheids- en zinslengtecontrole (fase 2b)</span>
+│   │   ├── <span class="file">reeks-consistentie-check.md</span>
+│   │   └── <span class="file">stijl-check.md</span>
+│   ├── <span class="folder">mcp/</span>                      <span class="comment"># Grok MCP server &amp; persona</span>
+│   │   ├── <span class="file">grok-reviewer-persona.md</span>
+│   │   └── <span class="file">grok_review_server.py</span>
+│   └── <span class="folder">skills/</span>
+│       └── <span class="folder">blogpost-workflow/</span>   <span class="comment"># Hoofd-orkestrator skill</span>
+│           ├── <span class="file">SKILL.md</span>
+│           └── <span class="folder">templates/</span>
+│               └── <span class="file">state.template.json</span>
+├── <span class="folder">posts/</span>                         <span class="comment"># Actieve werkmappen per post (genegeerd in Git)</span>
+│   └── <span class="folder">[slug]/</span>                  <span class="comment"># Bevat state.json (bron van waarheid), state.md, outline.md, draft.md, grok-feedback.md, synthese.md, feitencheck.md, visuals/</span>
+├── <span class="folder">reference/</span>                     <span class="comment"># Kennisbank voor stijlgids en handleidingen</span>
+│   ├── <span class="file">deploy.md</span>
+│   ├── <span class="file">externe-bronnen.md</span>
+│   ├── <span class="file">huisstijl.md</span>
+│   └── <span class="file">leesbaarheid-band.json</span>     <span class="comment"># Referentiewaarden leesbaarheidsindex</span>
+├── <span class="folder">scripts/</span>                       <span class="comment"># Deterministische scripts (Control Plane &amp; Utilities)</span>
+│   ├── <span class="file">deploy_post.py</span>            <span class="comment"># Gutenberg compiler &amp; WP REST upload</span>
+│   ├── <span class="file">haal_bron.py</span>              <span class="comment"># Web &amp; PDF brontekst extractor</span>
+│   ├── <span class="file">leesbaarheid.py</span>           <span class="comment"># Zinslengte- &amp; leesbaarheidsberekening</span>
+│   ├── <span class="file">orchestrate.py</span>            <span class="comment"># Strikte CLI State Machine (Control Plane)</span>
+│   ├── <span class="file">render_svg.py</span>             <span class="comment"># SVG naar PNG Headless Chrome renderer</span>
+│   └── <span class="file">stijl_lexicaal.py</span>         <span class="comment"># Lexicale Grep-stijlcontroles</span>
+├── <span class="folder">templates/</span>                     <span class="comment"># Generieke sjablonen voor nieuwe posts</span>
+│   └── <span class="file">state.template.json</span>
+├── <span class="folder">tests/</span>                         <span class="comment"># Test suite voor Control Plane</span>
+│   └── <span class="file">test_orchestrate.py</span>       <span class="comment"># Pytest testsuite voor state machine &amp; CLI</span>
+├── <span class="file">.env</span>                           <span class="comment"># Credentials &amp; Tokens (gitignored)</span>
+├── <span class="file">.env_template</span>                  <span class="comment"># Sjabloon omgevingsvariabelen (onder versiebeheer)</span>
+├── <span class="file">.gitignore</span>
+├── <span class="file">.mcp.json</span>                      <span class="comment"># MCP-serverconfig (Grok-review)</span>
+├── <span class="file">backlog-blogpost-onderwerpen.md</span> <span class="comment"># Reeks-backlog met intenties per deel</span>
+├── <span class="file">grok-review-intentie-ontwerp.md</span> <span class="comment"># Review en weging Grok feedback op intentie-ontwerp</span>
+├── <span class="file">onderzoek-intentie-gedreven-engineering.md</span> <span class="comment"># Onderzoeks- en achtergrondnotities</span>
+├── <span class="file">ontwerp-strikte-orkestrator.md</span>  <span class="comment"># Architectuurontwerp CLI Control Plane</span>
+├── <span class="file">ontwerp-uitgangspunten-blogpost-workflow.md</span> <span class="comment"># Oorspronkelijke briefing &amp; architectuur</span>
+└── <span class="file">readme.html</span>                    <span class="comment"># Deze documentatie</span></pre>
+            </section>
+
+            <!-- 5. Reflectie op de Executie-Engine -->
+            <section id="reflectie">
+                <h2>Reflectie op de Executie-Engine</h2>
+                <div class="card">
+                    <h3>Host-Agnostische Control Plane (`orchestrate.py`)</h3>
+                    <p>Door de controlelaag (faseovergangen, staat en gates) los te koppelen van de LLM-prompt en onder te brengen in een deterministische Python CLI (<code>scripts/orchestrate.py</code>), is de workflow in v1 <strong>volledig onafhankelijk van het specifieke AI-platform</strong> geworden.</p>
+                    
+                    <p><strong>Compatibiliteit met Claude Code, <code>agy</code> (Antigravity CLI) en Grok-Builder:</strong><br>
+                    De Host-omgeving (of dat nu Claude Code, Google Antigravity/Gemini of Grok-Builder is) roept simpelweg <code>orchestrate.py next</code> en <code>orchestrate.py run &lt;phase&gt;</code> aan. De Python-code bepaalt strikt welke stap toegestaan is en print een gestructureerde <code>agent_brief</code>. De Host hoeft uitsluitend de aangegeven subagent of prompt uit te voeren. Hierdoor kunnen alle drie de engines (Claude, AGY, Grok) exact dezelfde robuuste keten aandrijven zonder risico op hallucineerde fase-overgangen of overgeslagen stappen.</p>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Active Navigation Highlight Logic -->
+    <script>
+        window.addEventListener('DOMContentLoaded', () => {
+            const observer = new IntersectionObserver(entries => {
+                entries.forEach(entry => {
+                    const id = entry.target.getAttribute('id');
+                    if (entry.intersectionRatio > 0.4) {
+                        document.querySelectorAll('nav a').forEach(a => {
+                            a.classList.remove('active');
+                        });
+                        const activeLink = document.querySelector(`nav a[href="#${id}"]`);
+                        if (activeLink) activeLink.classList.add('active');
+                    }
+                });
+            }, { threshold: [0.2, 0.5, 0.8] });
+
+            // Track all sections
+            document.querySelectorAll('section').forEach(section => {
+                observer.observe(section);
+            });
+        });
+    </script>
+</body>
+</html>

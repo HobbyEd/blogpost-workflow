@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "slug": "<slug>",
+  "titel": "<werktitel>",
+  "aangemaakt": "<YYYY-MM-DD>",
+  "yolo_mode": false,
+  "phase": "outline",
+  "status": "ready",
+  "artefacts": {
+    "outline": "missing",
+    "draft": "missing",
+    "grok_feedback": "missing",
+    "synthese": "missing",
+    "visuals": "missing",
+    "wp_post_id": null,
+    "edit_url": null
+  },
+  "flags": {
+    "skip_synthesis": false,
+    "defer_critique": false,
+    "deploy_approved": false
+  },
+  "gate": {
+    "pending": null,
+    "last_decision": null
+  },
+  "blocked_reason": null,
+  "log": [
+    {
+      "at": "<ISO-8601>",
+      "event": "intake_completed",
+      "phase": "intake",
+      "note": "map en state.json aangemaakt"
+    }
+  ]
+}
