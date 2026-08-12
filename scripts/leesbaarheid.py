@@ -24,6 +24,12 @@ ONDERSCHIKKEND = (
     r"\b(doordat|waardoor|zodat|terwijl|omdat|hoewel|zolang|voordat|nadat|tenzij|mits|zoals)\b"
 )
 
+# Zinsgrens: punt/vraagteken/uitroepteken, eventueel gevolgd door een sluitend
+# aanhalingsteken of haakje, dan witruimte. Zonder die sluittekens plakte een citaat dat
+# op `..."` eindigt aan de volgende zin vast, waardoor twee zinnen van 52 woorden als een
+# van 124 werden geteld. Dat maakte de spreiding kunstmatig hoog bij citaatrijke posts.
+ZINSGRENS = r"(?<=[.!?])[\"'\u201d\u2019)\]]*\s+"
+
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REFERENTIE_GLOB = os.path.join(REPO, "posts", "anatomie-agents-*", "draft.md")
 
@@ -48,7 +54,7 @@ def leesbare_tekst(pad):
 
 def maten(pad):
     t = leesbare_tekst(pad)
-    zinnen = [z.strip() for z in re.split(r"(?<=[.!?])\s+", t) if len(z.strip()) > 3]
+    zinnen = [z.strip() for z in re.split(ZINSGRENS, t) if len(z.strip()) > 3]
     lengtes = [len(z.split()) for z in zinnen]
     if not lengtes:
         raise SystemExit(f"Geen lopende tekst gevonden in {pad}")
