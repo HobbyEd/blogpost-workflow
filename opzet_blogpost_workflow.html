@@ -1052,17 +1052,26 @@
 │   ├── <span class="file">externe-bronnen.md</span>
 │   ├── <span class="file">huisstijl.md</span>
 │   └── <span class="file">leesbaarheid-band.json</span>     <span class="comment"># Referentiewaarden leesbaarheidsindex</span>
-├── <span class="folder">scripts/</span>                       <span class="comment"># Deterministische scripts (Control Plane &amp; Utilities)</span>
+├── <span class="folder">scripts/</span>                       <span class="comment"># Deterministische scripts &amp; Control Plane Package</span>
+│   ├── <span class="folder">orchestrator/</span>             <span class="comment"># Modulair Python Package (Service API, Engine, Models, Probes)</span>
+│   │   ├── <span class="file">briefs.py</span>
+│   │   ├── <span class="file">constants.py</span>
+│   │   ├── <span class="file">engine.py</span>
+│   │   ├── <span class="file">formatters.py</span>
+│   │   ├── <span class="file">probes.py</span>
+│   │   ├── <span class="file">repository.py</span>
+│   │   └── <span class="file">service.py</span>            <span class="comment"># WorkflowService API (CLI &amp; Web UI)</span>
 │   ├── <span class="file">deploy_post.py</span>            <span class="comment"># Gutenberg compiler &amp; WP REST upload</span>
 │   ├── <span class="file">haal_bron.py</span>              <span class="comment"># Web &amp; PDF brontekst extractor</span>
 │   ├── <span class="file">leesbaarheid.py</span>           <span class="comment"># Zinslengte- &amp; leesbaarheidsberekening</span>
-│   ├── <span class="file">orchestrate.py</span>            <span class="comment"># Strikte CLI State Machine (Control Plane)</span>
+│   ├── <span class="file">orchestrate.py</span>            <span class="comment"># Strikte CLI State Machine (Dunne CLI Wrapper)</span>
 │   ├── <span class="file">render_svg.py</span>             <span class="comment"># SVG naar PNG Headless Chrome renderer</span>
 │   └── <span class="file">stijl_lexicaal.py</span>         <span class="comment"># Lexicale Grep-stijlcontroles</span>
 ├── <span class="folder">templates/</span>                     <span class="comment"># Generieke sjablonen voor nieuwe posts</span>
 │   └── <span class="file">state.template.json</span>
-├── <span class="folder">tests/</span>                         <span class="comment"># Test suite voor Control Plane</span>
-│   └── <span class="file">test_orchestrate.py</span>       <span class="comment"># Pytest testsuite voor state machine &amp; CLI</span>
+├── <span class="folder">tests/</span>                         <span class="comment"># Test suite voor Control Plane &amp; Service API</span>
+│   ├── <span class="file">test_orchestrate.py</span>       <span class="comment"># Pytest / Unittest testsuite voor CLI</span>
+│   └── <span class="file">test_orchestrator_service.py</span> <span class="comment"># Unittest suite voor WorkflowService API</span>
 ├── <span class="file">.env</span>                           <span class="comment"># Credentials &amp; Tokens (gitignored)</span>
 ├── <span class="file">.env_template</span>                  <span class="comment"># Sjabloon omgevingsvariabelen (onder versiebeheer)</span>
 ├── <span class="file">.gitignore</span>
