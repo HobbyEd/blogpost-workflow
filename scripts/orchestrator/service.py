@@ -344,96 +344,30 @@ class WorkflowService:
     def doctor(
         self, post: str | None = None, post_dir: str | None = None
     ) -> dict[str, Any]:
-        """Inspecteer de integriteit en eventuele drift van state vs. schijf."""
+        """Inspecteer de integriteit en eventuele drift van state vs. schijf met schone helper functies."""
         pdir = self.resolve_dir(post, post_dir)
-        issues: list[dict[str, str]] = []
-        hard = 0
-
         if not os.path.isdir(pdir):
             return {"ok": False, "errors": [f"Map ontbreekt: {pdir}"]}
 
-        has_json = os.path.isfile(state_path(pdir))
-        if not has_json:
-            issues.append({"severity": "error", "msg": "state.json ontbreekt — run import-md of init"})
-            hard += 1
+        if not os.path.isfile(state_path(pdir)):
+            issues = [{"severity": "error", "msg": "state.json ontbreekt — run import-md of init"}]
             return {"ok": False, "issues": issues, "probed": probe_artefacts(pdir)}
 
         state = load_state(pdir)
         probed = probe_artefacts(pdir)
 
-        for key, disk in probed.items():
-            stored = state["artefacts"].get(key)
-            if stored != disk:
-                issues.append(
-                    {
-                        "severity": "warning",
-                        "msg": f"artefacts.{key}: state={stored}, disk={disk}",
-                    }
-                )
+        issues: list[dict[str, str]] = []
+        issues.extend(_check_state_vs_disk_drift(state, probed))
+        issues.extend(_check_linear_artefact_consistency(state, probed))
 
-        order = ["outline", "draft", "grok_feedback", "synthese", "visuals"]
-        missing_before: set[str] = set()
-        for key in order:
-            if probed[key] == "missing":
-                if key == "synthese" and state["flags"].get("skip_synthesis"):
-                    continue
-                if key == "grok_feedback" and state["flags"].get("defer_critique") and probed.get("visuals") == "present":
-                    missing_before.add(key)
-                    continue
-                missing_before.add(key)
-                continue
-            relevant_missing = set(missing_before)
-            if key == "visuals" and state["flags"].get("skip_synthesis"):
-                relevant_missing.discard("synthese")
-            if key == "visuals" and state["flags"].get("defer_critique"):
-                if relevant_missing <= {"grok_feedback", "synthese"}:
-                    continue
-            if relevant_missing:
-                issues.append(
-                    {
-                        "severity": "warning",
-                        "msg": (
-                            f"{key} present terwijl eerdere artefacten missing: "
-                            f"{sorted(relevant_missing)} (niet-lineair of ontbrekende flag)"
-                        ),
-                    }
-                )
-
-        phase = state["phase"]
-        if phase in {"draft", "style", "series", "critique", "synthesis", "visuals", "deploy", "done"}:
-            if probed["outline"] != "present":
-                issues.append({"severity": "error", "msg": f"phase={phase} maar outline.md mist"})
-                hard += 1
-        if phase in {"style", "series", "critique", "synthesis", "visuals", "deploy", "done"}:
-            if probed["draft"] != "present" and phase != "outline":
-                if phase not in {"draft"}:
-                    issues.append({"severity": "error", "msg": f"phase={phase} maar draft.md mist"})
-                    hard += 1
-
-        if state["artefacts"].get("wp_post_id") and phase not in {"deploy", "done"}:
-            issues.append(
-                {
-                    "severity": "warning",
-                    "msg": f"wp_post_id gezet maar phase={phase} (verwacht deploy/done of named exception)",
-                }
-            )
-
-        if phase == "done" and not state["artefacts"].get("wp_post_id"):
-            issues.append({"severity": "warning", "msg": "phase=done zonder wp_post_id"})
-
-        if state["flags"].get("skip_synthesis") and probed["synthese"] == "present":
-            issues.append({"severity": "info", "msg": "skip_synthesis aan maar synthese.md bestaat wel"})
-
-        if state["status"] == "waiting_gate" and not state["gate"].get("pending"):
-            issues.append({"severity": "warning", "msg": "waiting_gate zonder gate.pending"})
-
-        if state["status"] == "running":
-            issues.append({"severity": "info", "msg": "status=running — complete of reject verwacht"})
+        phase_issues, hard_errors = _check_phase_artefact_prerequisites(state, probed)
+        issues.extend(phase_issues)
+        issues.extend(_check_status_and_flag_consistency(state, probed))
 
         return {
-            "ok": hard == 0,
+            "ok": hard_errors == 0,
             "slug": state["slug"],
-            "phase": phase,
+            "phase": state["phase"],
             "status": state["status"],
             "flags": state["flags"],
             "probed": probed,
@@ -611,3 +545,92 @@ class WorkflowService:
             save_state(pdir, state)
             out["applied"] = True
         return out
+
+
+def _check_state_vs_disk_drift(state: dict[str, Any], probed: dict[str, str]) -> list[dict[str, str]]:
+    """Detecteer afwijkingen tussen opgeslagen artefact status in state.json en schijf."""
+    issues = []
+    for key, disk in probed.items():
+        stored = state["artefacts"].get(key)
+        if stored != disk:
+            issues.append({"severity": "warning", "msg": f"artefacts.{key}: state={stored}, disk={disk}"})
+    return issues
+
+
+def _check_linear_artefact_consistency(state: dict[str, Any], probed: dict[str, str]) -> list[dict[str, str]]:
+    """Controleer of latere artefacten aanwezig zijn terwijl eerdere nog ontbreken."""
+    issues = []
+    order = ["outline", "draft", "grok_feedback", "synthese", "visuals"]
+    missing_before: set[str] = set()
+
+    for key in order:
+        if probed[key] == "missing":
+            if key == "synthese" and state["flags"].get("skip_synthesis"):
+                continue
+            if key == "grok_feedback" and state["flags"].get("defer_critique") and probed.get("visuals") == "present":
+                missing_before.add(key)
+                continue
+            missing_before.add(key)
+            continue
+
+        relevant_missing = set(missing_before)
+        if key == "visuals" and state["flags"].get("skip_synthesis"):
+            relevant_missing.discard("synthese")
+        if key == "visuals" and state["flags"].get("defer_critique"):
+            if relevant_missing <= {"grok_feedback", "synthese"}:
+                continue
+
+        if relevant_missing:
+            issues.append(
+                {
+                    "severity": "warning",
+                    "msg": (
+                        f"{key} present terwijl eerdere artefacten missing: "
+                        f"{sorted(relevant_missing)} (niet-lineair of ontbrekende flag)"
+                    ),
+                }
+            )
+
+    return issues
+
+
+def _check_phase_artefact_prerequisites(state: dict[str, Any], probed: dict[str, str]) -> tuple[list[dict[str, str]], int]:
+    """Controleer verplichte artefacten voor de huidige fase."""
+    issues = []
+    hard_errors = 0
+    phase = state["phase"]
+    advanced_phases = {"draft", "style", "series", "critique", "synthesis", "visuals", "deploy", "done"}
+
+    if phase in advanced_phases and probed["outline"] != "present":
+        issues.append({"severity": "error", "msg": f"phase={phase} maar outline.md mist"})
+        hard_errors += 1
+
+    post_draft_phases = {"style", "series", "critique", "synthesis", "visuals", "deploy", "done"}
+    if phase in post_draft_phases and probed["draft"] != "present":
+        issues.append({"severity": "error", "msg": f"phase={phase} maar draft.md mist"})
+        hard_errors += 1
+
+    return issues, hard_errors
+
+
+def _check_status_and_flag_consistency(state: dict[str, Any], probed: dict[str, str]) -> list[dict[str, str]]:
+    """Controleer vlaggen en status consistentie."""
+    issues = []
+    phase = state["phase"]
+
+    if state["artefacts"].get("wp_post_id") and phase not in {"deploy", "done"}:
+        issues.append({"severity": "warning", "msg": f"wp_post_id gezet maar phase={phase} (verwacht deploy/done of named exception)"})
+
+    if phase == "done" and not state["artefacts"].get("wp_post_id"):
+        issues.append({"severity": "warning", "msg": "phase=done zonder wp_post_id"})
+
+    if state["flags"].get("skip_synthesis") and probed["synthese"] == "present":
+        issues.append({"severity": "info", "msg": "skip_synthesis aan maar synthese.md bestaat wel"})
+
+    if state["status"] == "waiting_gate" and not state["gate"].get("pending"):
+        issues.append({"severity": "warning", "msg": "waiting_gate zonder gate.pending"})
+
+    if state["status"] == "running":
+        issues.append({"severity": "info", "msg": "status=running — complete of reject verwacht"})
+
+    return issues
