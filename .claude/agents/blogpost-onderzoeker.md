@@ -36,10 +36,16 @@ alles; selecteer op relevantie. Kan de site niet worden bereikt, lever dan een l
 context en meld dat bij de gate — dat is geen fout, maar de configureerbare naad uit dit
 blok.
 
-## Stap 2 — Verrijking
+## Stap 2 — Verrijking & Bulk Research Protocol
 
 Zoek passende theorie, denkers, frameworks en concrete voorbeelden of cijfers.
-Gebruik WebSearch/WebFetch waar een externe bron of actueel cijfer nodig is.
+Gebruik WebSearch om relevante externe bronnen te identificeren.
+
+> ⚡ **Bulk Research Protocol (Voorkom losse toestemmingsvragen)**:
+> In plaats van bronnen één voor één op te halen met losse `WebFetch` verzoeken, verzamel je eerst alle kandidaat-URL's. Haal deze bronnen vervolgens in **één gebundelde stap** op via:
+> `python3 scripts/haal_bron.py <url1> <url2> <url3> --out-dir posts/<slug>/bronnen/`
+> Dit haalt alle bronnen (inclusief PDF's) in bulk op en slaat de platte tekst op op schijf.
+
 Registreer bij elke scherpe claim een **precieze bron**: auteur, titel, jaar, en
 **altijd de volledige URL** als die bestaat. Verifieer die URL (de pagina moet echt
 bestaan; geen gegokte links). De bron met URL is een huisstijleis, geen optie.

@@ -1,17 +1,18 @@
 #!/usr/bin/env python3
-"""Haal een bron op als platte tekst, zodat je er letterlijk in kunt zoeken.
+"""Haal een of meerdere bronnen op als platte tekst, zodat je er letterlijk in kunt zoeken.
 
 Aanleiding: deel 1 van de intentie-reeks kwam live te staan met een citaat dat in de
 aangehaalde paper niet voorkomt. WebFetch gaf op beide PDF's onbruikbare uitvoer ("the
 content appears as compressed binary data"), waarna het citaat ongecontroleerd bleef. Met
 pdftotext was de zin in één opdracht te weerleggen.
 
-Dit script haalt een URL op, zet PDF om naar tekst, en zoekt optioneel naar een zin.
+Dit script haalt een of meerdere URL's op, zet PDF om naar tekst, zoekt optioneel naar
+een zin en kan bronnen in bulk opslaan.
 
 Gebruik:
-    python3 scripts/haal_bron.py <url>
+    python3 scripts/haal_bron.py <url1> [<url2> ...]
     python3 scripts/haal_bron.py <url> --zoek "letterlijke zin uit de blogpost"
-    python3 scripts/haal_bron.py <url> --zoek "zin" --context 3
+    python3 scripts/haal_bron.py <url1> <url2> --out-dir posts/<slug>/bronnen/
 
 Exitcodes:
     0  opgehaald (en bij --zoek: gevonden)
@@ -60,12 +61,7 @@ def naar_tekst(ruw: bytes, content_type: str, url: str) -> str:
 
 
 def normaliseer(t: str) -> str:
-    """Regelafbrekingen en typografische aanhalingstekens onschadelijk maken.
-
-    In een PDF staat een zin vaak over twee regels, soms met een afbreekstreepje. Zonder
-    deze normalisatie mist een letterlijke zoekopdracht die zin en meld je ten onrechte
-    dat een citaat niet bestaat.
-    """
+    """Regelafbrekingen en typografische aanhalingstekens onschadelijk maken."""
     t = t.replace("‘", "'").replace("’", "'")
     t = t.replace("“", '"').replace("”", '"')
     t = t.replace("–", "-").replace("—", "-")
@@ -73,36 +69,37 @@ def normaliseer(t: str) -> str:
     return re.sub(r"\s+", " ", t).lower()
 
 
-def main() -> int:
-    ap = argparse.ArgumentParser(description="Haal een bron op als platte tekst.")
-    ap.add_argument("url")
-    ap.add_argument("--zoek", help="letterlijke zin die in de bron moet voorkomen")
-    ap.add_argument("--context", type=int, default=2,
-                    help="aantal zinnen context rond een treffer (standaard 2)")
-    ap.add_argument("--dump", action="store_true", help="print de volledige tekst")
-    args = ap.parse_args()
-
+def verwerk_enkele_url(url: str, args: argparse.Namespace, out_dir: str | None = None, idx: int = 1) -> int:
     try:
-        ruw, ct = haal_op(args.url)
+        ruw, ct = haal_op(url)
     except Exception as e:
-        print(f"OPHALEN MISLUKT: {args.url}\n  {e}", file=sys.stderr)
-        return 1
-    try:
-        tekst = naar_tekst(ruw, ct, args.url)
-    except subprocess.CalledProcessError as e:
-        print(f"OMZETTEN MISLUKT: {e}", file=sys.stderr)
+        print(f"OPHALEN MISLUKT: {url}\n  {e}", file=sys.stderr)
         return 1
 
-    print(f"Bron: {args.url}")
-    print(f"Type: {ct or 'onbekend'} | {len(tekst)} tekens tekst\n")
+    try:
+        tekst = naar_tekst(ruw, ct, url)
+    except subprocess.CalledProcessError as e:
+        print(f"OMZETTEN MISLUKT ({url}): {e}", file=sys.stderr)
+        return 1
+
+    print(f"\n--- Bron [{idx}]: {url} ---")
+    print(f"Type: {ct or 'onbekend'} | {len(tekst)} tekens tekst")
+
+    if out_dir:
+        os.makedirs(out_dir, exist_ok=True)
+        fname = f"bron_{idx}.txt"
+        fpath = os.path.join(out_dir, fname)
+        with open(fpath, "w", encoding="utf-8") as f:
+            f.write(f"URL: {url}\nType: {ct}\n\n" + tekst)
+        print(f"Opgeslagen naar: {fpath}")
 
     if args.dump:
         print(tekst)
         return 0
 
     if not args.zoek:
-        print(tekst[:2000])
-        print("\n(eerste 2000 tekens; gebruik --zoek of --dump)")
+        print(tekst[:1500])
+        print("\n(eerste 1500 tekens getoond)")
         return 0
 
     hooi, naald = normaliseer(tekst), normaliseer(args.zoek)
@@ -116,7 +113,7 @@ def main() -> int:
     print("NIET GEVONDEN in deze bron.\n")
     woorden = [w for w in re.findall(r"[a-z]{5,}", naald)][:6]
     if woorden:
-        print("Losse kernwoorden uit de gezochte zin, om te zien of er een variant staat:")
+        print("Losse kernwoorden uit de gezochte zin:")
         for w in woorden:
             n = hooi.count(w)
             print(f"  {w}: {n}x")
@@ -124,9 +121,28 @@ def main() -> int:
         if hooi.count(zwaarste):
             j = hooi.find(zwaarste)
             print(f"\nOmgeving van '{zwaarste}':\n…{hooi[max(0, j - 250): j + 250]}…")
-    print("\nConclusie: het citaat staat niet letterlijk in deze bron. Zoek de echte")
-    print("vindplaats of vervang het citaat door een formulering die er wel in staat.")
     return 3
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description="Haal een of meerdere bronnen op als platte tekst.")
+    ap.add_argument("urls", nargs="+", help="Een of meerdere URL's van bronnen om op te halen")
+    ap.add_argument("--zoek", help="letterlijke zin die in de bron moet voorkomen")
+    ap.add_argument("--context", type=int, default=2, help="aantal zinnen context rond een treffer (standaard 2)")
+    ap.add_argument("--dump", action="store_true", help="print de volledige tekst")
+    ap.add_argument("--out-dir", help="Map waarin de bronnen opgeslagen moeten worden")
+    args = ap.parse_args()
+
+    exit_codes = []
+    for i, url in enumerate(args.urls, start=1):
+        code = verwerk_enkele_url(url, args, out_dir=args.out_dir, idx=i)
+        exit_codes.append(code)
+
+    if any(c == 1 for c in exit_codes):
+        return 1
+    if any(c == 3 for c in exit_codes):
+        return 3
+    return 0
 
 
 if __name__ == "__main__":
