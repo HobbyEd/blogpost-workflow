@@ -183,14 +183,6 @@ class WorkflowService:
         if state["status"] == "waiting_gate" and state["phase"] == phase:
             return {"ok": False, "errors": ["Al waiting_gate; gebruik approve/reject."]}
 
-        # Class mock-like wrapper for postcheck
-        class DummyArgs:
-            pass
-
-        args_dummy = DummyArgs()
-        args_dummy.post_id = post_id
-        args_dummy.edit_url = edit_url
-
         errors = postcheck_complete(phase, state, pdir, post_id=post_id, edit_url=edit_url)
         if errors:
             state["status"] = "blocked"
