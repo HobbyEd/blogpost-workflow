@@ -42,7 +42,10 @@ from .repository import (
 )
 
 
-from .archival_validator import validate_archival_alignment
+from .archival_validator import (
+    resolve_alignment_discrepancy,
+    validate_archival_alignment,
+)
 from .rag_archive import archive_vectorstore
 
 
@@ -559,8 +562,18 @@ class WorkflowService:
     def validate_alignment(
         self, post: str | None = None, post_dir: str | None = None
     ) -> dict[str, Any]:
-        """Voer Archief-Consistentie Validatie uit (ADR-007) en genereer archief-consistentie.md."""
+        """Voer Archief-Consistentie Validatie uit (ADR-009) en genereer archief-consistentie.md."""
         return validate_archival_alignment(post=post, post_dir=post_dir)
+
+    def resolve_alignment(
+        self,
+        post: str | None = None,
+        post_dir: str | None = None,
+        action: str = "progressive_insight",
+        note: str | None = None,
+    ) -> dict[str, Any]:
+        """Verwerk auteur beslissing bij inhoudelijke afwijking (ADR-009)."""
+        return resolve_alignment_discrepancy(post=post, post_dir=post_dir, action=action, note=note)
 
 
 def _check_state_vs_disk_drift(state: dict[str, Any], probed: dict[str, str]) -> list[dict[str, str]]:

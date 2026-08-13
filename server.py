@@ -74,6 +74,11 @@ class ChatFinalizeRequest(BaseModel):
     yolo: bool = Field(False, description="Start direct in YOLO-modus")
 
 
+class ResolveAlignmentRequest(BaseModel):
+    action: str = Field(..., description="Actie: 'progressive_insight' of 'error_rejected'")
+    note: Optional[str] = Field(None, description="Toelichtingsnotitie van de auteur bij voortschrijdend inzicht of afwijzing")
+
+
 from scripts.orchestrator.brainstorm import (
     get_brainstorm_session,
     start_brainstorm_session,
@@ -333,10 +338,21 @@ def reindex_rag_archive() -> dict[str, Any]:
 
 @app.post("/api/posts/{slug}/validate-alignment")
 def validate_alignment(slug: str) -> dict[str, Any]:
-    """Voer de Archief-Consistentie Validatie uit (ADR-007) en genereer archief-consistentie.md."""
+    """Voer de Archief Alignment Check uit (Claude 3.5 Sonnet / ADR-009) en genereer archief-consistentie.md."""
     try:
         return service.validate_alignment(post=slug)
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/api/posts/{slug}/resolve-alignment")
+def resolve_alignment(slug: str, req: ResolveAlignmentRequest) -> dict[str, Any]:
+    """Verwerk beslissing van de auteur bij een inhoudelijke afwijking (ADR-009)."""
+    try:
+        return service.resolve_alignment(post=slug, action=req.action, note=req.note)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))

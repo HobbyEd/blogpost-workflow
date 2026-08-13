@@ -231,6 +231,11 @@ def postcheck_complete(
             if probed["visuals"] != "present"
             else []
         ),
+        "alignment": lambda: (
+            ["archief-consistentie.md ontbreekt of is leeg. Voer de Archief Alignment Check uit (ADR-009)."]
+            if probed.get("alignment") != "present"
+            else []
+        ),
         "deploy": lambda: _validate_deploy_completion(state, post_id, edit_url),
     }
 

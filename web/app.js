@@ -103,6 +103,7 @@ const PHASES = [
   { id: "synthesis", label: "Synthese", hard: true },
   { id: "visuals", label: "Visuals", hard: false },
   { id: "factcheck", label: "Factcheck", hard: true },
+  { id: "alignment", label: "Alignment", hard: true },
   { id: "deploy", label: "Deploy", hard: true }
 ];
 
@@ -255,6 +256,14 @@ function renderControls(nextAction, statusInfo) {
   const act = nextAction.action;
   const phase = nextAction.phase || statusInfo.phase;
 
+  if (statusInfo.phase === 'alignment' && statusInfo.status === 'waiting_gate') {
+    bar.innerHTML = `
+      <button class="btn btn-success" onclick="openDiscrepancyModal('progressive_insight')">💡 Accepteer als Voortschrijdend Inzicht</button>
+      <button class="btn btn-danger" onclick="executeResolveDiscrepancy('error_rejected')">❌ Afwijzen als Inhoudelijke Fout</button>
+    `;
+    return;
+  }
+
   if (act === 'run') {
     bar.innerHTML = `
       <button class="btn" onclick="executeRun('${phase}')">▶ Voer uit: run ${phase}</button>
@@ -328,17 +337,22 @@ async function executeReject() {
   }
 }
 
-async function toggleFlag(flagName, value) {
-  if (!activeSlug) return;
+async function executeResolveDiscrepancy(action, customNote = null) {
+  const note = customNote || (action === 'progressive_insight' ? prompt("Geef een toelichting voor het voortschrijdend inzicht:") : "Afgekeurd als inhoudelijke fout");
+  if (action === 'progressive_insight' && (!note || !note.trim())) {
+    alert("Een toelichting is verplicht bij voortschrijdend inzicht.");
+    return;
+  }
+
   try {
-    await fetchJSON(`/api/posts/${activeSlug}/flags`, {
+    await fetchJSON(`/api/posts/${activeSlug}/resolve-alignment`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: flagName, value: value })
+      body: JSON.stringify({ action: action, note: note })
     });
     loadPostDetail(activeSlug);
   } catch (err) {
-    alert(`Fout bij instellen vlag: ${err.message}`);
+    alert(`Fout bij verwerken beslissing: ${err.message}`);
   }
 }
 

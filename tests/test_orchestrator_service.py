@@ -157,6 +157,15 @@ class TestServiceLinearPipeline(ServiceTestBase):
         res = self.service.complete_phase(phase="factcheck", post_dir=pdir)
         self.assertTrue(res["ok"])
         res = self.service.approve_gate(post_dir=pdir)
+        self.assertEqual(res["phase"], "alignment")
+
+        # 9b. Alignment phase (HARD GATE - ADR-009)
+        res = self.service.run_phase(phase="alignment", post_dir=pdir)
+        self.assertTrue(res["ok"])
+        self.create_post_file(slug, "archief-consistentie.md", "# Archief Alignment ok")
+        res = self.service.complete_phase(phase="alignment", post_dir=pdir)
+        self.assertTrue(res["ok"])
+        res = self.service.approve_gate(post_dir=pdir)
         self.assertEqual(res["phase"], "deploy")
 
         # 10. Deploy phase (HARD GATE)

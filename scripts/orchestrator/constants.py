@@ -14,6 +14,7 @@ PHASES = [
     "synthesis",
     "visuals",
     "factcheck",
+    "alignment",
     "deploy",
     "done",
 ]
@@ -28,6 +29,7 @@ RUNNABLE = {
     "synthesis",
     "visuals",
     "factcheck",
+    "alignment",
     "deploy",
 }
 
@@ -40,7 +42,7 @@ SOFT_GATES = {
     "critique",
     "visuals",
 }
-HARD_GATES = {"synthesis", "factcheck", "deploy", "intake"}
+HARD_GATES = {"synthesis", "factcheck", "alignment", "deploy", "intake"}
 
 STATUSES = {"ready", "running", "waiting_gate", "blocked", "done"}
 
@@ -50,6 +52,7 @@ ARTEFACT_FILES = {
     "grok_feedback": "grok-feedback.md",
     "synthese": "synthese.md",
     "factcheck": "feitencheck.md",
+    "alignment": "archief-consistentie.md",
 }
 
 FLAG_NAMES = ("skip_synthesis", "defer_critique", "skip_factcheck", "deploy_approved")
@@ -66,6 +69,7 @@ PHASE_ARTEFACT_KEY = {
     "synthesis": "synthese",
     "visuals": "visuals",
     "factcheck": "factcheck",
+    "alignment": "alignment",
     "deploy": "deploy",
     "done": None,
 }
@@ -79,6 +83,7 @@ AGENT_FOR_PHASE = {
     "synthesis": "blogpost-onderzoeker",
     "visuals": "blogpost-visuals",
     "factcheck": "bron-check",
+    "alignment": "archief-alignment-check",
     "deploy": "blogpost-deploy",
 }
 
@@ -92,6 +97,7 @@ PHASE_LABELS = {
     "synthesis": "4 Synthese",
     "visuals": "5 Visuals",
     "factcheck": "5b Bron- en feitencontrole",
+    "alignment": "5c Archief Alignment (Sonnet)",
     "deploy": "6 Deploy (concept)",
     "done": "Klaar",
 }
