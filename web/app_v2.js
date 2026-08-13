@@ -327,7 +327,11 @@ function renderStepper(detail) {
   if (!container) return;
   const currentPhase = detail.phase;
   const currentStatus = detail.status;
-  const currentIdx = PHASES.findIndex(p => p.id === currentPhase);
+  
+  let currentIdx = PHASES.findIndex(p => p.id === currentPhase);
+  if (currentPhase === 'done' || currentStatus === 'done') {
+    currentIdx = PHASES.length; // Alle 11 fasen voltooid!
+  }
 
   let html = '';
 
