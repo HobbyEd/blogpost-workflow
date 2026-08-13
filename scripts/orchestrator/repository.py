@@ -24,6 +24,9 @@ def repo_root() -> str:
 
 def posts_root() -> str:
     """Geef het absolute pad naar de posts directory."""
+    env = os.environ.get("BLOGPOST_POSTS_DIR")
+    if env:
+        return os.path.abspath(env)
     return os.path.join(repo_root(), "posts")
 
 

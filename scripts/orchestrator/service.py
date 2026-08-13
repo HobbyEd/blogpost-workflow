@@ -45,6 +45,10 @@ from .repository import (
 class WorkflowService:
     """Service API voor beheer van blogpost workflows."""
 
+    def posts_root(self) -> str:
+        """Geef het absolute pad naar de posts root map terug."""
+        return posts_root()
+
     def resolve_dir(self, post: str | None = None, post_dir: str | None = None) -> str:
         return resolve_post_dir(post, post_dir)
 
