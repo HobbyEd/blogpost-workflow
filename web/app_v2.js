@@ -4,7 +4,9 @@ let activeTab = 'status';
 let currentMode = 2; // Default Modus 2 (Stepper)
 let chatSessionId = 'session_' + Date.now();
 let chatStarted = false;
-let ragPollTimer = null;
+
+let ragPollInterval = null;
+let isActivelyIndexingUI = false;
 let confirmResolver = null;
 
 function showNotification(message, type = 'info', duration = 4000) {
@@ -105,8 +107,12 @@ function switchAppMode(mode) {
   if (mode === 1 && !chatStarted) {
     initChatSession();
   } else if (mode === 3) {
-    loadRagStatus();
     loadSavedAdminToken();
+    loadRagStatus().then(data => {
+      if (data && data.running) {
+        startRagPolling();
+      }
+    });
   }
 }
 
@@ -204,14 +210,14 @@ const PHASES = [
 
 document.addEventListener('DOMContentLoaded', () => {
   loadPostsList();
-  checkRagStatus();
+  loadRagStatus(); // Eenmalig laden bij opstarten
   setInterval(() => {
     if (activeSlug && currentMode === 2) {
       loadPostDetail(activeSlug, false);
     } else if (currentMode === 2) {
       loadPostsList();
     }
-    checkRagStatus();
+    // Geen onnodige RAG polling meer in de algemene 3s timer!
   }, 3000);
 });
 
@@ -629,7 +635,6 @@ function updateRagDashboard(data) {
   const articlesListEl = document.getElementById('rag-articles-list');
   const bannerEl = document.getElementById('global-banner');
   const bannerText = document.getElementById('global-banner-text');
-
   const pBox = document.getElementById('rag-progress-box');
   const pBar = document.getElementById('rag-progress-bar');
   const pPct = document.getElementById('rag-progress-pct');
@@ -642,30 +647,23 @@ function updateRagDashboard(data) {
   const pct = data.percentage || 0;
   const isRunning = !!data.running;
 
+  // Banner ALLEEN tonen als indexering daadwerkelijk ACTIEF is
   if (bannerEl) {
     bannerEl.style.display = isRunning ? 'flex' : 'none';
-    if (bannerText) {
+    if (bannerText && isRunning) {
       bannerText.innerHTML = `⚠️ <strong>RAG-indexering actief: [ ${pct}% ]</strong> (${data.progress_current || 0}/${data.progress_total || 0} posts) - ${escapeHTML(data.status_message || '')}`;
     }
   }
 
-  if (pBox) {
-    if (isRunning) {
-      pBox.style.display = 'block';
-      if (pBar) pBar.style.width = `${pct}%`;
-      if (pPct) pPct.textContent = `${pct}%`;
-      if (pMsg) pMsg.textContent = data.status_message || 'Indexeren...';
-    } else if (data.status_message && data.status_message.includes('afgerond')) {
-      pBox.style.display = 'block';
-      if (pBar) pBar.style.width = '100%';
-      if (pPct) pPct.textContent = '100%';
-      if (pMsg) pMsg.textContent = `✅ RAG-indexering succesvol voltooid! (${data.total_posts} artikelen, ${data.total_chunks} chunks)`;
-      setTimeout(() => {
-        if (!data.running && pBox) pBox.style.display = 'none';
-      }, 4000);
-    } else {
-      pBox.style.display = 'none';
-    }
+  // Voortgangsbalk alleen bijwerken als we ACTIEF pollen tijdens een run
+  if (isRunning && pBox) {
+    pBox.style.display = 'block';
+    if (pBar) pBar.style.width = `${pct}%`;
+    if (pPct) pPct.textContent = `${pct}%`;
+    if (pMsg) pMsg.textContent = data.status_message || 'Indexeren...';
+  } else if (!isActivelyIndexingUI && pBox) {
+    // In ruststand is de progressbox ALTIJD onzichtbaar
+    pBox.style.display = 'none';
   }
 
   if (articlesListEl && data.articles) {
@@ -695,9 +693,54 @@ function formatDateStr(str) {
   }
 }
 
-async function checkRagStatus() {
-  const data = await loadRagStatus();
-  return data;
+// --- Slimme Polling Logica ---
+
+function startRagPolling() {
+  if (ragPollInterval) return; // Reeds actief
+  isActivelyIndexingUI = true;
+
+  const pBox = document.getElementById('rag-progress-box');
+  if (pBox) pBox.style.display = 'block';
+
+  ragPollInterval = setInterval(async () => {
+    const data = await loadRagStatus();
+    if (!data) return;
+
+    if (!data.running) {
+      // Indexering is afgerond! Toon eenmalig 100% voltooid en STOP de timer!
+      stopRagPolling(data);
+    }
+  }, 250);
+}
+
+function stopRagPolling(data) {
+  if (ragPollInterval) {
+    clearInterval(ragPollInterval);
+    ragPollInterval = null;
+  }
+
+  const pBox = document.getElementById('rag-progress-box');
+  const pBar = document.getElementById('rag-progress-bar');
+  const pPct = document.getElementById('rag-progress-pct');
+  const pMsg = document.getElementById('rag-progress-msg');
+  const bannerEl = document.getElementById('global-banner');
+
+  if (bannerEl) bannerEl.style.display = 'none';
+
+  if (isActivelyIndexingUI && pBox) {
+    isActivelyIndexingUI = false;
+    pBox.style.display = 'block';
+    if (pBar) pBar.style.width = '100%';
+    if (pPct) pPct.textContent = '100%';
+    if (pMsg) pMsg.textContent = `✅ RAG-indexering voltooid! (${data ? data.total_posts : 70} artikelen, ${data ? data.total_chunks : 2915} chunks)`;
+
+    // Na 3 seconden verdwijnt de balk volledig en blijft hij weg!
+    setTimeout(() => {
+      if (pBox) pBox.style.display = 'none';
+    }, 3000);
+  } else if (pBox) {
+    pBox.style.display = 'none';
+  }
 }
 
 async function triggerRagReindex(isIncrementalOnly) {
@@ -711,16 +754,6 @@ async function triggerRagReindex(isIncrementalOnly) {
     );
     if (!confirmed) return;
   }
-
-  const pBox = document.getElementById('rag-progress-box');
-  const pBar = document.getElementById('rag-progress-bar');
-  const pPct = document.getElementById('rag-progress-pct');
-  const pMsg = document.getElementById('rag-progress-msg');
-
-  if (pBox) pBox.style.display = 'block';
-  if (pBar) pBar.style.width = '10%';
-  if (pPct) pPct.textContent = '10%';
-  if (pMsg) pMsg.textContent = 'RAG-indexering initialiseren op de achtergrond...';
 
   try {
     const res = await fetchJSON('/api/rag/reindex-async', {
@@ -737,15 +770,8 @@ async function triggerRagReindex(isIncrementalOnly) {
 
     showNotification(`🚀 ${res.message}`, 'success');
 
-    if (ragPollTimer) clearInterval(ragPollTimer);
-    ragPollTimer = setInterval(async () => {
-      const data = await checkRagStatus();
-      if (data && !data.running) {
-        clearInterval(ragPollTimer);
-        ragPollTimer = null;
-        showNotification(`✅ RAG Indexering voltooid! Totaal ${data.total_posts} artikelen en ${data.total_chunks} chunks geïndexeerd.`, 'success', 6000);
-      }
-    }, 200);
+    // START SLIMME POLLING ALLEEN TIJDENS ACTIEVE RUN
+    startRagPolling();
 
   } catch (err) {
     showNotification(`Fout bij starten indexering: ${err.message}`, 'error');
