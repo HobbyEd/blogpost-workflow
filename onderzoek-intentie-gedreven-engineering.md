@@ -362,13 +362,20 @@ Hier zit de belangrijkste theoretische vondst, en hij gaat tegen de intuïtieve 
 Nonaka's SECI-model (socialisatie, externalisatie, combinatie, internalisatie) is het standaard-
 model voor tacit → explicit. Maar de kritiek erop is substantieel en relevant: Nonaka behandelt
 tacit en explicit als **scheidbaar en converteerbaar**, terwijl Polanyi's oorspronkelijke idee is
-dat tacit kennis deels of geheel **inherent** tacit is. Meerdere auteurs stellen dat Nonaka
-"Polanyi's concept of tacit knowledge subordinated to an objectivist strategic management theory",
-en dat externalisatie "much more complex and less prone to be managed" is dan de literatuur
-suggereert *(bron: kritiekbundel via
-https://scispace.com/pdf/conceptualizing-knowledge-creation-a-critique-of-nonaka-s-16ix5a51l3.pdf
-en RealKM, "Flaws in the engine of knowledge creation",
+dat tacit kennis deels of geheel **inherent** tacit is. Gourlay en Nurse vatten de kritiek van
+Griffin, Shaw en Stacey (1999) zo samen: "Nonaka has subordinated Polanyi's (1969a, 1969b)
+concept of tacit knowledge to an objectivist strategic management theory". Over de kern van het
+model zijn ze zelf stelliger: de externalisatie-stap rust op de hypothese dat tacit kennis via
+metaforen en analogieën naar buiten komt, en dat is "a hypothesis that is not supported by
+evidence or theory" *(bron: Gourlay en Nurse, "Flaws in the engine of knowledge creation",
 https://realkm.com/wp-content/uploads/2023/11/Flaws_in_the_engine_of_knowledge_creation.pdf)*.
+
+> **Correctie 12 augustus 2026.** Hier stond eerder het citaat *"much more complex and less prone
+> to be managed"*. Die zin komt in de bron niet voor; ik heb de volledige PDF doorzocht. Het
+> citaat over "subordinated to an objectivist strategic management theory" stond bovendien in een
+> vorm die niet letterlijk is en zonder de attributie aan Griffin, Shaw en Stacey. De
+> scispace-URL geeft 403 en is verwijderd. Dit is de tweede fantoomcitaat-vondst in dit document,
+> na de van Lamsweerde-zin in §2.1.
 
 **Consequentie voor de reeks:** volledige explicitering van intentie is niet haalbaar, en een
 reeks die dat belooft is onhoudbaar. Wat wel kan is de expliciete laag *snel genoeg* en *rijk
