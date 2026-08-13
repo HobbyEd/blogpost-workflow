@@ -125,17 +125,20 @@ def read_root():
 
 @app.get("/api/posts")
 def list_posts() -> dict[str, Any]:
-    """Haal de lijst op van alle actieve blogposts in de posts/ map."""
+    """Haal de lijst op van alle actieve blogposts in de posts/ map, gesorteerd op meest recent gewijzigd (aflopend)."""
     posts_dir = service.posts_root()
     if not os.path.exists(posts_dir):
-        return {"posts": []}
+        return {"count": 0, "posts": []}
 
     results: list[dict[str, Any]] = []
-    for entry in sorted(os.listdir(posts_dir)):
+    entries = [e for e in os.listdir(posts_dir) if not e.startswith(".")]
+
+    for entry in entries:
         pdir = os.path.join(posts_dir, entry)
         state_file = os.path.join(pdir, "state.json")
         if os.path.isdir(pdir) and os.path.isfile(state_file):
             try:
+                mtime = os.path.getmtime(state_file)
                 doc = service.doctor(post_dir=pdir)
                 results.append({
                     "slug": doc.get("slug", entry),
@@ -145,9 +148,13 @@ def list_posts() -> dict[str, Any]:
                     "ok": doc.get("ok"),
                     "issues_count": len(doc.get("issues", [])),
                     "next": doc.get("next"),
+                    "mtime": mtime,
                 })
             except Exception as e:
-                results.append({"slug": entry, "error": str(e)})
+                results.append({"slug": entry, "error": str(e), "mtime": 0})
+
+    # Sorteer aflopend op mtime (meest recente blogpost bovenaan)
+    results.sort(key=lambda x: x.get("mtime", 0), reverse=True)
 
     return {"count": len(results), "posts": results}
 
@@ -170,16 +177,34 @@ def init_post(req: InitPostRequest) -> dict[str, Any]:
 
 @app.get("/api/posts/{slug}")
 def get_post_detail(slug: str) -> dict[str, Any]:
-    """Haal gedetailleerde informatie op van een specifieke post (status, statustabel, next)."""
+    """Haal gedetailleerde informatie op van een specifieke post (status, statustabel, next, artefact_contents)."""
     try:
         status_info = service.get_status(post=slug)
         doctor_info = service.doctor(post=slug)
-        return {
-            "slug": slug,
-            "status_info": status_info,
-            "doctor_info": doctor_info,
-            "markdown_table": status_info.get("markdown"),
-        }
+
+        # Platslaan van status_info naar top-level velden voor de Web UI
+        res = dict(status_info)
+        res["slug"] = slug
+        res["status_info"] = status_info
+        res["doctor_info"] = doctor_info
+        res["markdown_table"] = status_info.get("markdown")
+
+        # Inlezen van artefact bestandsinhoud (draft.md, outline.md, etc.)
+        pdir = os.path.join(service.posts_root(), slug)
+        artefact_contents = {}
+        for fname in ["draft.md", "synthese.md", "outline.md", "briefing.md", "grok-feedback.md", "feitencheck.md", "archief-consistentie.md"]:
+            fpath = os.path.join(pdir, fname)
+            if os.path.isfile(fpath):
+                try:
+                    with open(fpath, "r", encoding="utf-8") as f:
+                        content = f.read()
+                        key = fname.replace(".md", "").replace("-", "_")
+                        artefact_contents[key] = content
+                        artefact_contents[fname] = content
+                except Exception:
+                    pass
+        res["artefact_contents"] = artefact_contents
+        return res
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
