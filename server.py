@@ -105,7 +105,7 @@ def read_root():
     """HTML Web UI Dashboard voorpagina."""
     index_file = os.path.join(web_dir, "index.html")
     if os.path.isfile(index_file):
-        return FileResponse(index_file)
+        return FileResponse(index_file, headers={"Cache-Control": "no-cache, no-store, must-revalidate"})
     return {
         "status": "online",
         "service": "Blogpost Workflow Command Center API",
