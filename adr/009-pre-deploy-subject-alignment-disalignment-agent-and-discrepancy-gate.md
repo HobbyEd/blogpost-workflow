@@ -46,8 +46,10 @@ De **Alignment/Disalignment Agent** wordt gepositioneerd als een **veiligheidspo
 
 ## 3. Functionele Specificaties
 
-### A. Automatische Analyse & Classificatie
+### A. Automatische Analyse & AI Model Keuze
 De agent analyseert het concept (`draft.md` / `synthese.md`) aan de hand van de RAG vectorstore:
+- **Toewezen Model**: **Claude 3.5 Sonnet**.
+  *Rationale*: Biedt de optimale balans tussen diep inhoudelijk redeneervermogen, nuance-herkenning en verwerkingssnelheid bij het vergelijken van inhoudelijke stellingen tegen opgevraagde RAG-context passages.
 1. **Semantische Vergelijking**: De kernstellingen, begrippen en conclusies worden vergeleken met eerdere artikelen in het RAG-archief.
 2. **Resultaat Classificatie**:
    - **`ALIGNMENT_OK`**: De inhoud sluit naadloos aan bij eerdere publicaties.
