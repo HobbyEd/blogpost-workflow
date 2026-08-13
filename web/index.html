@@ -275,6 +275,33 @@
     </div>
   </div>
 
-  <script src="/static/app_v2.js?v=2.0.0"></script>
+  <script>
+    function switchAppMode(mode) {
+      console.log('Switching to mode:', mode);
+      var b1 = document.getElementById('btn-mode-1');
+      var b2 = document.getElementById('btn-mode-2');
+      var b3 = document.getElementById('btn-mode-3');
+
+      if (b1) b1.classList.toggle('active', mode === 1);
+      if (b2) b2.classList.toggle('active', mode === 2);
+      if (b3) b3.classList.toggle('active', mode === 3);
+
+      var m1 = document.getElementById('modus-1-view');
+      var m2 = document.getElementById('modus-2-view');
+      var m3 = document.getElementById('modus-3-view');
+
+      if (m1) m1.style.display = (mode === 1) ? 'block' : 'none';
+      if (m2) m2.style.display = (mode === 2) ? 'block' : 'none';
+      if (m3) m3.style.display = (mode === 3) ? 'block' : 'none';
+
+      if (mode === 1 && typeof initChatSession === 'function' && !window.chatStarted) {
+        initChatSession();
+      } else if (mode === 3 && typeof loadRagStatus === 'function') {
+        loadRagStatus();
+        loadSavedAdminToken();
+      }
+    }
+  </script>
+  <script src="/static/app_v2.js?v=2.0.1"></script>
 </body>
 </html>
