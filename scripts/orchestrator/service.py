@@ -42,6 +42,10 @@ from .repository import (
 )
 
 
+from .archival_validator import validate_archival_alignment
+from .rag_archive import archive_vectorstore
+
+
 class WorkflowService:
     """Service API voor beheer van blogpost workflows."""
 
@@ -541,6 +545,22 @@ class WorkflowService:
             save_state(pdir, state)
             out["applied"] = True
         return out
+
+    def search_archive(self, query: str, top_k: int = 5) -> list[dict[str, Any]]:
+        """Zoek semantisch in het blogpost archief (RAG Vectorstore - ADR-006)."""
+        archive_vectorstore.index_all_posts(posts_root())
+        return archive_vectorstore.search(query=query, top_k=top_k)
+
+    def reindex_archive(self) -> dict[str, Any]:
+        """Herindexeer alle blogposts in posts/ naar de RAG Vectorstore."""
+        count = archive_vectorstore.index_all_posts(posts_root())
+        return {"ok": True, "indexed_chunks": count}
+
+    def validate_alignment(
+        self, post: str | None = None, post_dir: str | None = None
+    ) -> dict[str, Any]:
+        """Voer Archief-Consistentie Validatie uit (ADR-007) en genereer archief-consistentie.md."""
+        return validate_archival_alignment(post=post, post_dir=post_dir)
 
 
 def _check_state_vs_disk_drift(state: dict[str, Any], probed: dict[str, str]) -> list[dict[str, str]]:

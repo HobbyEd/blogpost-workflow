@@ -352,7 +352,7 @@ function showTab(tabName) {
   updateTabContent();
 }
 
-function updateTabContent() {
+async function updateTabContent() {
   if (!currentPostDetail) return;
 
   const contentEl = document.getElementById('tab-content');
@@ -360,8 +360,26 @@ function updateTabContent() {
 
   if (activeTab === 'status') {
     contentEl.innerText = statusInfo.markdown_table || currentPostDetail.markdown_table || "Geen tabel beschikbaar.";
+  } else if (activeTab === 'archief') {
+    contentEl.innerHTML = `
+      <div style="margin-bottom: 1rem;">
+        <button class="btn btn-secondary" onclick="executeArchivalValidation('${activeSlug}')">⚡ Voer Archief Consistentie Validatie Uit (ADR-007)</button>
+      </div>
+      <div id="archief-report-view">Klik op bovenstaande knop om de inhoudelijke lijn te valideren tegen het blogarchief (RAG Vectorstore).</div>
+    `;
   } else {
-    contentEl.innerText = `Laden van artefact '${activeTab}'... (in volgende uitbreiding gekoppeld)`;
+    contentEl.innerText = `Artefact '${activeTab}' wordt weergegeven wanneer beschikbaar in postmap.`;
+  }
+}
+
+async function executeArchivalValidation(slug) {
+  const container = document.getElementById('archief-report-view');
+  container.innerText = "Bezig met doorzoeken van RAG vectorstore en valideren van inhoudelijke lijn...";
+  try {
+    const res = await fetchJSON(`/api/posts/${slug}/validate-alignment`, { method: 'POST' });
+    container.innerText = res.report_preview || "Validatie voltooid.";
+  } catch (err) {
+    container.innerText = `Fout bij validatie: ${err.message}`;
   }
 }
 

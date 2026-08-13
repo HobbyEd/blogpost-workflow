@@ -310,3 +310,33 @@ def finalize_chat(req: ChatFinalizeRequest) -> dict[str, Any]:
         "briefing_preview": briefing_content,
         "state": init_res["state"],
     }
+
+
+# --- Modus 4: RAG Archief Vectorstore & Archief-Alignment Endpoints ---
+
+@app.get("/api/rag/search")
+def search_rag_archive(q: str, top_k: int = 5) -> dict[str, Any]:
+    """Zoek semantisch in eerdere blogposts (ADR-006 RAG Vectorstore)."""
+    results = service.search_archive(query=q, top_k=top_k)
+    return {
+        "query": q,
+        "count": len(results),
+        "results": results,
+    }
+
+
+@app.post("/api/rag/reindex")
+def reindex_rag_archive() -> dict[str, Any]:
+    """Herindexeer alle schijf-artefacten in posts/ naar de RAG Vectorstore."""
+    return service.reindex_archive()
+
+
+@app.post("/api/posts/{slug}/validate-alignment")
+def validate_alignment(slug: str) -> dict[str, Any]:
+    """Voer de Archief-Consistentie Validatie uit (ADR-007) en genereer archief-consistentie.md."""
+    try:
+        return service.validate_alignment(post=slug)
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))

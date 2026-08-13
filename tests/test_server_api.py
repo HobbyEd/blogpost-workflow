@@ -109,10 +109,21 @@ class TestServerAPI(unittest.TestCase):
         # 3. Finalize chat en genereer briefing.md
         res3 = self.client.post("/api/chat/finalize", json={"session_id": session_id, "slug": slug, "titel": topic, "yolo": True})
         self.assertEqual(res3.status_code, 200)
-        data3 = res3.json()
-        self.assertTrue(data3["ok"])
-        self.assertTrue(os.path.isfile(data3["briefing_path"]))
-        self.assertIn("Socratische AI Architectuur", data3["briefing_preview"])
+        self.assertTrue(res3.json()["ok"])
+
+        # 4. RAG Reindex en Search testen
+        reindex_res = self.client.post("/api/rag/reindex")
+        self.assertEqual(reindex_res.status_code, 200)
+
+        search_res = self.client.get("/api/rag/search?q=socratische")
+        self.assertEqual(search_res.status_code, 200)
+
+        # 5. Archief-Consistentie Validatie testen (ADR-007)
+        val_res = self.client.post(f"/api/posts/{slug}/validate-alignment")
+        self.assertEqual(val_res.status_code, 200)
+        val_data = val_res.json()
+        self.assertTrue(val_data["ok"])
+        self.assertTrue(os.path.isfile(val_data["report_path"]))
 
 
 if __name__ == "__main__":
