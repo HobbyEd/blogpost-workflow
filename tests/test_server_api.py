@@ -118,12 +118,21 @@ class TestServerAPI(unittest.TestCase):
         search_res = self.client.get("/api/rag/search?q=socratische")
         self.assertEqual(search_res.status_code, 200)
 
-        # 5. Archief-Consistentie Validatie testen (ADR-007)
+        # 5. Archief-Consistentie Validatie testen (ADR-007 / ADR-009)
         val_res = self.client.post(f"/api/posts/{slug}/validate-alignment")
         self.assertEqual(val_res.status_code, 200)
         val_data = val_res.json()
         self.assertTrue(val_data["ok"])
         self.assertTrue(os.path.isfile(val_data["report_path"]))
+
+        # 6. RAG Status en Background Indexing (ADR-008)
+        status_res = self.client.get("/api/rag/status")
+        self.assertEqual(status_res.status_code, 200)
+        self.assertIn("total_chunks", status_res.json())
+
+        async_reindex_res = self.client.post("/api/rag/reindex-async", json={"purge_and_rebuild": False, "incremental": True})
+        self.assertEqual(async_reindex_res.status_code, 202)
+        self.assertTrue(async_reindex_res.json()["ok"])
 
 
 if __name__ == "__main__":

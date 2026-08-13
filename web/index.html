@@ -8,6 +8,12 @@
 </head>
 <body>
 
+  <!-- Global Background Indexer Banner -->
+  <div id="global-banner" class="global-banner" style="display: none;">
+    <span class="banner-pulse"></span>
+    <span>⚠️ <strong>RAG-indexering actief op de achtergrond...</strong> (Gegevens worden bijgewerkt. Je kunt gewoon doorwerken.)</span>
+  </div>
+
   <!-- Header -->
   <header>
     <div class="brand">
@@ -20,6 +26,7 @@
     <div class="mode-switcher">
       <button class="mode-btn" id="btn-mode-1" onclick="switchAppMode(1)">💡 Modus 1: Brainstorm Chat</button>
       <button class="mode-btn active" id="btn-mode-2" onclick="switchAppMode(2)">🚀 Modus 2: Stepper Executie</button>
+      <button class="mode-btn" id="btn-mode-3" onclick="switchAppMode(3)">⚙️ Modus 3: Settings &amp; RAG</button>
     </div>
 
     <div>
@@ -128,9 +135,67 @@
           </div>
         </div>
 
+    </div>
+
+    <!-- MODUS 3: SETTINGS & RAG BEHEER VIEW -->
+    <div id="modus-3-view" style="display: none;">
+      <div class="card mb-1">
+        <h3>🔒 Beheerders Beveiliging (Admin Token)</h3>
+        <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1rem;">
+          Geef de <code>ADMIN_TOKEN</code> op om beheeracties (RAG-herindexering en purge) uit te voeren.
+        </p>
+        <div style="display: flex; gap: 0.5rem; max-width: 500px;">
+          <input type="password" id="admin-token-input" class="form-control" placeholder="Vul hier de ADMIN_TOKEN in...">
+          <button class="btn btn-secondary" onclick="saveAdminToken()">Opslaan</button>
+        </div>
+        <div id="token-status-msg" style="font-size: 0.8rem; margin-top: 0.5rem; color: var(--success-color);"></div>
       </div>
 
+      <div class="card mb-1">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+          <h3>📚 RAG Vectorstore Status &amp; Archief Overzicht</h3>
+          <button class="btn btn-secondary" onclick="loadRagStatus()">🔄 Ververs Status</button>
+        </div>
+
+        <div style="display: flex; gap: 1.5rem; margin-bottom: 1.5rem;">
+          <div class="card" style="flex: 1; background: var(--bg-tertiary); padding: 0.75rem 1rem;">
+            <div style="font-size: 0.75rem; color: var(--text-secondary);">TOTAAL CHUNKS</div>
+            <div style="font-size: 1.5rem; font-weight: bold; color: var(--accent-color);" id="rag-stat-chunks">0</div>
+          </div>
+          <div class="card" style="flex: 1; background: var(--bg-tertiary); padding: 0.75rem 1rem;">
+            <div style="font-size: 0.75rem; color: var(--text-secondary);">GEINDEXEERDE POSTS</div>
+            <div style="font-size: 1.5rem; font-weight: bold; color: var(--success-color);" id="rag-stat-posts">0</div>
+          </div>
+          <div class="card" style="flex: 1; background: var(--bg-tertiary); padding: 0.75rem 1rem;">
+            <div style="font-size: 0.75rem; color: var(--text-secondary);">LAATSTE INDEXATIE</div>
+            <div style="font-size: 0.9rem; font-weight: bold; color: var(--text-primary);" id="rag-stat-time">Nooit</div>
+          </div>
+        </div>
+
+        <div class="card mb-1" style="background: var(--bg-tertiary);">
+          <h4 style="margin-bottom: 0.5rem;">⚡ Indexeringsacties (Asynchroon Achtergrondproces)</h4>
+          <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1rem;">
+            Indexeren draait op de achtergrond zonder de UI of workflow te blokkeren.
+          </p>
+          <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+            <label class="toggle-item">
+              <input type="checkbox" id="rag-purge-checkbox">
+              <span style="color: var(--danger-color); font-weight: bold;">⚠️ Start opnieuw vanaf een lege RAG (Volledige purge &amp; rebuild)</span>
+            </label>
+            <div style="display: flex; gap: 0.5rem;">
+              <button class="btn btn-success" onclick="triggerRagReindex(true)">➕ Nieuwe blogposts toevoegen (Incrementeel)</button>
+              <button class="btn btn-warning" onclick="triggerRagReindex(false)">🚀 Herindexeren Starten</button>
+            </div>
+          </div>
+        </div>
+
+        <h4>Geïndexeerde Artikelen</h4>
+        <div id="rag-articles-list" style="max-height: 300px; overflow-y: auto; font-size: 0.85rem; border: 1px solid var(--border-color); border-radius: 6px; padding: 0.5rem;">
+          <em>Laden...</em>
+        </div>
+      </div>
     </div>
+
   </div>
 
   <!-- Modal: Nieuwe Post Initialiseren -->

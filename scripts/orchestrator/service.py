@@ -551,12 +551,16 @@ class WorkflowService:
 
     def search_archive(self, query: str, top_k: int = 5) -> list[dict[str, Any]]:
         """Zoek semantisch in het blogpost archief (RAG Vectorstore - ADR-006)."""
-        archive_vectorstore.index_all_posts(posts_root())
+        archive_vectorstore.index_all_posts(posts_root(), incremental=True)
         return archive_vectorstore.search(query=query, top_k=top_k)
 
-    def reindex_archive(self) -> dict[str, Any]:
-        """Herindexeer alle blogposts in posts/ naar de RAG Vectorstore."""
-        count = archive_vectorstore.index_all_posts(posts_root())
+    def get_rag_status(self) -> dict[str, Any]:
+        """Haal RAG index status en statistieken op (ADR-008)."""
+        return archive_vectorstore.get_status()
+
+    def reindex_archive(self, purge: bool = False, incremental: bool = False) -> dict[str, Any]:
+        """Herindexeer blogposts in posts/ naar de RAG Vectorstore (ADR-008)."""
+        count = archive_vectorstore.index_all_posts(posts_root(), incremental=incremental, purge=purge)
         return {"ok": True, "indexed_chunks": count}
 
     def validate_alignment(

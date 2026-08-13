@@ -9,12 +9,19 @@ function switchAppMode(mode) {
   currentMode = mode;
   document.getElementById('btn-mode-1').classList.toggle('active', mode === 1);
   document.getElementById('btn-mode-2').classList.toggle('active', mode === 2);
-  
+  const btn3 = document.getElementById('btn-mode-3');
+  if (btn3) btn3.classList.toggle('active', mode === 3);
+
   document.getElementById('modus-1-view').style.display = mode === 1 ? 'block' : 'none';
   document.getElementById('modus-2-view').style.display = mode === 2 ? 'block' : 'none';
+  const v3 = document.getElementById('modus-3-view');
+  if (v3) v3.style.display = mode === 3 ? 'block' : 'none';
 
   if (mode === 1 && !chatStarted) {
     initChatSession();
+  } else if (mode === 3) {
+    loadRagStatus();
+    loadSavedAdminToken();
   }
 }
 
@@ -109,13 +116,15 @@ const PHASES = [
 
 document.addEventListener('DOMContentLoaded', () => {
   loadPostsList();
+  checkRagStatus();
   setInterval(() => {
-    if (activeSlug) {
+    if (activeSlug && currentMode === 2) {
       loadPostDetail(activeSlug, false);
-    } else {
+    } else if (currentMode === 2) {
       loadPostsList();
     }
-  }, 5000);
+    checkRagStatus();
+  }, 4000);
 });
 
 // --- API Calls ---
@@ -455,4 +464,103 @@ function escapeHTML(str) {
   return str ? str.replace(/[&<>'"]/g, 
     tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
   ) : '';
+}
+
+// --- Modus 3: Admin & RAG Settings Handlers ---
+
+function getAdminToken() {
+  return sessionStorage.getItem('ADMIN_TOKEN') || '';
+}
+
+function saveAdminToken() {
+  const token = document.getElementById('admin-token-input').value.trim();
+  sessionStorage.setItem('ADMIN_TOKEN', token);
+  const msg = document.getElementById('token-status-msg');
+  if (msg) msg.textContent = '✓ ADMIN_TOKEN opgeslagen in sessie-geheugen.';
+}
+
+function loadSavedAdminToken() {
+  const input = document.getElementById('admin-token-input');
+  if (input) input.value = getAdminToken();
+}
+
+async function loadRagStatus() {
+  try {
+    const data = await fetchJSON('/api/rag/status');
+    updateRagDashboard(data);
+  } catch (err) {
+    console.error('Fout bij ophalen RAG status:', err);
+  }
+}
+
+function updateRagDashboard(data) {
+  const chunksEl = document.getElementById('rag-stat-chunks');
+  const postsEl = document.getElementById('rag-stat-posts');
+  const timeEl = document.getElementById('rag-stat-time');
+  const articlesListEl = document.getElementById('rag-articles-list');
+  const bannerEl = document.getElementById('global-banner');
+
+  if (chunksEl) chunksEl.textContent = data.total_chunks || 0;
+  if (postsEl) postsEl.textContent = data.total_posts || 0;
+  if (timeEl) timeEl.textContent = data.last_indexed_at ? new Date(data.last_indexed_at).toLocaleString('nl-NL') : 'Nooit';
+
+  if (bannerEl) {
+    bannerEl.style.display = data.running ? 'flex' : 'none';
+  }
+
+  if (articlesListEl && data.articles) {
+    if (data.articles.length === 0) {
+      articlesListEl.innerHTML = '<em>Geen geïndexeerde artikelen gevonden.</em>';
+    } else {
+      articlesListEl.innerHTML = data.articles.map(a => `
+        <div style="display: flex; justify-content: space-between; padding: 0.4rem 0.6rem; border-bottom: 1px solid var(--border-color);">
+          <strong><code>${escapeHTML(a.slug)}</code></strong>
+          <span style="color: var(--text-secondary);">${a.chunks_count} chunks | Gewijzigd: ${new Date(a.last_modified).toLocaleDateString('nl-NL')}</span>
+        </div>
+      `).join('');
+    }
+  }
+}
+
+async function checkRagStatus() {
+  try {
+    const data = await fetchJSON('/api/rag/status');
+    const bannerEl = document.getElementById('global-banner');
+    if (bannerEl) {
+      bannerEl.style.display = data.running ? 'flex' : 'none';
+    }
+    if (currentMode === 3) {
+      updateRagDashboard(data);
+    }
+  } catch (err) {
+    // Stille faal bij status polling
+  }
+}
+
+async function triggerRagReindex(isIncrementalOnly) {
+  const token = getAdminToken();
+  const purge = document.getElementById('rag-purge-checkbox').checked;
+
+  if (purge && !confirm('Weet je zeker dat je de gehele RAG index wilt wissen en vanaf nul wilt opbouwen?')) {
+    return;
+  }
+
+  try {
+    const res = await fetchJSON('/api/rag/reindex-async', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Admin-Token': token
+      },
+      body: JSON.stringify({
+        purge_and_rebuild: purge,
+        incremental: isIncrementalOnly && !purge
+      })
+    });
+
+    alert(`🚀 ${res.message}`);
+    checkRagStatus();
+  } catch (err) {
+    alert(`Fout bij starten indexering: ${err.message}`);
+  }
 }

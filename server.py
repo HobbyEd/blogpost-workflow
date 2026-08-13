@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 from typing import Any, Optional
-from fastapi import FastAPI, HTTPException, status
+from fastapi import BackgroundTasks, FastAPI, Header, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -77,6 +77,11 @@ class ChatFinalizeRequest(BaseModel):
 class ResolveAlignmentRequest(BaseModel):
     action: str = Field(..., description="Actie: 'progressive_insight' of 'error_rejected'")
     note: Optional[str] = Field(None, description="Toelichtingsnotitie van de auteur bij voortschrijdend inzicht of afwijzing")
+
+
+class ReindexRequest(BaseModel):
+    purge_and_rebuild: bool = Field(False, description="Wis bestaande RAG index en bouw vanaf nul op")
+    incremental: bool = Field(True, description="Indexeer uitsluitend nieuwe blogposts")
 
 
 from scripts.orchestrator.brainstorm import (
@@ -319,6 +324,12 @@ def finalize_chat(req: ChatFinalizeRequest) -> dict[str, Any]:
 
 # --- Modus 4: RAG Archief Vectorstore & Archief-Alignment Endpoints ---
 
+@app.get("/api/rag/status")
+def get_rag_status() -> dict[str, Any]:
+    """Haal de actuele status, statistieken en geïndexeerde artikelen van de RAG vectorstore op (ADR-008)."""
+    return service.get_rag_status()
+
+
 @app.get("/api/rag/search")
 def search_rag_archive(q: str, top_k: int = 5) -> dict[str, Any]:
     """Zoek semantisch in eerdere blogposts (ADR-006 RAG Vectorstore)."""
@@ -332,8 +343,36 @@ def search_rag_archive(q: str, top_k: int = 5) -> dict[str, Any]:
 
 @app.post("/api/rag/reindex")
 def reindex_rag_archive() -> dict[str, Any]:
-    """Herindexeer alle schijf-artefacten in posts/ naar de RAG Vectorstore."""
+    """Herindexeer alle schijf-artefacten in posts/ naar de RAG Vectorstore (synchroon)."""
     return service.reindex_archive()
+
+
+@app.post("/api/rag/reindex-async", status_code=status.HTTP_202_ACCEPTED)
+def reindex_rag_archive_async(
+    req: ReindexRequest,
+    background_tasks: BackgroundTasks,
+    x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token"),
+) -> dict[str, Any]:
+    """Herindexeer het RAG archief op de achtergrond (non-blocking, beveiligd met ADMIN_TOKEN - ADR-008)."""
+    expected_token = os.environ.get("ADMIN_TOKEN") or os.environ.get("admin_token")
+    if expected_token and x_admin_token != expected_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Onbevoegd: Ongeldige of ontbrekende ADMIN_TOKEN.",
+        )
+
+    background_tasks.add_task(
+        service.reindex_archive,
+        purge=req.purge_and_rebuild,
+        incremental=req.incremental and not req.purge_and_rebuild,
+    )
+
+    return {
+        "ok": True,
+        "status": "indexing_started",
+        "message": "RAG-indexering gestart op de achtergrond.",
+        "purge": req.purge_and_rebuild,
+    }
 
 
 @app.post("/api/posts/{slug}/validate-alignment")
