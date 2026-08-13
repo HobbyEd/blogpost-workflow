@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Blogpost Command Center UI</title>
-  <link rel="stylesheet" href="/static/styles.css?v=1.3.0">
+  <link rel="stylesheet" href="/static/styles.css?v=1.4.0">
 </head>
 <body>
 
@@ -19,7 +19,7 @@
     <div class="brand">
       <div class="brand-icon">B</div>
       <h1>Blogpost Command Center</h1>
-      <span style="background: var(--accent-primary); color: white; font-weight: bold;">v1.3 (Web UI - Toast Banners &amp; Live Progress)</span>
+      <span style="background: var(--accent-primary); color: white; font-weight: bold;">v1.4 (Web UI - Full 70 Article RAG &amp; Zero Popups)</span>
     </div>
 
     <!-- Mode Switcher -->
@@ -288,6 +288,38 @@
     </div>
   </div>
 
+  <!-- Modal: Generieke Bevestiging -->
+  <div class="modal-backdrop" id="confirm-modal" style="display: none;">
+    <div class="modal">
+      <div class="modal-title" id="confirm-modal-title">⚠️ Bevestiging vereist</div>
+      <p id="confirm-modal-body" style="font-size: 0.9rem; margin-bottom: 1.5rem; color: var(--text-primary);"></p>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" onclick="closeConfirmModal(false)">Annuleren</button>
+        <button type="button" class="btn btn-danger" onclick="closeConfirmModal(true)">Ja, uitvoeren</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Discrepantie Notitie Modal -->
+  <div class="modal-backdrop" id="discrepancy-modal" style="display: none;">
+    <div class="modal">
+      <div class="modal-title">💡 Voortschrijdend Inzicht Toelichting</div>
+      <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1rem;">
+        Geef een toelichting voor het accepteren van deze inhoudelijke afwijking.
+      </p>
+      <form onsubmit="handleDiscrepancyFormSubmit(event)">
+        <div class="form-group">
+          <label for="discrepancy-note-input">Toelichting (verplicht)</label>
+          <textarea id="discrepancy-note-input" class="form-control" rows="3" placeholder="Bijv: Nieuwe inzichten vervangen de eerdere aanname." required></textarea>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" onclick="closeDiscrepancyModal()">Annuleren</button>
+          <button type="submit" class="btn btn-success">✓ Opslaan &amp; Goedkeuren</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <script>
     function switchAppMode(mode) {
       console.log('Switching to mode:', mode);
@@ -315,6 +347,6 @@
       }
     }
   </script>
-  <script src="/static/app_v2.js?v=1.3.0"></script>
+  <script src="/static/app_v2.js?v=1.4.0"></script>
 </body>
 </html>

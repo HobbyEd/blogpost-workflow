@@ -5,6 +5,7 @@ let currentMode = 2; // Default Modus 2 (Stepper)
 let chatSessionId = 'session_' + Date.now();
 let chatStarted = false;
 let ragPollTimer = null;
+let confirmResolver = null;
 
 function showNotification(message, type = 'info', duration = 4000) {
   let container = document.getElementById('toast-container');
@@ -35,6 +36,52 @@ function showNotification(message, type = 'info', duration = 4000) {
     toast.style.transform = 'translateX(100%)';
     setTimeout(() => toast.remove(), 300);
   }, duration);
+}
+
+function showConfirm(title, message) {
+  return new Promise((resolve) => {
+    confirmResolver = resolve;
+    const tEl = document.getElementById('confirm-modal-title');
+    const bEl = document.getElementById('confirm-modal-body');
+    const mEl = document.getElementById('confirm-modal');
+    if (tEl) tEl.innerText = title;
+    if (bEl) bEl.innerText = message;
+    if (mEl) mEl.style.display = 'flex';
+  });
+}
+
+function closeConfirmModal(result) {
+  const mEl = document.getElementById('confirm-modal');
+  if (mEl) mEl.style.display = 'none';
+  if (confirmResolver) {
+    confirmResolver(result);
+    confirmResolver = null;
+  }
+}
+
+function openDiscrepancyModal(action) {
+  if (action === 'error_rejected') {
+    executeResolveDiscrepancy('error_rejected', 'Afgekeurd als inhoudelijke fout');
+    return;
+  }
+  const m = document.getElementById('discrepancy-modal');
+  if (m) m.style.display = 'flex';
+}
+
+function closeDiscrepancyModal() {
+  const m = document.getElementById('discrepancy-modal');
+  if (m) m.style.display = 'none';
+}
+
+async function handleDiscrepancyFormSubmit(event) {
+  event.preventDefault();
+  const note = document.getElementById('discrepancy-note-input').value.trim();
+  if (!note) {
+    showNotification('Toelichting is verplicht bij voortschrijdend inzicht.', 'warning');
+    return;
+  }
+  closeDiscrepancyModal();
+  await executeResolveDiscrepancy('progressive_insight', note);
 }
 
 function switchAppMode(mode) {
@@ -389,11 +436,7 @@ async function executeReject() {
 }
 
 async function executeResolveDiscrepancy(action, customNote = null) {
-  const note = customNote || (action === 'progressive_insight' ? prompt("Geef een toelichting voor het voortschrijdend inzicht:") : "Afgekeurd als inhoudelijke fout");
-  if (action === 'progressive_insight' && (!note || !note.trim())) {
-    showNotification("Een toelichting is verplicht bij voortschrijdend inzicht.", "warning");
-    return;
-  }
+  const note = customNote || "Afgekeurd als inhoudelijke fout";
 
   try {
     await fetchJSON(`/api/posts/${activeSlug}/resolve-alignment`, {
@@ -616,10 +659,10 @@ function updateRagDashboard(data) {
       pBox.style.display = 'block';
       if (pBar) pBar.style.width = '100%';
       if (pPct) pPct.textContent = '100%';
-      if (pMsg) pMsg.textContent = '✅ RAG-indexering succesvol voltooid!';
+      if (pMsg) pMsg.textContent = `✅ RAG-indexering succesvol voltooid! (${data.total_posts} artikelen, ${data.total_chunks} chunks)`;
       setTimeout(() => {
         if (!data.running && pBox) pBox.style.display = 'none';
-      }, 3500);
+      }, 4000);
     } else {
       pBox.style.display = 'none';
     }
@@ -631,8 +674,11 @@ function updateRagDashboard(data) {
     } else {
       articlesListEl.innerHTML = data.articles.map(a => `
         <div style="display: flex; justify-content: space-between; padding: 0.4rem 0.6rem; border-bottom: 1px solid var(--border-color);">
-          <strong><code>${escapeHTML(a.slug)}</code></strong>
-          <span style="color: var(--text-secondary);">${a.chunks_count} chunks | Gewijzigd: ${formatDateStr(a.last_modified)}</span>
+          <div>
+            <strong><code>${escapeHTML(a.slug)}</code></strong>
+            ${a.title && a.title !== a.slug ? `<div style="font-size: 0.8rem; color: var(--text-secondary);">${escapeHTML(a.title)}</div>` : ''}
+          </div>
+          <span style="color: var(--text-secondary); font-size: 0.8rem;">${a.chunks_count} chunks | Gewijzigd: ${formatDateStr(a.last_modified)}</span>
         </div>
       `).join('');
     }
@@ -658,8 +704,12 @@ async function triggerRagReindex(isIncrementalOnly) {
   const token = getAdminToken();
   const purge = document.getElementById('rag-purge-checkbox').checked;
 
-  if (purge && !confirm('Weet je zeker dat je de gehele RAG index wilt wissen en vanaf nul wilt opbouwen?')) {
-    return;
+  if (purge) {
+    const confirmed = await showConfirm(
+      '⚠️ RAG Index Wissen & Herbouwen',
+      'Weet je zeker dat je de gehele RAG index wilt wissen en alle 57+ artikelen opnieuw wilt ophalen van edwinvandillen.nl?'
+    );
+    if (!confirmed) return;
   }
 
   const pBox = document.getElementById('rag-progress-box');
@@ -693,7 +743,7 @@ async function triggerRagReindex(isIncrementalOnly) {
       if (data && !data.running) {
         clearInterval(ragPollTimer);
         ragPollTimer = null;
-        showNotification(`✅ RAG Indexering voltooid! Totaal ${data.total_chunks} chunks geïndexeerd.`, 'success', 5000);
+        showNotification(`✅ RAG Indexering voltooid! Totaal ${data.total_posts} artikelen en ${data.total_chunks} chunks geïndexeerd.`, 'success', 6000);
       }
     }, 200);
 

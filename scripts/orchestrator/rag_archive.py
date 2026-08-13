@@ -13,7 +13,9 @@ import re
 import time
 from collections import Counter
 from datetime import datetime
+from html import unescape
 from typing import Any
+import httpx
 
 from .repository import now_iso, posts_root, repo_root
 
@@ -24,8 +26,8 @@ def _tokenize(text: str) -> list[str]:
     """Zet tekst om naar opgeschoonde lowercase unigrammen en bigrammen."""
     text_clean = re.sub(r"[^\w\s]", " ", text.lower())
     words = [w for w in text_clean.split() if len(w) > 2]
-    bigrams = [f"{words[i]}_{words[i+1]}" for i in range(len(words) - 1)]
-    return words + bigrams
+    bigrammen = [f"{words[i]}_{words[i+1]}" for i in range(len(words) - 1)]
+    return words + bigrammen
 
 
 class LocalRAGArchive:
@@ -43,18 +45,15 @@ class LocalRAGArchive:
         self.load_index()
 
     def load_index(self) -> None:
-        """Laad bestaande index vanaf schijf indien aanwezig."""
-        if os.path.isfile(self.index_path):
+        """Laad de vectorindex van schijf (ADR-008)."""
+        if os.path.exists(self.index_path):
             try:
                 with open(self.index_path, "r", encoding="utf-8") as f:
                     data = json.load(f)
-                    if isinstance(data, dict):
-                        self.documents = data.get("documents", [])
-                        self.last_indexed_at = data.get("last_indexed_at")
-                    elif isinstance(data, list):
-                        self.documents = data
+                    self.last_indexed_at = data.get("last_indexed_at")
+                    self.documents = data.get("documents", [])
             except Exception as e:
-                print(f"Waarschuwing: Kon RAG index niet laden: {e}")
+                print(f"Waarschuwing: Kan RAG-index niet laden: {e}")
                 self.documents = []
 
     def save_index(self) -> None:
@@ -81,6 +80,7 @@ class LocalRAGArchive:
             if slug not in articles_map:
                 articles_map[slug] = {
                     "slug": slug,
+                    "title": doc.get("title", slug),
                     "chunks_count": 0,
                     "last_modified": doc.get("mtime", "onbekend"),
                 }
@@ -101,32 +101,76 @@ class LocalRAGArchive:
             "articles": list(articles_map.values()),
         }
 
+    def fetch_wordpress_posts(self, delay_seconds: float = 0.4) -> list[dict[str, Any]]:
+        """Haalt gepubliceerde artikelen op via de WordPress REST API van edwinvandillen.nl met rate-limiting."""
+        base_url = "https://edwinvandillen.nl/?rest_route=/wp/v2/posts"
+        page = 1
+        all_wp_docs: list[dict[str, Any]] = []
+
+        while True:
+            url = f"{base_url}&per_page=10&page={page}"
+            try:
+                r = httpx.get(url, timeout=15)
+                if r.status_code != 200:
+                    break
+                posts = r.json()
+                if not posts:
+                    break
+
+                for p in posts:
+                    slug = p.get("slug", "")
+                    title = unescape(p.get("title", {}).get("rendered", slug))
+                    modified = p.get("modified", now_iso())
+                    raw_content = p.get("content", {}).get("rendered", "")
+                    clean_text = unescape(re.sub(r"<[^>]+>", " ", raw_content))
+                    paragraphs = [para.strip() for para in re.split(r"\n\s*\n", clean_text) if len(para.strip()) > 40]
+
+                    for p_idx, para in enumerate(paragraphs):
+                        tokens = _tokenize(para)
+                        if tokens:
+                            all_wp_docs.append({
+                                "slug": slug,
+                                "title": title,
+                                "filename": "wordpress_live",
+                                "chunk_id": f"wp:{slug}:{p_idx}",
+                                "mtime": modified,
+                                "text": para,
+                                "tokens": tokens,
+                            })
+
+                total_pages = int(r.headers.get("X-WP-TotalPages", 1))
+                if page >= total_pages:
+                    break
+                page += 1
+                time.sleep(delay_seconds)
+            except Exception as e:
+                print(f"Fout bij ophalen WordPress pagina {page}: {e}")
+                break
+
+        return all_wp_docs
+
     def index_all_posts(
         self, root_dir: str | None = None, incremental: bool = False, purge: bool = False
     ) -> int:
-        """Scant en indexeert Markdown bestanden in posts/ (ADR-008)."""
+        """Scant en indexeert zowel lokale Markdown bestanden als live WordPress artikelen (ADR-008)."""
         self.is_indexing = True
         try:
             pdir = root_dir or posts_root()
-            if not os.path.exists(pdir):
-                return 0
-
             if purge:
                 self.documents = []
 
             indexed_slugs = {d["slug"] for d in self.documents} if incremental else set()
             new_docs: list[dict[str, Any]] = list(self.documents) if incremental else []
 
-            entries = [e for e in sorted(os.listdir(pdir)) if os.path.isdir(os.path.join(pdir, e)) and not e.startswith(".")]
-            self.progress_total = len(entries)
+            local_entries = [e for e in sorted(os.listdir(pdir)) if os.path.isdir(os.path.join(pdir, e)) and not e.startswith(".")] if os.path.exists(pdir) else []
+            self.progress_total = len(local_entries) + 6
             self.progress_current = 0
 
-            for idx, entry in enumerate(entries, 1):
+            for idx, entry in enumerate(local_entries, 1):
                 self.progress_current = idx
                 self.current_item = entry
-                self.status_message = f"Indexeren van '{entry}' ({idx}/{len(entries)})..."
+                self.status_message = f"Indexeren van lokale post '{entry}' ({idx}/{len(local_entries)})..."
                 post_path = os.path.join(pdir, entry)
-                time.sleep(0.04)
 
                 if incremental and entry in indexed_slugs:
                     continue
@@ -145,6 +189,7 @@ class LocalRAGArchive:
                                 if tokens:
                                     new_docs.append({
                                         "slug": entry,
+                                        "title": entry,
                                         "filename": fname,
                                         "chunk_id": f"{entry}:{fname}:{p_idx}",
                                         "mtime": mtime,
@@ -154,9 +199,19 @@ class LocalRAGArchive:
                         except Exception as e:
                             print(f"Fout bij indexeren {fpath}: {e}")
 
+            self.status_message = "Ophalen live artikelen van edwinvandillen.nl (WordPress REST API)..."
+            wp_docs = self.fetch_wordpress_posts(delay_seconds=0.4)
+
+            existing_chunk_ids = {d["chunk_id"] for d in new_docs}
+            for doc in wp_docs:
+                if doc["chunk_id"] not in existing_chunk_ids:
+                    new_docs.append(doc)
+
+            self.progress_current = self.progress_total
             self.documents = new_docs
             self.save_index()
-            self.status_message = f"Indexatie afgerond: {len(self.documents)} chunks in index."
+            unique_posts = len({d["slug"] for d in self.documents})
+            self.status_message = f"Indexatie afgerond: {len(self.documents)} chunks uit {unique_posts} artikelen geïndexeerd."
             self.current_item = ""
             return len(self.documents)
         finally:
