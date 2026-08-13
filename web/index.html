@@ -11,7 +11,7 @@
   <!-- Global Background Indexer Banner -->
   <div id="global-banner" class="global-banner" style="display: none;">
     <span class="banner-pulse"></span>
-    <span>⚠️ <strong>RAG-indexering actief op de achtergrond...</strong> (Gegevens worden bijgewerkt. Je kunt gewoon doorwerken.)</span>
+    <span id="global-banner-text">⚠️ <strong>RAG-indexering actief op de achtergrond...</strong> (Gegevens worden bijgewerkt. Je kunt gewoon doorwerken.)</span>
   </div>
 
   <!-- Header -->
@@ -171,6 +171,18 @@
             <div style="font-size: 0.75rem; color: var(--text-secondary);">LAATSTE INDEXATIE</div>
             <div style="font-size: 0.9rem; font-weight: bold; color: var(--text-primary);" id="rag-stat-time">Nooit</div>
           </div>
+        </div>
+
+        <!-- Live Progress Indicator Box -->
+        <div id="rag-progress-box" class="card mb-1" style="background: var(--bg-tertiary); display: none;">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+            <strong id="rag-progress-title">⚡ RAG Indexering actief...</strong>
+            <span id="rag-progress-pct" style="font-weight: bold; color: var(--accent-color);">0%</span>
+          </div>
+          <div style="width: 100%; background: var(--bg-hover); height: 10px; border-radius: 5px; overflow: hidden; margin-bottom: 0.5rem;">
+            <div id="rag-progress-bar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #2563eb, #10b981); transition: width 0.3s;"></div>
+          </div>
+          <div id="rag-progress-msg" style="font-size: 0.8rem; color: var(--text-secondary);">Initialiseren...</div>
         </div>
 
         <div class="card mb-1" style="background: var(--bg-tertiary);">

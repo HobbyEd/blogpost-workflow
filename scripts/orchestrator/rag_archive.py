@@ -32,13 +32,14 @@ class LocalRAGArchive:
     """Lokale BM25/TF-IDF Vectorstore voor het blogpost archief."""
 
     def __init__(self, index_path: str | None = None):
-        if index_path:
-            self.index_path = index_path
-        else:
-            self.index_path = os.path.join(posts_root(), INDEX_FILE_NAME)
+        self.index_path = index_path or os.path.join(posts_root(), INDEX_FILE_NAME)
         self.documents: list[dict[str, Any]] = []
-        self.is_indexing: bool = False
         self.last_indexed_at: str | None = None
+        self.is_indexing: bool = False
+        self.progress_current: int = 0
+        self.progress_total: int = 0
+        self.current_item: str = ""
+        self.status_message: str = ""
         self.load_index()
 
     def load_index(self) -> None:
@@ -85,11 +86,18 @@ class LocalRAGArchive:
                 }
             articles_map[slug]["chunks_count"] += 1
 
+        pct = int((self.progress_current / self.progress_total) * 100) if self.progress_total > 0 else (0 if self.is_indexing else 100)
+
         return {
             "running": self.is_indexing,
             "last_indexed_at": self.last_indexed_at,
             "total_chunks": len(self.documents),
             "total_posts": len(articles_map),
+            "progress_current": self.progress_current,
+            "progress_total": self.progress_total,
+            "percentage": pct,
+            "current_item": self.current_item,
+            "status_message": self.status_message or ("Aan het indexeren..." if self.is_indexing else "Gereed"),
             "articles": list(articles_map.values()),
         }
 
@@ -109,10 +117,15 @@ class LocalRAGArchive:
             indexed_slugs = {d["slug"] for d in self.documents} if incremental else set()
             new_docs: list[dict[str, Any]] = list(self.documents) if incremental else []
 
-            for entry in os.listdir(pdir):
+            entries = [e for e in sorted(os.listdir(pdir)) if os.path.isdir(os.path.join(pdir, e)) and not e.startswith(".")]
+            self.progress_total = len(entries)
+            self.progress_current = 0
+
+            for idx, entry in enumerate(entries, 1):
+                self.progress_current = idx
+                self.current_item = entry
+                self.status_message = f"Indexeren van '{entry}' ({idx}/{len(entries)})..."
                 post_path = os.path.join(pdir, entry)
-                if not os.path.isdir(post_path) or entry.startswith("."):
-                    continue
 
                 if incremental and entry in indexed_slugs:
                     continue
@@ -126,13 +139,13 @@ class LocalRAGArchive:
                                 content = f.read()
 
                             paragraphs = [p.strip() for p in content.split("\n\n") if len(p.strip()) > 40]
-                            for idx, para in enumerate(paragraphs):
+                            for p_idx, para in enumerate(paragraphs):
                                 tokens = _tokenize(para)
                                 if tokens:
                                     new_docs.append({
                                         "slug": entry,
                                         "filename": fname,
-                                        "chunk_id": f"{entry}:{fname}:{idx}",
+                                        "chunk_id": f"{entry}:{fname}:{p_idx}",
                                         "mtime": mtime,
                                         "text": para,
                                         "tokens": tokens,
@@ -142,6 +155,8 @@ class LocalRAGArchive:
 
             self.documents = new_docs
             self.save_index()
+            self.status_message = f"Indexatie afgerond: {len(self.documents)} chunks in index."
+            self.current_item = ""
             return len(self.documents)
         finally:
             self.is_indexing = False

@@ -541,13 +541,32 @@ function updateRagDashboard(data) {
   const timeEl = document.getElementById('rag-stat-time');
   const articlesListEl = document.getElementById('rag-articles-list');
   const bannerEl = document.getElementById('global-banner');
+  const bannerText = document.getElementById('global-banner-text');
+
+  const pBox = document.getElementById('rag-progress-box');
+  const pBar = document.getElementById('rag-progress-bar');
+  const pPct = document.getElementById('rag-progress-pct');
+  const pMsg = document.getElementById('rag-progress-msg');
 
   if (chunksEl) chunksEl.textContent = data.total_chunks || 0;
   if (postsEl) postsEl.textContent = data.total_posts || 0;
   if (timeEl) timeEl.textContent = data.last_indexed_at ? formatDateStr(data.last_indexed_at) : 'Nooit';
 
+  const pct = data.percentage || 0;
+  const isRunning = !!data.running;
+
   if (bannerEl) {
-    bannerEl.style.display = data.running ? 'flex' : 'none';
+    bannerEl.style.display = isRunning ? 'flex' : 'none';
+    if (bannerText) {
+      bannerText.innerHTML = `⚠️ <strong>RAG-indexering actief: [ ${pct}% ]</strong> (${data.progress_current || 0}/${data.progress_total || 0} posts) - ${escapeHTML(data.status_message || '')}`;
+    }
+  }
+
+  if (pBox) {
+    pBox.style.display = isRunning ? 'block' : 'none';
+    if (pBar) pBar.style.width = `${pct}%`;
+    if (pPct) pPct.textContent = `${pct}%`;
+    if (pMsg) pMsg.textContent = data.status_message || (isRunning ? 'Indexeren...' : 'Voltooid');
   }
 
   if (articlesListEl && data.articles) {
