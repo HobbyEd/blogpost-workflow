@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Blogpost Command Center UI</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+
+  <!-- Header -->
+  <header>
+    <div class="brand">
+      <div class="brand-icon">B</div>
+      <h1>Blogpost Command Center</h1>
+      <span>v1.0 (Web UI)</span>
+    </div>
+    <div>
+      <button class="btn btn-secondary" onclick="openInitModal()">+ Nieuwe Blogpost</button>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <div class="container">
+    <div class="grid-layout">
+      
+      <!-- Sidebar / Posts list -->
+      <div class="sidebar">
+        <div class="section-title">
+          <span>Blogposts</span>
+          <span id="posts-count">0</span>
+        </div>
+        <div class="posts-list" id="posts-list">
+          <div style="color: var(--text-secondary); font-size: 0.85rem;">Laden van posts...</div>
+        </div>
+      </div>
+
+      <!-- Main Workspace -->
+      <div class="main-content">
+        
+        <div class="card" id="detail-card">
+          
+          <div class="card-header">
+            <div class="post-heading">
+              <h2 id="post-title">Selecteer een blogpost</h2>
+              <div class="post-slug-label" id="post-slug">Kies een post in de linker kolom om de status te bekijken</div>
+            </div>
+            <div id="post-status-badge"></div>
+          </div>
+
+          <!-- Visuele Bolletjesketen (Stepper) -->
+          <div class="stepper-container">
+            <div class="stepper" id="stepper-bar">
+              <!-- Dynamisch gevuld door app.js -->
+            </div>
+          </div>
+
+          <!-- Controls Bar -->
+          <div class="controls-bar" id="controls-bar" style="display: none;">
+            <div id="action-buttons">
+              <!-- Actieknoppen op basis van state.next -->
+            </div>
+
+            <div class="toggles-group">
+              <label class="toggle-item" title="Automatisch soft-gates doorlopen">
+                <input type="checkbox" id="toggle-yolo" onchange="toggleFlag('yolo_mode', this.checked)">
+                <strong>YOLO Modus</strong>
+              </label>
+              <label class="toggle-item" title="Sla Grok-synthese stap over">
+                <input type="checkbox" id="toggle-skip-synth" onchange="toggleFlag('skip_synthesis', this.checked)">
+                <span>Skip Synthese</span>
+              </label>
+              <label class="toggle-item" title="Uitstel van Grok-critique">
+                <input type="checkbox" id="toggle-defer-critique" onchange="toggleFlag('defer_critique', this.checked)">
+                <span>Defer Critique</span>
+              </label>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Artefact / Markdown Viewer Card -->
+        <div class="card viewer-card" id="viewer-card" style="display: none;">
+          <div class="tab-nav" id="tab-nav">
+            <button class="tab-btn active" onclick="showTab('status')">Statustabel</button>
+            <button class="tab-btn" onclick="showTab('outline')">Outline.md</button>
+            <button class="tab-btn" onclick="showTab('draft')">Draft.md</button>
+            <button class="tab-btn" onclick="showTab('grok')">Grok-Feedback</button>
+            <button class="tab-btn" onclick="showTab('factcheck')">Feitencheck</button>
+          </div>
+          <div class="markdown-preview" id="tab-content">
+            Selecteer een tabblad om de inhoud te bekijken.
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Modal: Nieuwe Post Initialiseren -->
+  <div class="modal-backdrop" id="init-modal" style="display: none;">
+    <div class="modal">
+      <div class="modal-title">Nieuwe Blogpost Initialiseren</div>
+      <form onsubmit="handleInitSubmit(event)">
+        <div class="form-group">
+          <label for="init-slug">Slug (kebab-case)</label>
+          <input type="text" id="init-slug" class="form-control" placeholder="bijv. intentie-3-architectuur" required pattern="[a-z0-9]+(-[a-z0-9]+)*">
+        </div>
+        <div class="form-group">
+          <label for="init-titel">Werktitel</label>
+          <input type="text" id="init-titel" class="form-control" placeholder="bijv. Intentie-gedreven engineering - Deel 3" required>
+        </div>
+        <div class="form-group">
+          <label class="toggle-item">
+            <input type="checkbox" id="init-yolo">
+            <span>Direct in YOLO-modus starten</span>
+          </label>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" onclick="closeInitModal()">Annuleren</button>
+          <button type="submit" class="btn">Aanmaken</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Deploy Akkoord -->
+  <div class="modal-backdrop" id="deploy-modal" style="display: none;">
+    <div class="modal">
+      <div class="modal-title">Deploy Akkoord (Approve Deploy)</div>
+      <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1rem;">
+        Dit vinkt <code>deploy_approved</code> aan en uploadt de concept-post naar WordPress als draft.
+      </p>
+      <form onsubmit="handleDeploySubmit(event)">
+        <div class="form-group">
+          <label for="deploy-note">Optionele Notitie</label>
+          <input type="text" id="deploy-note" class="form-control" placeholder="bijv. Akkoord voor concept-upload">
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" onclick="closeDeployModal()">Annuleren</button>
+          <button type="submit" class="btn btn-success">Goedkeuren & Deployen</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

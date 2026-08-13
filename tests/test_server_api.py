@@ -25,9 +25,8 @@ class TestServerAPI(unittest.TestCase):
     def test_read_root(self) -> None:
         response = self.client.get("/")
         self.assertEqual(response.status_code, 200)
-        data = response.json()
-        self.assertEqual(data["status"], "online")
-        self.assertIn("service", data)
+        self.assertIn("html", response.headers.get("content-type", "").lower())
+        self.assertIn("Blogpost Command Center", response.text)
 
     def test_list_posts_empty(self) -> None:
         response = self.client.get("/api/posts")

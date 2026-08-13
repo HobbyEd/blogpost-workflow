@@ -57,11 +57,22 @@ class RepairRequest(BaseModel):
     apply: bool = Field(False, description="Pas voorgestelde fase-reparatie direct toe op state.json")
 
 
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+
+web_dir = os.path.join(os.path.dirname(__file__), "web")
+if os.path.isdir(web_dir):
+    app.mount("/static", StaticFiles(directory=web_dir), name="static")
+
+
 # --- Endpoints ---
 
 @app.get("/")
-def read_root() -> dict[str, str]:
-    """Health check & API status."""
+def read_root():
+    """HTML Web UI Dashboard voorpagina."""
+    index_file = os.path.join(web_dir, "index.html")
+    if os.path.isfile(index_file):
+        return FileResponse(index_file)
     return {
         "status": "online",
         "service": "Blogpost Workflow Command Center API",
