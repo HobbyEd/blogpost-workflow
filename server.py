@@ -57,6 +57,29 @@ class RepairRequest(BaseModel):
     apply: bool = Field(False, description="Pas voorgestelde fase-reparatie direct toe op state.json")
 
 
+class ChatStartRequest(BaseModel):
+    session_id: str = Field(..., description="Unieke sessie identificatie")
+    topic: str = Field(..., description="Onderwerp of voorlopige titel voor de brainstorm")
+
+
+class ChatMessageRequest(BaseModel):
+    session_id: str = Field(..., description="Sessie identificatie")
+    message: str = Field(..., description="Bericht van de auteur aan de onderzoeker")
+
+
+class ChatFinalizeRequest(BaseModel):
+    session_id: str = Field(..., description="Sessie identificatie")
+    slug: str = Field(..., description="Kebab-case slug voor de nieuwe post")
+    titel: str = Field(..., description="Definitieve of voorlopige titel")
+    yolo: bool = Field(False, description="Start direct in YOLO-modus")
+
+
+from scripts.orchestrator.brainstorm import (
+    get_brainstorm_session,
+    start_brainstorm_session,
+)
+
+
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
@@ -228,3 +251,62 @@ def import_md(slug: str, req: ImportMdRequest = ImportMdRequest()) -> dict[str, 
         raise HTTPException(status_code=404, detail=str(e))
     except FileExistsError as e:
         raise HTTPException(status_code=409, detail=str(e))
+
+
+# --- Modus 1: Socratische Chat Endpoints ---
+
+@app.post("/api/chat/start")
+def start_chat(req: ChatStartRequest) -> dict[str, Any]:
+    """Start een nieuwe Socratische brainstorm sessie (Modus 1)."""
+    sess = start_brainstorm_session(req.session_id, req.topic)
+    return {
+        "session_id": sess.session_id,
+        "topic": sess.topic,
+        "messages": sess.messages,
+    }
+
+
+@app.post("/api/chat/message")
+def send_chat_message(req: ChatMessageRequest) -> dict[str, Any]:
+    """Stuur een bericht in een actieve brainstorm sessie."""
+    sess = get_brainstorm_session(req.session_id)
+    if not sess:
+        raise HTTPException(status_code=404, detail=f"Sessie {req.session_id} niet gevonden.")
+    
+    reply = sess.add_user_message(req.message)
+    return {
+        "session_id": sess.session_id,
+        "reply": reply,
+        "messages": sess.messages,
+    }
+
+
+@app.post("/api/chat/finalize")
+def finalize_chat(req: ChatFinalizeRequest) -> dict[str, Any]:
+    """Rond brainstorm af, schrijf briefing.md en initialiseer post voor Modus 2 (Stepper)."""
+    sess = get_brainstorm_session(req.session_id)
+    if not sess:
+        raise HTTPException(status_code=404, detail=f"Sessie {req.session_id} niet gevonden.")
+
+    # Initialiseer post via service
+    init_res = service.init_post(
+        slug=req.slug,
+        titel=req.titel,
+        yolo=req.yolo,
+    )
+
+    pdir = init_res["post_dir"]
+    briefing_content = sess.generate_briefing_md(req.slug)
+    briefing_path = os.path.join(pdir, "briefing.md")
+
+    with open(briefing_path, "w", encoding="utf-8") as f:
+        f.write(briefing_content)
+
+    return {
+        "ok": True,
+        "slug": req.slug,
+        "post_dir": pdir,
+        "briefing_path": briefing_path,
+        "briefing_preview": briefing_content,
+        "state": init_res["state"],
+    }

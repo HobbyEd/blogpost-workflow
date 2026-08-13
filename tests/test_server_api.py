@@ -91,6 +91,29 @@ class TestServerAPI(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 400)
 
+    def test_chat_brainstorm_lifecycle(self) -> None:
+        session_id = "test-chat-123"
+        topic = "Socratische AI Architectuur"
+        slug = "socratische-ai-architectuur"
+
+        # 1. Start chat
+        res1 = self.client.post("/api/chat/start", json={"session_id": session_id, "topic": topic})
+        self.assertEqual(res1.status_code, 200)
+        self.assertEqual(len(res1.json()["messages"]), 1)
+
+        # 2. Stuur user bericht
+        res2 = self.client.post("/api/chat/message", json={"session_id": session_id, "message": "De kernboodschap is dat AI socratisch moet meedenken."})
+        self.assertEqual(res2.status_code, 200)
+        self.assertEqual(len(res2.json()["messages"]), 3)
+
+        # 3. Finalize chat en genereer briefing.md
+        res3 = self.client.post("/api/chat/finalize", json={"session_id": session_id, "slug": slug, "titel": topic, "yolo": True})
+        self.assertEqual(res3.status_code, 200)
+        data3 = res3.json()
+        self.assertTrue(data3["ok"])
+        self.assertTrue(os.path.isfile(data3["briefing_path"]))
+        self.assertIn("Socratische AI Architectuur", data3["briefing_preview"])
+
 
 if __name__ == "__main__":
     unittest.main()

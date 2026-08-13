@@ -15,6 +15,13 @@
       <h1>Blogpost Command Center</h1>
       <span>v1.0 (Web UI)</span>
     </div>
+
+    <!-- Mode Switcher -->
+    <div class="mode-switcher">
+      <button class="mode-btn" id="btn-mode-1" onclick="switchAppMode(1)">💡 Modus 1: Brainstorm Chat</button>
+      <button class="mode-btn active" id="btn-mode-2" onclick="switchAppMode(2)">🚀 Modus 2: Stepper Executie</button>
+    </div>
+
     <div>
       <button class="btn btn-secondary" onclick="openInitModal()">+ Nieuwe Blogpost</button>
     </div>
@@ -22,23 +29,50 @@
 
   <!-- Main Container -->
   <div class="container">
-    <div class="grid-layout">
-      
-      <!-- Sidebar / Posts list -->
-      <div class="sidebar">
-        <div class="section-title">
-          <span>Blogposts</span>
-          <span id="posts-count">0</span>
+    
+    <!-- MODUS 1: SOCRATISCHE CHAT VIEW -->
+    <div id="modus-1-view" style="display: none;">
+      <div class="chat-container">
+        <div class="chat-header">
+          <div>
+            <strong id="chat-topic-title">💡 Socratische Brainstorm & Co-Creatie</strong>
+            <div style="font-size: 0.8rem; color: var(--text-secondary);">Samen met de blogpost-onderzoeker de kernboodschap & briefing schrijven</div>
+          </div>
+          <div>
+            <button class="btn btn-success" onclick="openFinalizeModal()">📄 Genereer Briefing & Start Executie</button>
+          </div>
         </div>
-        <div class="posts-list" id="posts-list">
-          <div style="color: var(--text-secondary); font-size: 0.85rem;">Laden van posts...</div>
+        <div class="chat-messages" id="chat-messages">
+          <div class="chat-bubble assistant">
+            Welkom in <strong>Modus 1 (Brainstorm)</strong>! Vul onderin je onderwerp of idee in om de Socratische dialoog met de onderzoeker te starten.
+          </div>
         </div>
+        <form class="chat-input-bar" onsubmit="handleSendChatMessage(event)">
+          <input type="text" id="chat-input-field" class="chat-input" placeholder="Type je reactie of nieuw idee voor de onderzoeker..." required>
+          <button type="submit" class="btn">Verstuur</button>
+        </form>
       </div>
+    </div>
 
-      <!-- Main Workspace -->
-      <div class="main-content">
+    <!-- MODUS 2: EXECUTES STEPPER VIEW -->
+    <div id="modus-2-view">
+      <div class="grid-layout">
         
-        <div class="card" id="detail-card">
+        <!-- Sidebar / Posts list -->
+        <div class="sidebar">
+          <div class="section-title">
+            <span>Blogposts</span>
+            <span id="posts-count">0</span>
+          </div>
+          <div class="posts-list" id="posts-list">
+            <div style="color: var(--text-secondary); font-size: 0.85rem;">Laden van posts...</div>
+          </div>
+        </div>
+
+        <!-- Main Workspace -->
+        <div class="main-content">
+          
+          <div class="card" id="detail-card">
           
           <div class="card-header">
             <div class="post-heading">
@@ -140,6 +174,36 @@
         <div class="modal-actions">
           <button type="button" class="btn btn-secondary" onclick="closeDeployModal()">Annuleren</button>
           <button type="submit" class="btn btn-success">Goedkeuren & Deployen</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Finalize Brainstorm & Start Executie -->
+  <div class="modal-backdrop" id="finalize-modal" style="display: none;">
+    <div class="modal">
+      <div class="modal-title">Briefing Opslaan & Start Executie (Modus 2)</div>
+      <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1rem;">
+        Slaat <code>briefing.md</code> op in de nieuwe postmap en initialiseert de Stepper.
+      </p>
+      <form onsubmit="handleFinalizeChatSubmit(event)">
+        <div class="form-group">
+          <label for="finalize-slug">Slug (kebab-case)</label>
+          <input type="text" id="finalize-slug" class="form-control" placeholder="bijv. intentie-3-architectuur" required pattern="[a-z0-9]+(-[a-z0-9]+)*">
+        </div>
+        <div class="form-group">
+          <label for="finalize-titel">Werktitel</label>
+          <input type="text" id="finalize-titel" class="form-control" placeholder="bijv. Intentie-gedreven engineering - Deel 3" required>
+        </div>
+        <div class="form-group">
+          <label class="toggle-item">
+            <input type="checkbox" id="finalize-yolo" checked>
+            <span>Start direct in YOLO-modus (Stepper auto-advance)</span>
+          </label>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" onclick="closeFinalizeModal()">Annuleren</button>
+          <button type="submit" class="btn btn-success">🚀 Genereer Briefing & Start Executie</button>
         </div>
       </form>
     </div>

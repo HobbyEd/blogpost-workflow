@@ -1,8 +1,97 @@
-// Blogpost Command Center Frontend App Engine
-
 let activeSlug = null;
 let currentPostDetail = null;
 let activeTab = 'status';
+let currentMode = 2; // Default Modus 2 (Stepper)
+let chatSessionId = 'session_' + Date.now();
+let chatStarted = false;
+
+function switchAppMode(mode) {
+  currentMode = mode;
+  document.getElementById('btn-mode-1').classList.toggle('active', mode === 1);
+  document.getElementById('btn-mode-2').classList.toggle('active', mode === 2);
+  
+  document.getElementById('modus-1-view').style.display = mode === 1 ? 'block' : 'none';
+  document.getElementById('modus-2-view').style.display = mode === 2 ? 'block' : 'none';
+
+  if (mode === 1 && !chatStarted) {
+    initChatSession();
+  }
+}
+
+async function initChatSession() {
+  chatStarted = true;
+  const initialTopic = "Nieuwe AI en Intentie-gedreven Blogpost";
+  try {
+    const res = await fetchJSON('/api/chat/start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ session_id: chatSessionId, topic: initialTopic })
+    });
+    renderChatMessages(res.messages);
+  } catch (err) {
+    console.error('Chat init error:', err);
+  }
+}
+
+async function handleSendChatMessage(event) {
+  event.preventDefault();
+  const inputEl = document.getElementById('chat-input-field');
+  const text = inputEl.value.trim();
+  if (!text) return;
+  inputEl.value = '';
+
+  try {
+    const res = await fetchJSON('/api/chat/message', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ session_id: chatSessionId, message: text })
+    });
+    renderChatMessages(res.messages);
+  } catch (err) {
+    alert(`Fout bij versturen bericht: ${err.message}`);
+  }
+}
+
+function renderChatMessages(messages) {
+  const container = document.getElementById('chat-messages');
+  container.innerHTML = messages.map(m => `
+    <div class="chat-bubble ${m.role}">
+      ${escapeHTML(m.content).replace(/\n/g, '<br>')}
+    </div>
+  `).join('');
+  container.scrollTop = container.scrollHeight;
+}
+
+function openFinalizeModal() {
+  document.getElementById('finalize-modal').style.display = 'flex';
+}
+
+function closeFinalizeModal() {
+  document.getElementById('finalize-modal').style.display = 'none';
+}
+
+async function handleFinalizeChatSubmit(event) {
+  event.preventDefault();
+  const slug = document.getElementById('finalize-slug').value.trim();
+  const titel = document.getElementById('finalize-titel').value.trim();
+  const yolo = document.getElementById('finalize-yolo').checked;
+
+  try {
+    const res = await fetchJSON('/api/chat/finalize', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ session_id: chatSessionId, slug, titel, yolo })
+    });
+    closeFinalizeModal();
+    
+    // Naadloos overstappen naar Modus 2
+    switchAppMode(2);
+    await loadPostsList();
+    selectPost(slug);
+  } catch (err) {
+    alert(`Fout bij afronden brainstorm: ${err.message}`);
+  }
+}
 
 const PHASES = [
   { id: "intake", label: "Intake", hard: false },
