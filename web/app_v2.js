@@ -4,6 +4,38 @@ let activeTab = 'status';
 let currentMode = 2; // Default Modus 2 (Stepper)
 let chatSessionId = 'session_' + Date.now();
 let chatStarted = false;
+let ragPollTimer = null;
+
+function showNotification(message, type = 'info', duration = 4000) {
+  let container = document.getElementById('toast-container');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'toast-container';
+    container.className = 'toast-container';
+    document.body.appendChild(container);
+  }
+
+  const toast = document.createElement('div');
+  toast.className = `toast toast-${type}`;
+  const iconMap = { success: '✅', error: '❌', warning: '⚠️', info: 'ℹ️' };
+
+  toast.innerHTML = `
+    <div style="display: flex; gap: 0.5rem; align-items: flex-start;">
+      <span style="font-size: 1.1rem;">${iconMap[type] || 'ℹ️'}</span>
+      <div style="line-height: 1.4;">${escapeHTML(message)}</div>
+    </div>
+    <button style="background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 1rem; margin-left: 0.5rem;" onclick="this.parentElement.remove()">✕</button>
+  `;
+
+  container.appendChild(toast);
+
+  setTimeout(() => {
+    toast.style.transition = 'opacity 0.3s, transform 0.3s';
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateX(100%)';
+    setTimeout(() => toast.remove(), 300);
+  }, duration);
+}
 
 function switchAppMode(mode) {
   currentMode = mode;
@@ -61,7 +93,7 @@ async function handleSendChatMessage(event) {
     });
     renderChatMessages(res.messages);
   } catch (err) {
-    alert(`Fout bij versturen bericht: ${err.message}`);
+    showNotification(`Fout bij versturen bericht: ${err.message}`, 'error');
   }
 }
 
@@ -99,12 +131,13 @@ async function handleFinalizeChatSubmit(event) {
       body: JSON.stringify({ session_id: chatSessionId, slug, titel, yolo })
     });
     closeFinalizeModal();
+    showNotification(`Blogpost '${slug}' succesvol aangemaakt!`, 'success');
     
     switchAppMode(2);
     await loadPostsList();
     selectPost(slug);
   } catch (err) {
-    alert(`Fout bij afronden brainstorm: ${err.message}`);
+    showNotification(`Fout bij afronden brainstorm: ${err.message}`, 'error');
   }
 }
 
@@ -132,7 +165,7 @@ document.addEventListener('DOMContentLoaded', () => {
       loadPostsList();
     }
     checkRagStatus();
-  }, 4000);
+  }, 3000);
 });
 
 // --- API Calls ---
@@ -315,9 +348,10 @@ async function executeRun(phase) {
   if (!activeSlug) return;
   try {
     await fetchJSON(`/api/posts/${activeSlug}/run/${phase}`, { method: 'POST' });
+    showNotification(`Fase '${phase}' gestart.`, 'info');
     loadPostDetail(activeSlug);
   } catch (err) {
-    alert(`Fout bij run ${phase}: ${err.message}`);
+    showNotification(`Fout bij run ${phase}: ${err.message}`, 'error');
   }
 }
 
@@ -325,9 +359,10 @@ async function executeComplete(phase) {
   if (!activeSlug) return;
   try {
     await fetchJSON(`/api/posts/${activeSlug}/complete/${phase}`, { method: 'POST' });
+    showNotification(`Fase '${phase}' afgerond.`, 'success');
     loadPostDetail(activeSlug);
   } catch (err) {
-    alert(`Fout bij complete ${phase}: ${err.message}`);
+    showNotification(`Fout bij complete ${phase}: ${err.message}`, 'error');
   }
 }
 
@@ -335,9 +370,10 @@ async function executeApprove() {
   if (!activeSlug) return;
   try {
     await fetchJSON(`/api/posts/${activeSlug}/approve`, { method: 'POST' });
+    showNotification(`Akkoord gegeven!`, 'success');
     loadPostDetail(activeSlug);
   } catch (err) {
-    alert(`Fout bij approve: ${err.message}`);
+    showNotification(`Fout bij approve: ${err.message}`, 'error');
   }
 }
 
@@ -345,16 +381,17 @@ async function executeReject() {
   if (!activeSlug) return;
   try {
     await fetchJSON(`/api/posts/${activeSlug}/reject`, { method: 'POST' });
+    showNotification(`Fase afgekeurd, teruggezet naar ready.`, 'warning');
     loadPostDetail(activeSlug);
   } catch (err) {
-    alert(`Fout bij reject: ${err.message}`);
+    showNotification(`Fout bij reject: ${err.message}`, 'error');
   }
 }
 
 async function executeResolveDiscrepancy(action, customNote = null) {
   const note = customNote || (action === 'progressive_insight' ? prompt("Geef een toelichting voor het voortschrijdend inzicht:") : "Afgekeurd als inhoudelijke fout");
   if (action === 'progressive_insight' && (!note || !note.trim())) {
-    alert("Een toelichting is verplicht bij voortschrijdend inzicht.");
+    showNotification("Een toelichting is verplicht bij voortschrijdend inzicht.", "warning");
     return;
   }
 
@@ -364,9 +401,10 @@ async function executeResolveDiscrepancy(action, customNote = null) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: action, note: note })
     });
+    showNotification(`Discrepantie verwerkt (${action})`, 'success');
     loadPostDetail(activeSlug);
   } catch (err) {
-    alert(`Fout bij verwerken beslissing: ${err.message}`);
+    showNotification(`Fout bij verwerken beslissing: ${err.message}`, 'error');
   }
 }
 
@@ -380,7 +418,7 @@ async function toggleFlag(flagName, value) {
     });
     loadPostDetail(activeSlug);
   } catch (err) {
-    alert(`Fout bij instellen vlag: ${err.message}`);
+    showNotification(`Fout bij instellen vlag: ${err.message}`, 'error');
   }
 }
 
@@ -468,10 +506,11 @@ async function handleInitSubmit(event) {
       body: JSON.stringify({ slug, titel, yolo })
     });
     closeInitModal();
+    showNotification(`Nieuwe post '${slug}' aangemaakt!`, 'success');
     await loadPostsList();
     selectPost(slug);
   } catch (err) {
-    alert(`Fout bij initialiseren: ${err.message}`);
+    showNotification(`Fout bij initialiseren: ${err.message}`, 'error');
   }
 }
 
@@ -496,9 +535,10 @@ async function handleDeploySubmit(event) {
       body: JSON.stringify({ deploy: true, note: note || "Deploy goedgekeurd via Web UI" })
     });
     closeDeployModal();
+    showNotification(`Deploy succesvol goedgekeurd!`, 'success');
     loadPostDetail(activeSlug);
   } catch (err) {
-    alert(`Fout bij approve deploy: ${err.message}`);
+    showNotification(`Fout bij approve deploy: ${err.message}`, 'error');
   }
 }
 
@@ -519,6 +559,7 @@ function saveAdminToken() {
   sessionStorage.setItem('ADMIN_TOKEN', token);
   const msg = document.getElementById('token-status-msg');
   if (msg) msg.textContent = '✓ ADMIN_TOKEN opgeslagen in sessie-geheugen.';
+  showNotification('ADMIN_TOKEN opgeslagen.', 'success');
 }
 
 function loadSavedAdminToken() {
@@ -530,12 +571,15 @@ async function loadRagStatus() {
   try {
     const data = await fetchJSON('/api/rag/status');
     updateRagDashboard(data);
+    return data;
   } catch (err) {
     console.error('Fout bij ophalen RAG status:', err);
+    return null;
   }
 }
 
 function updateRagDashboard(data) {
+  if (!data) return;
   const chunksEl = document.getElementById('rag-stat-chunks');
   const postsEl = document.getElementById('rag-stat-posts');
   const timeEl = document.getElementById('rag-stat-time');
@@ -563,10 +607,22 @@ function updateRagDashboard(data) {
   }
 
   if (pBox) {
-    pBox.style.display = isRunning ? 'block' : 'none';
-    if (pBar) pBar.style.width = `${pct}%`;
-    if (pPct) pPct.textContent = `${pct}%`;
-    if (pMsg) pMsg.textContent = data.status_message || (isRunning ? 'Indexeren...' : 'Voltooid');
+    if (isRunning) {
+      pBox.style.display = 'block';
+      if (pBar) pBar.style.width = `${pct}%`;
+      if (pPct) pPct.textContent = `${pct}%`;
+      if (pMsg) pMsg.textContent = data.status_message || 'Indexeren...';
+    } else if (data.status_message && data.status_message.includes('afgerond')) {
+      pBox.style.display = 'block';
+      if (pBar) pBar.style.width = '100%';
+      if (pPct) pPct.textContent = '100%';
+      if (pMsg) pMsg.textContent = '✅ RAG-indexering succesvol voltooid!';
+      setTimeout(() => {
+        if (!data.running && pBox) pBox.style.display = 'none';
+      }, 3500);
+    } else {
+      pBox.style.display = 'none';
+    }
   }
 
   if (articlesListEl && data.articles) {
@@ -594,18 +650,8 @@ function formatDateStr(str) {
 }
 
 async function checkRagStatus() {
-  try {
-    const data = await fetchJSON('/api/rag/status');
-    const bannerEl = document.getElementById('global-banner');
-    if (bannerEl) {
-      bannerEl.style.display = data.running ? 'flex' : 'none';
-    }
-    if (currentMode === 3) {
-      updateRagDashboard(data);
-    }
-  } catch (err) {
-    // Stille faal bij status polling
-  }
+  const data = await loadRagStatus();
+  return data;
 }
 
 async function triggerRagReindex(isIncrementalOnly) {
@@ -615,6 +661,16 @@ async function triggerRagReindex(isIncrementalOnly) {
   if (purge && !confirm('Weet je zeker dat je de gehele RAG index wilt wissen en vanaf nul wilt opbouwen?')) {
     return;
   }
+
+  const pBox = document.getElementById('rag-progress-box');
+  const pBar = document.getElementById('rag-progress-bar');
+  const pPct = document.getElementById('rag-progress-pct');
+  const pMsg = document.getElementById('rag-progress-msg');
+
+  if (pBox) pBox.style.display = 'block';
+  if (pBar) pBar.style.width = '10%';
+  if (pPct) pPct.textContent = '10%';
+  if (pMsg) pMsg.textContent = 'RAG-indexering initialiseren op de achtergrond...';
 
   try {
     const res = await fetchJSON('/api/rag/reindex-async', {
@@ -629,9 +685,19 @@ async function triggerRagReindex(isIncrementalOnly) {
       })
     });
 
-    alert(`🚀 ${res.message}`);
-    checkRagStatus();
+    showNotification(`🚀 ${res.message}`, 'success');
+
+    if (ragPollTimer) clearInterval(ragPollTimer);
+    ragPollTimer = setInterval(async () => {
+      const data = await checkRagStatus();
+      if (data && !data.running) {
+        clearInterval(ragPollTimer);
+        ragPollTimer = null;
+        showNotification(`✅ RAG Indexering voltooid! Totaal ${data.total_chunks} chunks geïndexeerd.`, 'success', 5000);
+      }
+    }, 200);
+
   } catch (err) {
-    alert(`Fout bij starten indexering: ${err.message}`);
+    showNotification(`Fout bij starten indexering: ${err.message}`, 'error');
   }
 }

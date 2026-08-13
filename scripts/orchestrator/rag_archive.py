@@ -126,6 +126,7 @@ class LocalRAGArchive:
                 self.current_item = entry
                 self.status_message = f"Indexeren van '{entry}' ({idx}/{len(entries)})..."
                 post_path = os.path.join(pdir, entry)
+                time.sleep(0.04)
 
                 if incremental and entry in indexed_slugs:
                     continue
