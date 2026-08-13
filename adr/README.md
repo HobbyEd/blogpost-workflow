@@ -16,6 +16,8 @@ In deze map leggen we alle architecturele en technische keuzes vast (ADR's), inc
 | `003` | [Two-Phase Workflow — Interactive Brainstorm vs YOLO Stepper Engine](file:///Users/evdillen/edwinvandillen@gmail.com%20-%20Google%20Drive/My%20Drive/16.%20AI/03.%20Blogpost/01.%20Blogpost%20agents/adr/003-two-phase-interactive-yolo-workflow.md) | Proposed | 2026-08-13 |
 | `004` | [Hard vs Soft Quality Gates Strategy](file:///Users/evdillen/edwinvandillen@gmail.com%20-%20Google%20Drive/My%20Drive/16.%20AI/03.%20Blogpost/01.%20Blogpost%20agents/adr/004-hard-soft-quality-gates-strategy.md) | Proposed | 2026-08-13 |
 | `005` | [Bulk Research Protocol & Local Source Fetching Tooling](file:///Users/evdillen/edwinvandillen@gmail.com%20-%20Google%20Drive/My%20Drive/16.%20AI/03.%20Blogpost/01.%20Blogpost%20agents/adr/005-bulk-research-protocol-and-source-fetching.md) | Proposed | 2026-08-13 |
+| `006` | [Local RAG Archive Vectorstore for Archival Consistency](file:///Users/evdillen/edwinvandillen@gmail.com%20-%20Google%20Drive/My%20Drive/16.%20AI/03.%20Blogpost/01.%20Blogpost%20agents/adr/006-local-rag-vectorstore-blog-archive.md) | Proposed | 2026-08-13 |
+| `007` | [Pre-Deployment Archival Alignment Validation Agent](file:///Users/evdillen/edwinvandillen@gmail.com%20-%20Google%20Drive/My%20Drive/16.%20AI/03.%20Blogpost/01.%20Blogpost%20agents/adr/007-archival-alignment-validation-agent.md) | Proposed | 2026-08-13 |
 
 ---
 
