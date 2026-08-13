@@ -19,6 +19,7 @@ In deze map leggen we alle architecturele en technische keuzes vast (ADR's), inc
 | `006` | [Local RAG Archive Vectorstore for Archival Consistency](file:///Users/evdillen/edwinvandillen@gmail.com%20-%20Google%20Drive/My%20Drive/16.%20AI/03.%20Blogpost/01.%20Blogpost%20agents/adr/006-local-rag-vectorstore-blog-archive.md) | Proposed | 2026-08-13 |
 | `007` | [Pre-Deployment Archival Alignment Validation Agent](file:///Users/evdillen/edwinvandillen@gmail.com%20-%20Google%20Drive/My%20Drive/16.%20AI/03.%20Blogpost/01.%20Blogpost%20agents/adr/007-archival-alignment-validation-agent.md) | Proposed | 2026-08-13 |
 | `008` | [Admin Settings Tab, Secured RAG Maintenance & Non-Blocking Background Indexer](file:///Users/evdillen/edwinvandillen@gmail.com%20-%20Google%20Drive/My%20Drive/16.%20AI/03.%20Blogpost/01.%20Blogpost%20agents/adr/008-admin-settings-tab-and-background-rag-indexer.md) | Accepted | 2026-08-13 |
+| `009` | [Pre-Deploy Subject Alignment/Disalignment Agent & Discrepancy Gate](file:///Users/evdillen/edwinvandillen@gmail.com%20-%20Google%20Drive/My%20Drive/16.%20AI/03.%20Blogpost/01.%20Blogpost%20agents/adr/009-pre-deploy-subject-alignment-disalignment-agent-and-discrepancy-gate.md) | Accepted | 2026-08-13 |
 
 ---
 

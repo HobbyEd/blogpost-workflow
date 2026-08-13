@@ -135,7 +135,7 @@ python3 scripts/orchestrate.py approve --deploy --post-dir posts/mijn-nieuwe-pos
 Alle architectuurbesluiten, het visiedocument en de ontwerpkeuzes zijn vastgelegd in de [`adr/`](file:///Users/evdillen/edwinvandillen@gmail.com%20-%20Google%20Drive/My%20Drive/16.%20AI/03.%20Blogpost/01.%20Blogpost%20agents/adr/README.md) map:
 
 - 📄 [`adr/00-overall-design-blogpost-webui.md`](file:///Users/evdillen/edwinvandillen@gmail.com%20-%20Google%20Drive/My%20Drive/16.%20AI/03.%20Blogpost/01.%20Blogpost%20agents/adr/00-overall-design-blogpost-webui.md): Het overkoepelende ontwerpdocument (Web UI, 3-laags architectuur, Socratische Chat & Stepper Executie).
-- 📋 [`adr/README.md`](file:///Users/evdillen/edwinvandillen@gmail.com%20-%20Google%20Drive/My%20Drive/16.%20AI/03.%20Blogpost/01.%20Blogpost%20agents/adr/README.md): Index van alle individuele ADR's (ADR-001 t/m ADR-008).
+- 📋 [`adr/README.md`](file:///Users/evdillen/edwinvandillen@gmail.com%20-%20Google%20Drive/My%20Drive/16.%20AI/03.%20Blogpost/01.%20Blogpost%20agents/adr/README.md): Index van alle individuele ADR's (ADR-001 t/m ADR-009).
 
 ---
 
