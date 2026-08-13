@@ -210,14 +210,13 @@ const PHASES = [
 
 document.addEventListener('DOMContentLoaded', () => {
   loadPostsList();
-  loadRagStatus(); // Eenmalig laden bij opstarten
+  loadRagStatus();
   setInterval(() => {
     if (activeSlug && currentMode === 2) {
       loadPostDetail(activeSlug, false);
     } else if (currentMode === 2) {
       loadPostsList();
     }
-    // Geen onnodige RAG polling meer in de algemene 3s timer!
   }, 3000);
 });
 
@@ -260,6 +259,10 @@ async function loadPostsList() {
         </div>
       </div>
     `).join('');
+
+    if (!activeSlug && data.posts.length > 0) {
+      selectPost(data.posts[0].slug);
+    }
   } catch (err) {
     const listEl = document.getElementById('posts-list');
     if (listEl) listEl.innerHTML = `<div style="color: var(--status-blocked); font-size: 0.85rem;">Fout bij laden: ${err.message}</div>`;
@@ -330,26 +333,40 @@ function renderStepper(detail) {
 
   PHASES.forEach((p, idx) => {
     let nodeState = 'pending';
+    let dotIcon = (idx + 1).toString();
+
     if (idx < currentIdx) {
       nodeState = 'completed';
+      dotIcon = '✓';
     } else if (idx === currentIdx) {
-      if (currentStatus === 'running') nodeState = 'running';
-      else if (currentStatus === 'waiting_gate') nodeState = 'waiting';
-      else if (currentStatus === 'blocked') nodeState = 'blocked';
-      else nodeState = 'running';
+      if (currentStatus === 'running') {
+        nodeState = 'running';
+        dotIcon = (idx + 1).toString();
+      } else if (currentStatus === 'waiting_gate') {
+        nodeState = 'waiting';
+        dotIcon = '⏸';
+      } else if (currentStatus === 'blocked') {
+        nodeState = 'blocked';
+        dotIcon = '⚠️';
+      } else {
+        nodeState = 'running';
+        dotIcon = (idx + 1).toString();
+      }
     }
 
-    const isHardGate = p.hard ? '★' : '';
+    const isHardGate = p.hard ? ' hard-gate' : '';
+    const isActive = idx === currentIdx ? ' active' : '';
+
     html += `
-      <div class="stepper-node node-${nodeState}" title="Fase ${p.label}">
-        <div class="node-circle">${isHardGate || (idx + 1)}</div>
-        <div class="node-label">${escapeHTML(p.label)}</div>
+      <div class="step-node ${nodeState}${isActive}${isHardGate}" title="Fase ${p.label}">
+        <div class="dot">${dotIcon}</div>
+        <div class="step-label">${escapeHTML(p.label)}</div>
       </div>
     `;
 
     if (idx < PHASES.length - 1) {
-      const lineState = idx < currentIdx ? 'active' : '';
-      html += `<div class="stepper-line ${lineState}"></div>`;
+      const lineCompleted = idx < currentIdx ? ' completed' : '';
+      html += `<div class="step-line${lineCompleted}"></div>`;
     }
   });
 
@@ -647,7 +664,6 @@ function updateRagDashboard(data) {
   const pct = data.percentage || 0;
   const isRunning = !!data.running;
 
-  // Banner ALLEEN tonen als indexering daadwerkelijk ACTIEF is
   if (bannerEl) {
     bannerEl.style.display = isRunning ? 'flex' : 'none';
     if (bannerText && isRunning) {
@@ -655,14 +671,12 @@ function updateRagDashboard(data) {
     }
   }
 
-  // Voortgangsbalk alleen bijwerken als we ACTIEF pollen tijdens een run
   if (isRunning && pBox) {
     pBox.style.display = 'block';
     if (pBar) pBar.style.width = `${pct}%`;
     if (pPct) pPct.textContent = `${pct}%`;
     if (pMsg) pMsg.textContent = data.status_message || 'Indexeren...';
   } else if (!isActivelyIndexingUI && pBox) {
-    // In ruststand is de progressbox ALTIJD onzichtbaar
     pBox.style.display = 'none';
   }
 
@@ -696,7 +710,7 @@ function formatDateStr(str) {
 // --- Slimme Polling Logica ---
 
 function startRagPolling() {
-  if (ragPollInterval) return; // Reeds actief
+  if (ragPollInterval) return;
   isActivelyIndexingUI = true;
 
   const pBox = document.getElementById('rag-progress-box');
@@ -707,7 +721,6 @@ function startRagPolling() {
     if (!data) return;
 
     if (!data.running) {
-      // Indexering is afgerond! Toon eenmalig 100% voltooid en STOP de timer!
       stopRagPolling(data);
     }
   }, 250);
@@ -734,7 +747,6 @@ function stopRagPolling(data) {
     if (pPct) pPct.textContent = '100%';
     if (pMsg) pMsg.textContent = `✅ RAG-indexering voltooid! (${data ? data.total_posts : 70} artikelen, ${data ? data.total_chunks : 2915} chunks)`;
 
-    // Na 3 seconden verdwijnt de balk volledig en blijft hij weg!
     setTimeout(() => {
       if (pBox) pBox.style.display = 'none';
     }, 3000);
@@ -769,8 +781,6 @@ async function triggerRagReindex(isIncrementalOnly) {
     });
 
     showNotification(`🚀 ${res.message}`, 'success');
-
-    // START SLIMME POLLING ALLEEN TIJDENS ACTIEVE RUN
     startRagPolling();
 
   } catch (err) {

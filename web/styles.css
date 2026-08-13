@@ -300,7 +300,7 @@ header {
   color: var(--text-secondary);
 }
 
-/* Stepper / Bolletjesketen */
+/* Stepper / Bolletjesketen (ADR-000 & ADR-003) */
 .stepper-container {
   margin: 1.5rem 0;
   overflow-x: auto;
@@ -332,7 +332,7 @@ header {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.8rem;
+  font-size: 0.85rem;
   font-weight: bold;
   color: var(--text-secondary);
   transition: all 0.3s;
@@ -342,13 +342,14 @@ header {
   background: var(--status-completed);
   border-color: var(--status-completed);
   color: white;
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.4);
 }
 
 .step-node.running .dot {
   background: var(--status-running);
   border-color: var(--status-running);
   color: white;
-  box-shadow: 0 0 12px rgba(59, 130, 246, 0.6);
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.8);
   animation: pulse 1.5s infinite;
 }
 
@@ -356,12 +357,15 @@ header {
   background: var(--status-waiting);
   border-color: var(--status-waiting);
   color: white;
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.7);
+  animation: pulse 1.8s infinite;
 }
 
 .step-node.blocked .dot {
   background: var(--status-blocked);
   border-color: var(--status-blocked);
   color: white;
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.8);
 }
 
 .step-node.hard-gate .dot::after {
@@ -369,8 +373,9 @@ header {
   position: absolute;
   top: -6px;
   right: -4px;
-  font-size: 10px;
+  font-size: 11px;
   color: #fbbf24;
+  text-shadow: 0 0 4px rgba(0,0,0,0.8);
 }
 
 .step-label {
@@ -388,11 +393,11 @@ header {
 
 .step-line {
   flex-grow: 1;
-  height: 2px;
+  height: 3px;
   background: var(--border-color);
   margin: 0 4px;
   position: relative;
-  top: -12px;
+  top: -14px;
   z-index: 1;
 }
 
