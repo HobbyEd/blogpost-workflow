@@ -1,6 +1,6 @@
 # ADR-010: Workflow-topologie — waar de mens beslist en wat er opnieuw moet
 
-* **Status**: Proposed
+* **Status**: Accepted
 * **Datum**: 2026-08-15
 * **Auteurs**: Edwin van Dillen
 * **Gerelateerd**: [ADR-001 (Strikte control plane)](001-strict-deterministic-control-plane.md), [ADR-003 (Twee modi)](003-two-phase-interactive-yolo-workflow.md), [ADR-004 (Harde vs zachte gates)](004-hard-soft-quality-gates-strategy.md), [ADR-007 (Archief-consistentie)](007-archival-alignment-validation-agent.md)
@@ -84,19 +84,24 @@ klasse fout die deze codebase al twee keer heeft laten zien.
 **We voeren B nu uit en groeien incrementeel naar C**, te beginnen bij de artefacten die op
 15 augustus met de hand moesten worden overgeslagen.
 
-### 3.1 Nieuwe clustering: drie gates in plaats van elf
+### 3.1 Drie blokken, drie gates in plaats van elf
 
 | blok | fases | gate |
 |---|---|---|
 | **Richten** | intake, outline | **echte gate**: onderwerp, invalshoek, bronnen |
-| **Maken** | draft, Grok-kritiek, visuals | geen |
-| **Toetsen** | stijl, leesbaarheid, reeks, feiten, archief | **alleen bij bevindingen** |
-| **Oordelen** | lezen, becommentariëren, synthese, herzien | **echte gate**, met lus terug naar Maken en Toetsen |
-| **Publiceren** | deploy | **echte gate** |
+| **Bouwen** | draft, Grok-kritiek, visuals, stijl, leesbaarheid, reeks, feiten, archief | **alleen bij bevindingen** |
+| **Oordelen** | concept-deploy, lezen in WordPress, opmerkingen, synthese, herzien | **echte gate**, met lus terug naar Bouwen |
+
+Live zetten valt buiten het systeem: dat is en blijft handwerk in wp-admin.
 
 De Richten-gate is vandaag de meest verwaarloosde en de goedkoopste. Een verkeerde
 invalshoek corrigeren kost daar tien minuten en na de draft twee uur. Bij deel 2 stond de
 Sinek-sectie al in de outline; daar had de vraag "moet dit erin" thuisgehoord.
+
+**Maken en Toetsen zijn samengevoegd tot Bouwen.** Ze waren in het eerste voorstel twee
+blokken, maar er zit geen menselijk besluit tussen: de checks lopen op wat de schrijver
+oplevert, en beide stoppen alleen bij een bevinding. Twee blokken zonder gate ertussen is
+één blok.
 
 ### 3.2 Grok blijft staan waar hij staat
 
@@ -134,19 +139,40 @@ Let op: de synthese is aantoonbaar de plek waar fouten binnenkomen. Twee keer op
 er een verkeerd deelnummer in een vooruitwijzing, beide keren ontstaan bij het verwerken van
 de synthese. De hertoetsing na deze stap is daarom niet optioneel.
 
-### 3.4 Leesweergave en opmerkingen in de web-UI
+### 3.4 Het WordPress-concept ís de leesweergave
 
-Na Maken en Toetsen toont de UI de gerenderde draft, met de visuals op hun plek, plus de
-gebundelde bevindingen per sectie. De auteur kan per sectie een opmerking achterlaten. Die
-opmerkingen worden een artefact (`revisie.md`) met dezelfde status als een bevinding van een
-check, en zijn daarmee input voor de synthese.
+Overwogen is een leesweergave in de web-UI te bouwen, zodat het oordeel vóór de deploy zou
+vallen. Dat doen we niet.
 
-Daarmee verschuift het oordeelsmoment van ná de deploy naar ervoor. De deploy-gate wordt wat
-hij hoort te zijn: "zet dit klaar in WordPress", niet "laat mij eindelijk lezen wat er staat".
+De auteur leest in WordPress, in de opmaak van de eigen site, en dat is geen slechte
+gewoonte maar de juiste: daar staat de tekst zoals de lezer hem krijgt, met de visuals op
+ware grootte en de typografie van het thema. Een preview in de web-UI zou daar altijd net
+naast zitten, en een preview die net naast zit wordt niet gebruikt.
 
-**Risico dat we accepteren en moeten meten:** de leesweergave lost het probleem alleen op als
-hij ook gebruikt wordt. De huidige gewoonte is lezen in WordPress, in de opmaak van de eigen
-site. Een preview die er net anders uitziet, nodigt uit tot "ik kijk straks wel in WP".
+Daarmee verandert de betekenis van de deploy-stap. Hij is niet langer het sluitstuk maar de
+**renderstap van het Oordelen-blok**: hij maakt lezen mogelijk. Dat is ook hoe hij feitelijk
+al werd gebruikt, want de inhoudelijke opmerkingen op deel 2 kwamen pas na de concept-deploy.
+
+Gevolgen:
+
+1. **De deploy-gate wordt goedkoop en voorwaardelijk.** Deployen naar concept mag zodra alle
+   controles groen en actueel zijn; daar hoeft geen mens meer voor te tekenen. De
+   vingerafdruk uit `state.deploy_approval` blijft, maar bewaakt voortaan of de controles bij
+   de tekst horen, niet of de auteur wil publiceren. Deployen wordt iets wat je vaak doet.
+2. **De echte beslissing valt ná het lezen.** Twee uitkomsten: klaar, of een lijst
+   opmerkingen. Die opmerkingen worden vastgelegd in `revisie.md`, met dezelfde status als de
+   bevinding van een check, en zijn daarmee input voor de synthese.
+3. **Live zetten blijft handmatig en buiten het systeem.** Dat is de enige echte
+   publicatiehandeling, en die hoort bij de auteur in wp-admin.
+
+**Openstaand punt: wijzigingen die in WordPress zelf worden gemaakt.** `deploy_post.py`
+overschrijft de concept-post. Redigeert de auteur tijdens het lezen in wp-admin, dan gaat dat
+werk verloren bij de volgende deploy. Dat is geen theorie: bij deel 1 is de lokale draft
+teruggezet naar de live formulering, juist om te voorkomen dat een volgende deploy de tekst
+ongemerkt zou veranderen. Nu deployen vaker gaat gebeuren, wordt dit scherper. Mogelijke
+antwoorden, nog te kiezen: tijdens het lezen niet in wp-admin redigeren maar opmerkingen
+verzamelen, of de gepubliceerde tekst voor een deploy terughalen en verschillen melden.
+Zolang dat niet is opgelost, geldt de eerste regel als werkafspraak.
 
 ### 3.5 Groeipad naar de afhankelijkheidsgraaf
 
@@ -178,18 +204,25 @@ met de hand opnieuw moesten en waar het misgaan het duurst is.
 * **Positief (+)**
   - Van elf stempels naar drie beslissingen, elk op een moment waarop er iets te beslissen
     valt.
-  - Het oordeel over de inhoud valt vóór publicatie in plaats van erna.
+  - Het oordeelsmoment staat eindelijk in het systeem, op de plek waar het feitelijk al
+    plaatsvond: na de concept-deploy, bij het lezen in WordPress.
+  - Geen nieuwe leesomgeving te bouwen en te onderhouden.
   - De groeidruk van de synthese wordt zichtbaar gemaakt en bij de auteur belegd.
   - De vingerafdrukken maken "wat moet opnieuw" een berekening in plaats van een
     herinnering, en dekken het geval waar op 15 augustus met de hand omheen is gewerkt.
 * **Negatief (-)**
   - Minder gates betekent minder gelegenheid om er per ongeluk een fout uit te vissen. De
     compensatie moet uit de controles komen, niet uit het aantal stopmomenten.
-  - Een leesweergave in de UI is nieuw werk dat naast WordPress komt te staan en de
-    bestaande leesgewoonte moet verslaan.
-  - Vier bestaande ADR's raken hierdoor deels achterhaald op het punt van de gate-indeling;
-    ADR-004 vraagt een bijwerking zodra dit is aangenomen.
+  - Deployen wordt een routinehandeling in plaats van een eindpunt. De concept-post wisselt
+    daardoor vaker van inhoud, en de mediabibliotheek loopt vol met eerdere renders van
+    dezelfde visual. Deel 2 heeft er nu twee paar staan.
+  - Vier bestaande ADR's raken deels achterhaald op het punt van de gate-indeling. ADR-004
+    (harde en zachte gates) vraagt een bijwerking; ADR-003 beschrijft de stepper als een
+    lineaire bolletjesketen en moet de drie blokken gaan tonen.
 * **Risico's**
+  - **Redigeren in wp-admin tijdens het lezen gaat verloren** bij de volgende deploy. Zie
+    3.4; zolang dat niet is opgelost geldt de werkafspraak dat opmerkingen worden verzameld
+    en niet ter plekke doorgevoerd.
   - Een fout in de verouderingsregels levert stil overgeslagen controles op. Dat is dezelfde
     klasse fout als de omgekeerde score-regel in ADR-007 en het vastgelegde indexpad in
     ADR-006. Elke regel krijgt daarom een test die het verouderen aantoont, niet alleen het
@@ -200,12 +233,23 @@ met de hand opnieuw moesten en waar het misgaan het duurst is.
 
 ---
 
-## 5. Wat er nodig is om deze ADR te accepteren
+## 5. Genomen besluiten
 
-1. Een besluit over de leesweergave: in de web-UI, of accepteren dat WordPress het
-   leesmoment blijft en de lus daarop inrichten.
-2. Een besluit over de omvang van de eerste stap: alleen voorwaardelijke gates en de
-   gebundelde bevindingen, of meteen inclusief de clustering in drie blokken.
+1. **Geen leesweergave in de web-UI.** WordPress blijft het leesmoment; de concept-deploy is
+   de renderstap die dat mogelijk maakt (3.4).
+2. **Meteen de clustering in drie blokken**, niet eerst alleen voorwaardelijke gates (3.1).
 
-De uitbreiding van de vingerafdruk naar `feitencheck.md` en `archief-consistentie.md` kan
-vooruitlopend hierop, want die staat los van de gate-indeling.
+## 6. Uitvoeringsvolgorde
+
+1. Vingerafdruk uitbreiden naar `feitencheck.md` en `archief-consistentie.md`. Staat los van
+   de gate-indeling en dekt het geval waar op 15 augustus met de hand omheen is gewerkt.
+2. Gates voorwaardelijk maken: alleen stoppen bij een bevinding, zoals de alignment-gate al
+   doet sinds ADR-007.
+3. De bevindingen van de vijf controles bundelen tot één overzicht per post.
+4. De fases hergroeperen tot de drie blokken, met de stepper mee.
+5. De synthese omzetten naar een beslismoment per punt, met vastlegging van de keuze en de
+   motivering (3.3).
+6. `revisie.md` invoeren als artefact voor de opmerkingen na het lezen.
+
+Stap 1 tot en met 3 zijn losstaand bruikbaar; vanaf stap 4 verandert de zichtbare vorm van
+de workflow.
