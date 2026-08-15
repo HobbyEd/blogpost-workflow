@@ -62,6 +62,15 @@ def build_parser() -> argparse.ArgumentParser:
     add_post_args(sp)
     sp.add_argument("--json", action="store_true")
 
+    sp = sub.add_parser("decide", help="Beslis over één kritiekpunt in de synthese")
+    add_post_args(sp)
+    sp.add_argument("--punt", required=True, help="Punt-id uit synthese.md")
+    sp.add_argument("--keuze", required=True, help="Gekozen variant, bv. aannemen of verwerpen")
+    sp.add_argument("--motivering", required=True, help="Eén regel: waarom deze keuze")
+
+    sp = sub.add_parser("synthesis", help="Kritiekpunten met varianten en genomen besluiten")
+    add_post_args(sp)
+
     sp = sub.add_parser("findings", help="Bevindingen van alle controlefases gebundeld")
     add_post_args(sp)
     sp.add_argument("--json", action="store_true")
@@ -162,6 +171,22 @@ def main(argv: list[str] | None = None) -> int:
                 )
             else:
                 print(res["markdown"])
+            return 0
+
+        if args.command == "decide":
+            res = service.decide_point(
+                punt_id=args.punt,
+                keuze=args.keuze,
+                motivering=args.motivering,
+                post=args.post,
+                post_dir=args.post_dir,
+            )
+            print(f"{res['punt']}: {res['keuze']} vastgelegd. Nog open: {res['open']} van {res['totaal']}.")
+            return 0
+
+        if args.command == "synthesis":
+            res = service.get_synthesis(post=args.post, post_dir=args.post_dir)
+            print(json.dumps(res, ensure_ascii=False, indent=2))
             return 0
 
         if args.command == "findings":

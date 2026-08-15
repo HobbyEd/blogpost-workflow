@@ -118,7 +118,7 @@ Gebruik de **agent_brief** uit `run` / `next`. Korte mapping:
 | `style` | `stijl-check` **en** `leesbaarheid-check` | `stijlcheck.md` + `leesbaarheid.md`; draft corrigeren na gate |
 | `series` | `reeks-consistentie-check` | `reeks-check.md`; draft corrigeren na gate |
 | `critique` | `grok-reviewer` | `grok-feedback.md` (nooit verzonnen kritiek) |
-| `synthesis` | `blogpost-onderzoeker` | `synthese.md`; Edwin beslist per punt; jij past `draft.md` aan na approve |
+| `synthesis` | `blogpost-onderzoeker` | `synthese.md` met varianten per punt; Edwin beslist per punt via `decide`; jij past `draft.md` aan na approve |
 | `visuals` | `blogpost-visuals` | `visuals/*` + refs in draft; render via `scripts/render_svg.py` |
 | `factcheck` | `bron-check` | `feitencheck.md`; **harde gate**, ook in yolo |
 | `alignment` | `archief-consistentie-check` | `archief-consistentie.md`; gate alleen bij een bevinding |
@@ -133,6 +133,15 @@ Gebruik de **agent_brief** uit `run` / `next`. Korte mapping:
   index niet, de inventaris wel. `reeks-consistentie-check` heeft geen Bash: draai de
   zoekopdracht zelf en geef de treffers mee.
 - **Schrijver:** leest outline + `reference/huisstijl.md`; verzint geen feiten buiten de outline.
+- **De synthese is een beslismoment, geen weegstap.** `synthese.md` legt per kritiekpunt
+  minstens twee varianten voor met hun gevolg in woorden, zonder advies. `verwerpen` staat
+  er bij elk punt bij; raakt het punt de hele sectie, dan ook `schrappen` met het aantal
+  woorden dat dat scheelt. Edwin beslist per punt:
+  `python3 scripts/orchestrate.py decide --post <slug> --punt p1 --keuze schrappen --motivering "…"`.
+  `complete synthesis` weigert zolang er punten open staan. Reden: Grok becommentarieert
+  per sectie, dus zijn punten gaan over hoe een sectie beter kan en niet of ze moet
+  bestaan. Bij deel 2 bood de synthese schrappen aan als alternatief C, adviseerde
+  behouden, en dat is gevolgd (ADR-010 §3.3).
 - **Eén overzicht van alle bevindingen:** `python3 scripts/orchestrate.py findings --post <slug>`.
   Bundelt style, series, factcheck en alignment, blokkerend eerst, met per fase of het
   rapport actueel, verouderd, onleesbaar of niet gedraaid is. Leg dat voor bij de gate in

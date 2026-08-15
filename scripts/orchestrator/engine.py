@@ -18,6 +18,7 @@ from .constants import (
 )
 from .probes import count_visuals, probe_artefacts
 from .repository import append_log, draft_fingerprint, now_iso, stale_phases
+from .synthesis import open_points, read_points
 from .verdicts import has_blocking, read_phase_findings
 
 
@@ -266,7 +267,7 @@ def postcheck_complete(
         "style": lambda: _validate_style_completion(probed, post_dir),
         "series": lambda: _validate_series_completion(probed, post_dir),
         "critique": lambda: ["grok-feedback.md ontbreekt of is leeg."] if probed["grok_feedback"] != "present" else [],
-        "synthesis": lambda: ["synthese.md ontbreekt of is leeg."] if probed["synthese"] != "present" else [],
+        "synthesis": lambda: _validate_synthesis_completion(probed, state, post_dir),
         "factcheck": lambda: _validate_factcheck_completion(probed, post_dir),
         "visuals": lambda: (
             [
@@ -310,6 +311,31 @@ def _check_report_freshness(state: dict[str, Any], post_dir: str) -> list[str]:
         f"{', '.join(verouderd)} opnieuw voordat je deployt; een controle op een tekst "
         "die niet meer bestaat is geen controle."
     ]
+
+
+def _validate_synthesis_completion(
+    probed: dict[str, str], state: dict[str, Any], post_dir: str
+) -> list[str]:
+    """Valideert fase 4: elk kritiekpunt is bewust afgehandeld (ADR-010 §3.3).
+
+    Akkoord op het geheel is geen beslissing. Bij deel 2 bleef de Sinek-sectie staan omdat
+    het advies 'behouden' luidde en niemand per punt de vraag stelde of de sectie er moest
+    zijn.
+    """
+    if probed["synthese"] != "present":
+        return ["synthese.md ontbreekt of is leeg."]
+    try:
+        punten = read_points(post_dir)
+    except (ValueError, FileNotFoundError) as e:
+        return [str(e)]
+
+    openstaand = open_points(state, punten)
+    if openstaand:
+        return [
+            f"{len(openstaand)} van de {len(punten)} punten zijn nog niet beslist: "
+            f"{', '.join(openstaand)}. Beslis per punt met `decide`, met een motivering."
+        ]
+    return []
 
 
 def _validate_factcheck_completion(probed: dict[str, str], post_dir: str) -> list[str]:

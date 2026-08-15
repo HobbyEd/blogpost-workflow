@@ -114,8 +114,19 @@ def agent_brief(phase: str, post_dir: str, state: dict[str, Any]) -> dict[str, A
             "instruction": (
                 f"{rag_search_step(onderwerp)} Zo weeg je Grok-kritiek tegen wat Edwin "
                 "hier eerder over schreef, niet alleen tegen de draft. "
-                "Roep blogpost-onderzoeker aan voor synthese: weeg Grok-punten, schrijf "
-                "aanpasvoorstel naar synthese.md. Herschrijf draft.md niet in deze stap."
+                "Roep blogpost-onderzoeker aan voor de synthese. Schrijf "
+                f"{rel}/synthese.md met een json-blok met 'points': per kritiekpunt een "
+                "id, waar het over gaat, en minstens twee varianten met hun gevolg in "
+                "woorden. GEEN advies en geen aanbevolen variant: Edwin beslist per punt. "
+                "'verwerpen' is bij elk punt verplicht als variant, en waar het punt de "
+                "hele sectie raakt hoort 'schrappen' erbij met het aantal woorden dat dat "
+                "scheelt. Zet 'raakt' op 'sectie' of 'bestaansrecht'. Reden: Grok "
+                "becommentarieert per sectie, dus zijn punten gaan over hoe een sectie "
+                "beter kan en niet of ze moet bestaan; een synthese die een variant "
+                "aanbeveelt maakt de tekst elke ronde langer. Daarna beslist Edwin per "
+                "punt met `orchestrate.py decide --punt <id> --keuze <variant> "
+                "--motivering \"...\"`; complete synthesis weigert zolang er punten open "
+                "staan. Herschrijf draft.md niet in deze stap."
             ),
         },
         "visuals": {

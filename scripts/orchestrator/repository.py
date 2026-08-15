@@ -170,6 +170,8 @@ def empty_state(slug: str, titel: str, yolo: bool = False) -> dict[str, Any]:
         "derived_from": {},
         # Uitkomst per controlefase: hoeveel blokkerend, hoeveel ter overweging.
         "verdicts": {},
+        # Beslissing per kritiekpunt in de synthese (ADR-010 §3.3).
+        "synthese_besluiten": {},
         "blocked_reason": None,
         "log": [
             {

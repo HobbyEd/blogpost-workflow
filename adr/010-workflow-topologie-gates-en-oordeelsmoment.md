@@ -289,8 +289,22 @@ met de hand opnieuw moesten en waar het misgaan het duurst is.
    zijn. En `markdown_table` in de detail-respons was altijd leeg, waardoor de web-UI een
    eigen statustabel rendert die inmiddels van de orkestrator was afgedreven. Beide
    rechtgezet; de UI toont nu de tabel van de orkestrator.
-5. De synthese omzetten naar een beslismoment per punt, met vastlegging van de keuze en de
-   motivering (3.3).
+5. ~~De synthese omzetten naar een beslismoment per punt, met vastlegging van de keuze en
+   de motivering (3.3).~~ **Uitgevoerd 2026-08-15.** `synthese.md` opent met een json-blok
+   met `points`; elk punt heeft minstens twee varianten met hun gevolg, en `verwerpen` is
+   verplicht aanwezig. `complete synthesis` weigert zolang er punten open staan. Beslissen
+   gaat per punt met `orchestrate.py decide`, met een verplichte motivering, en komt in het
+   logboek.
+
+   Drie eisen uit 3.3 zijn daarmee mechanisch afgedwongen in plaats van opgeschreven:
+   varianten in plaats van een advies, verwerpen even zichtbaar als aannemen, en beslissen
+   per punt. Voor de vierde eis, dat de agent neutraal voorlegt, is er geen veld voor een
+   advies meer; de brief zegt het er expliciet bij.
+
+   **Wat hier niet in zit:** de fysieke verhuizing van `synthesis` naar het Oordelen-blok.
+   Die vraagt de lus uit stap 6 (opmerkingen na het lezen voeden een nieuwe synthese-ronde),
+   en is niet uit te drukken als een verschuiving in een lineaire fasevolgorde. `synthesis`
+   blijft tot dan onder Bouwen staan.
 6. `revisie.md` invoeren als artefact voor de opmerkingen na het lezen.
 
 Stap 1 tot en met 3 zijn losstaand bruikbaar; vanaf stap 4 verandert de zichtbare vorm van

@@ -87,10 +87,16 @@ class OrchestrateTestCase(unittest.TestCase):
     #: blok weigert `complete`. Leeg betekent: niets gevonden.
     CHECK_REPORTS = ("stijlcheck.md", "leesbaarheid.md", "reeks-check.md", "feitencheck.md")
     LEEG_RAPPORT = '# Rapport\n\n```json\n{"findings": []}\n```\n'
+    LEGE_SYNTHESE = '# Synthese\n\n```json\n{"points": []}\n```\n'
 
     def write(self, name: str, content: str | None = None) -> None:
         if content is None:
-            content = self.LEEG_RAPPORT if name in self.CHECK_REPORTS else "inhoud\n"
+            if name in self.CHECK_REPORTS:
+                content = self.LEEG_RAPPORT
+            elif name == "synthese.md":
+                content = self.LEGE_SYNTHESE
+            else:
+                content = "inhoud\n"
         path = os.path.join(self.post_dir, name)
         os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:

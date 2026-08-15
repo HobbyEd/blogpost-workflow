@@ -218,6 +218,34 @@ def get_post_detail(slug: str) -> dict[str, Any]:
         raise HTTPException(status_code=404, detail=str(e))
 
 
+class DecidePointRequest(BaseModel):
+    punt: str = Field(..., description="Punt-id uit synthese.md")
+    keuze: str = Field(..., description="Gekozen variant, bv. 'aannemen' of 'verwerpen'")
+    motivering: str = Field(..., description="Eén regel: waarom deze keuze")
+
+
+@app.get("/api/posts/{slug}/synthesis")
+def get_synthesis(slug: str) -> dict[str, Any]:
+    """Kritiekpunten met hun varianten en de genomen beslissingen (ADR-010 §3.3)."""
+    try:
+        return service.get_synthesis(post=slug)
+    except (FileNotFoundError, ValueError) as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@app.post("/api/posts/{slug}/synthesis/decide")
+def decide_point(slug: str, req: DecidePointRequest) -> dict[str, Any]:
+    """Leg de beslissing van de auteur bij één kritiekpunt vast."""
+    try:
+        return service.decide_point(
+            punt_id=req.punt, keuze=req.keuze, motivering=req.motivering, post=slug
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
 @app.get("/api/posts/{slug}/findings")
 def get_findings(slug: str) -> dict[str, Any]:
     """Bundel de bevindingen van alle controlefases (ADR-010 §6, stap 3).

@@ -13,6 +13,25 @@ from scripts.orchestrator.service import WorkflowService
 #: Een controlerapport zonder bevindingen (ADR-010 §6, stap 2).
 LEEG_RAPPORT = '# Rapport\n\n```json\n{"findings": []}\n```\n'
 
+#: Een synthese zonder punten: er viel niets te wegen (ADR-010 §3.3).
+LEGE_SYNTHESE = '# Synthese\n\n```json\n{"points": []}\n```\n'
+
+#: Een synthese met één kritiekpunt, met verwerpen als zichtbare variant.
+SYNTHESE_MET_PUNT = """# Synthese
+
+```json
+{"points": [
+  {"id": "p1", "bron": "grok", "raakt": "bestaansrecht",
+   "punt": "De tegenwerping op de Sinek-sectie blijft onbesproken.",
+   "opties": [
+     {"key": "aannemen", "gevolg": "circa 50 woorden erbij in sectie 6"},
+     {"key": "verwerpen", "gevolg": "de sectie blijft zoals hij is"},
+     {"key": "schrappen", "gevolg": "sectie 6 vervalt, scheelt 444 woorden"}
+   ]}
+]}
+```
+"""
+
 #: Een controlerapport met één blokkerende bevinding.
 BLOKKEREND_RAPPORT = """# Rapport
 
@@ -74,7 +93,12 @@ class ServiceTestBase(unittest.TestCase):
 
     def create_post_file(self, slug: str, filename: str, content: str | None = None) -> str:
         if content is None:
-            content = LEEG_RAPPORT if filename in self.CHECK_REPORTS else "content\n"
+            if filename in self.CHECK_REPORTS:
+                content = LEEG_RAPPORT
+            elif filename == "synthese.md":
+                content = LEGE_SYNTHESE
+            else:
+                content = "content\n"
         pdir = os.path.join(self.tmp_dir, slug)
         os.makedirs(pdir, exist_ok=True)
         path = os.path.join(pdir, filename)
@@ -190,7 +214,7 @@ class TestServiceLinearPipeline(ServiceTestBase):
         # 7. Synthesis phase (HARD GATE)
         res = self.service.run_phase(phase="synthesis", post_dir=pdir)
         self.assertTrue(res["ok"])
-        self.create_post_file(slug, "synthese.md", "# Synthese document")
+        self.create_post_file(slug, "synthese.md")
         res = self.service.complete_phase(phase="synthesis", post_dir=pdir)
         self.assertTrue(res["ok"])
         res = self.service.approve_gate(post_dir=pdir, note="Synthese akkoord")
@@ -290,7 +314,7 @@ class TestServiceYoloAndHardGates(ServiceTestBase):
         raw_state["status"] = "running"
         save_state(pdir, raw_state)
 
-        self.create_post_file(slug, "synthese.md", "Synthese")
+        self.create_post_file(slug, "synthese.md")
         res = self.service.complete_phase(phase="synthesis", post_dir=pdir)
         self.assertTrue(res["ok"])
         self.assertFalse(res["yolo_advanced"])  # Hard gate MUST NOT auto-advance
@@ -468,6 +492,110 @@ class TestServiceAlignmentGate(ServiceTestBase):
         self.assertEqual(state["phase"], "draft")
         self.assertEqual(state["status"], "ready")
         self.assertIsNone(state["blocked_reason"], "status ready mag geen blocked_reason houden")
+
+
+class TestSyntheseBeslismoment(ServiceTestBase):
+    """Per punt beslissen met een motivering (ADR-010 §3.3)."""
+
+    def _op_synthese(self, slug: str, synthese: str) -> str:
+        from scripts.orchestrator.repository import load_state, save_state
+
+        pdir = os.path.join(self.tmp_dir, slug)
+        self.service.init_post(slug=slug, titel="Synthese", post_dir=pdir)
+        self.create_post_file(slug, "draft.md", "# Draft\n")
+        self.create_post_file(slug, "grok-feedback.md", "# Grok")
+        self.create_post_file(slug, "synthese.md", synthese)
+        s = load_state(pdir)
+        s["phase"], s["status"] = "synthesis", "running"
+        save_state(pdir, s)
+        return pdir
+
+    def test_open_punt_blokkeert_complete(self) -> None:
+        pdir = self._op_synthese("syn-open", SYNTHESE_MET_PUNT)
+        res = self.service.complete_phase(phase="synthesis", post_dir=pdir)
+        self.assertFalse(res["ok"])
+        fouten = " ".join(res["errors"])
+        self.assertIn("p1", fouten)
+        self.assertIn("niet beslist", fouten)
+
+    def test_beslissing_met_motivering_maakt_complete_mogelijk(self) -> None:
+        pdir = self._op_synthese("syn-beslist", SYNTHESE_MET_PUNT)
+        self.service.decide_point(
+            punt_id="p1", keuze="schrappen",
+            motivering="De sectie draagt het betoog niet; alleen de claim blijft.",
+            post_dir=pdir,
+        )
+        res = self.service.complete_phase(phase="synthesis", post_dir=pdir)
+        self.assertTrue(res["ok"], res.get("errors"))
+
+    def test_motivering_is_verplicht(self) -> None:
+        pdir = self._op_synthese("syn-motief", SYNTHESE_MET_PUNT)
+        with self.assertRaises(ValueError):
+            self.service.decide_point(punt_id="p1", keuze="verwerpen", motivering="   ", post_dir=pdir)
+
+    def test_onbekende_keuze_wordt_geweigerd(self) -> None:
+        pdir = self._op_synthese("syn-keuze", SYNTHESE_MET_PUNT)
+        with self.assertRaises(ValueError):
+            self.service.decide_point(punt_id="p1", keuze="misschien", motivering="x", post_dir=pdir)
+
+    def test_punt_zonder_verwerpen_wordt_geweigerd(self) -> None:
+        """Verwerpen hoort bij elk punt een even zichtbare optie te zijn."""
+        zonder = """# Synthese
+
+```json
+{"points": [
+  {"id": "p1", "punt": "Iets", "opties": [
+     {"key": "aannemen", "gevolg": "meer tekst"},
+     {"key": "aannemen_kort", "gevolg": "iets meer tekst"}
+  ]}
+]}
+```
+"""
+        pdir = self._op_synthese("syn-zonder", zonder)
+        res = self.service.complete_phase(phase="synthesis", post_dir=pdir)
+        self.assertFalse(res["ok"])
+        self.assertIn("verwerpen", " ".join(res["errors"]))
+
+    def test_een_variant_is_geen_keuze(self) -> None:
+        een = """# Synthese
+
+```json
+{"points": [{"id": "p1", "punt": "Iets", "opties": [{"key": "verwerpen", "gevolg": "niets"}]}]}
+```
+"""
+        pdir = self._op_synthese("syn-een", een)
+        res = self.service.complete_phase(phase="synthesis", post_dir=pdir)
+        self.assertFalse(res["ok"])
+        self.assertIn("minder dan twee varianten", " ".join(res["errors"]))
+
+    def test_lege_synthese_mag_door(self) -> None:
+        """Geen kritiekpunten betekent niets te wegen."""
+        pdir = self._op_synthese("syn-leeg", LEGE_SYNTHESE)
+        res = self.service.complete_phase(phase="synthesis", post_dir=pdir)
+        self.assertTrue(res["ok"], res.get("errors"))
+
+    def test_besluit_staat_in_het_logboek(self) -> None:
+        from scripts.orchestrator.repository import load_state
+
+        pdir = self._op_synthese("syn-log", SYNTHESE_MET_PUNT)
+        self.service.decide_point(
+            punt_id="p1", keuze="verwerpen",
+            motivering="Grok kijkt per sectie; dit punt maakt hem alleen langer.",
+            post_dir=pdir,
+        )
+        regels = [e for e in load_state(pdir)["log"] if e["event"] == "synthese_besluit"]
+        self.assertEqual(len(regels), 1)
+        self.assertIn("verwerpen", regels[0]["note"])
+
+    def test_overzicht_telt_verworpen_punten(self) -> None:
+        pdir = self._op_synthese("syn-telling", SYNTHESE_MET_PUNT)
+        self.service.decide_point(
+            punt_id="p1", keuze="verwerpen", motivering="Niet overnemen.", post_dir=pdir
+        )
+        res = self.service.get_synthesis(post_dir=pdir)
+        self.assertEqual(res["totaal"], 1)
+        self.assertEqual(res["open"], 0)
+        self.assertEqual(res["verworpen"], 1)
 
 
 class TestBlokindeling(ServiceTestBase):

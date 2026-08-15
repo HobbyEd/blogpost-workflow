@@ -62,6 +62,8 @@ from .archival_validator import (
     resolve_alignment_discrepancy,
 )
 from .rag_archive import archive_vectorstore
+from .synthesis import read_points, record_decision
+from .synthesis import summarize as synthesis_summary
 from .verdicts import (
     collect_findings,
     read_phase_findings,
@@ -164,6 +166,46 @@ class WorkflowService:
             **bundel,
             "markdown": render_findings_md(bundel),
         }
+
+    def get_synthesis(
+        self, post: str | None = None, post_dir: str | None = None
+    ) -> dict[str, Any]:
+        """Toon de kritiekpunten met hun varianten en de genomen beslissingen."""
+        pdir = self.resolve_dir(post, post_dir)
+        state = load_state(pdir)
+        return {"slug": state["slug"], **synthesis_summary(state, read_points(pdir))}
+
+    def decide_point(
+        self,
+        punt_id: str,
+        keuze: str,
+        motivering: str,
+        post: str | None = None,
+        post_dir: str | None = None,
+    ) -> dict[str, Any]:
+        """Leg de beslissing van de auteur bij één kritiekpunt vast (ADR-010 §3.3).
+
+        Per punt, met een motivering. Akkoord op het geheel is geen beslissing: zo bleef
+        bij deel 2 een sectie staan die eruit had gemoeten.
+        """
+        pdir = self.resolve_dir(post, post_dir)
+        state = load_state(pdir)
+        punten = read_points(pdir)
+
+        punt = next((p for p in punten if p["id"] == punt_id), None)
+        if punt is None:
+            bekend = ", ".join(p["id"] for p in punten) or "geen"
+            raise ValueError(f"Onbekend punt '{punt_id}'. Bekende punten: {bekend}.")
+
+        record_decision(state, punt, keuze, motivering, now_iso())
+        append_log(
+            state,
+            "synthese_besluit",
+            note=f"{punt_id}: {keuze} — {motivering.strip()}",
+            phase="synthesis",
+        )
+        save_state(pdir, state)
+        return {"ok": True, "punt": punt_id, "keuze": keuze, **synthesis_summary(state, punten)}
 
     def get_table(
         self, post: str | None = None, post_dir: str | None = None
