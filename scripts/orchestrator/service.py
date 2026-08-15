@@ -550,8 +550,12 @@ class WorkflowService:
         return out
 
     def search_archive(self, query: str, top_k: int = 5) -> list[dict[str, Any]]:
-        """Zoek semantisch in het blogpost archief (RAG Vectorstore - ADR-006)."""
-        archive_vectorstore.index_all_posts(posts_root(), incremental=True)
+        """Zoek lexicaal (TF-IDF) in het blogpost archief (RAG Vectorstore - ADR-006).
+
+        Ververst alleen de lokale artefacten. De WordPress-fetch duurt seconden en
+        hoort niet in een zoekopdracht; die loopt via /api/rag/reindex-async.
+        """
+        archive_vectorstore.index_all_posts(posts_root(), incremental=True, include_wordpress=False)
         return archive_vectorstore.search(query=query, top_k=top_k)
 
     def get_rag_status(self) -> dict[str, Any]:

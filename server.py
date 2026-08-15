@@ -367,7 +367,7 @@ def get_rag_status() -> dict[str, Any]:
 
 @app.get("/api/rag/search")
 def search_rag_archive(q: str, top_k: int = 5) -> dict[str, Any]:
-    """Zoek semantisch in eerdere blogposts (ADR-006 RAG Vectorstore)."""
+    """Zoek lexicaal (TF-IDF) in eerdere blogposts (ADR-006 RAG Vectorstore)."""
     results = service.search_archive(query=q, top_k=top_k)
     return {
         "query": q,
