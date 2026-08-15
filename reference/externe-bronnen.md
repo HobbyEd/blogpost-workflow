@@ -8,28 +8,35 @@ subagents en de skill hiernaar, niet naar een hardgecodeerd `../`-pad.
 
 ## 1. Postcorpus (voor context)
 
-Edwins eerdere blogposts, als context voor de onderzoeker (fase 1). Het corpus komt
-**van de live site edwinvandillen.nl** via de WordPress REST API, niet van een map op
-schijf. Zo hangt de repo nergens aan een naburige map; er is alleen internettoegang
-nodig.
+Edwins eerdere blogposts, als context voor de onderzoeker (fase 1) en de
+reeks-consistentiecheck. Het corpus komt **van de live site edwinvandillen.nl** via de
+WordPress REST API. Zo hangt de repo nergens aan een naburige map; er is alleen
+internettoegang nodig.
 
-- **Bron:** de gepubliceerde posts, nieuwste eerst:
+Je bevraagt het corpus niet meer rechtstreeks per fetch, maar via de RAG-index:
+
+- **Zoeken:** `python3 scripts/rag_cli.py search "<onderwerp>" --top-k 12`. De index dekt
+  alle gepubliceerde posts plus de lokale artefacten in `posts/*/`. Retrieval is lexicaal
+  (TF-IDF, geen embeddings): varieer je zoektermen, want een idee in andere woorden vindt
+  hij niet.
+- **Vangnet:** `reference/corpus-inventaris.md` — alle 61 posts met id, datum, titel en
+  kernbegrippen. Loop die lijst door voor wat de zoekopdracht mist.
+- **Bijwerken:** `python3 scripts/rag_cli.py reindex --incremental` haalt nieuwe en
+  gewijzigde posts op. `--purge` bouwt de index van nul op. De index staat in
+  `posts/.archive_rag_index.json` en is gitignored.
+- **Volledige tekst van één post:** `https://edwinvandillen.nl/?p=<id>`, of de
+  REST-route hieronder. Lezen van gepubliceerde posts vereist geen authenticatie.
 
   ```
   https://edwinvandillen.nl/?rest_route=/wp/v2/posts&per_page=10&orderby=date&order=desc&_fields=id,title,link,date,excerpt
   ```
 
-  Dit geeft een compacte JSON-lijst (titel, link, datum, excerpt). Wil je de volledige
-  tekst van een post voor toon of inhoud, voeg dan `content` toe aan `_fields` of haal
-  de losse post-`link` op. Lezen van gepubliceerde posts vereist geen authenticatie.
-- **Aantal:** standaard de laatste 10 (`per_page=10`). Meer of minder: pas `per_page`
-  aan.
-- **Afwezig / offline?** Kan de site niet worden bereikt, dan is dat geen fout: de
-  contextstap levert een lege context en de post wordt zonder corpus-verankering
-  geschreven. Meld dat bij de gate.
-- **Toekomst (RAG):** dit is de "vervangbare contextophaling". Later wordt deze directe
-  site-fetch één query op een kleine RAG-index over dezelfde posts. De in-/output van
-  de contextstap blijft gelijk, zodat de omruil de rest van de keten niet raakt.
+  Let op: deze route geeft standaard alleen de nieuwste posts. Precies dat venster maakte
+  ouder materiaal onzichtbaar; gebruik hem dus om één bekende post op te halen, niet om
+  het archief te verkennen.
+- **Afwezig / offline?** Kan de index niet worden gelezen of de site niet worden bereikt,
+  dan is dat geen fout: werk verder met de corpus-inventaris en meld het bij de gate.
+  Verzin geen eerdere posts.
 
 ## 2. Backlog (voor de intake)
 

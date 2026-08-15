@@ -9,10 +9,26 @@ from typing import Any
 from .constants import AGENT_FOR_PHASE
 
 
+def rag_search_step(onderwerp: str, top_k: int = 12) -> str:
+    """De verplichte openingsstap: eerst het eigen archief bevragen (ADR-006).
+
+    Zonder deze stap keek de keten alleen naar de twintig nieuwste posts van de live
+    site, waardoor ouder materiaal structureel onzichtbaar bleef.
+    """
+    return (
+        f'VERPLICHTE EERSTE STAP: python3 scripts/rag_cli.py search "{onderwerp}" '
+        f"--top-k {top_k}. Herhaal met varianten op de kernbegrippen; retrieval is "
+        "lexicaal (TF-IDF), dus andere woorden voor hetzelfde idee vindt hij niet. "
+        "Lees daarnaast reference/corpus-inventaris.md als vangnet. "
+        "Faalt de index, meld dat bij de gate en verzin geen eerdere posts."
+    )
+
+
 def agent_brief(phase: str, post_dir: str, state: dict[str, Any]) -> dict[str, Any]:
     """Genereer de gestructureerde agent_brief instructie voor een specifieke fase."""
     slug = state.get("slug") or os.path.basename(post_dir.rstrip("/"))
     rel = f"posts/{slug}"
+    onderwerp = state.get("titel") or slug
     common = {
         "agent": AGENT_FOR_PHASE.get(phase),
         "phase": phase,
@@ -22,11 +38,18 @@ def agent_brief(phase: str, post_dir: str, state: dict[str, Any]) -> dict[str, A
     briefs = {
         "outline": {
             **common,
-            "inputs": ["onderwerp/titel", "backlog of brainstorm indien genoemd"],
+            "inputs": [
+                "onderwerp/titel",
+                "backlog of brainstorm indien genoemd",
+                "RAG-archief (scripts/rag_cli.py search)",
+                "reference/corpus-inventaris.md",
+            ],
             "outputs": [f"{rel}/outline.md"],
             "instruction": (
-                "Roep blogpost-onderzoeker aan. Schrijf een compacte outline met bronnen "
-                f"(URL's geverifieerd) naar {rel}/outline.md. Verzin geen fase; alleen outline."
+                f"{rag_search_step(onderwerp)} "
+                "Roep daarna blogpost-onderzoeker aan en geef de treffers mee. Schrijf een "
+                "compacte outline met bronnen (URL's geverifieerd) naar "
+                f"{rel}/outline.md. Verzin geen fase; alleen outline."
             ),
         },
         "draft": {
@@ -49,11 +72,22 @@ def agent_brief(phase: str, post_dir: str, state: dict[str, Any]) -> dict[str, A
         },
         "series": {
             **common,
-            "inputs": [f"{rel}/draft.md", "posts/*/"],
-            "outputs": ["rapport aan orkestrator/host"],
+            "inputs": [
+                f"{rel}/draft.md",
+                "posts/*/",
+                "RAG-archief (scripts/rag_cli.py search)",
+                "reference/corpus-inventaris.md",
+            ],
+            "outputs": [f"{rel}/reeks-check.md"],
             "instruction": (
-                "Roep reeks-consistentie-check aan. Vergelijk met eerdere delen in posts/*/. "
-                "Rapporteer alleen; pas de draft niet zelf aan."
+                f"{rag_search_step(onderwerp)} "
+                "Zoek ook op de kernbegrippen uit de draft zelf, om te vinden waar die "
+                "begrippen eerder anders zijn genoemd. Roep daarna "
+                "reeks-consistentie-check aan en geef de treffers mee; die agent heeft "
+                "zelf geen Bash. Vergelijk met eerdere delen in posts/*/. Het rapport "
+                f"gaat naar {rel}/reeks-check.md, ook als er geen eerdere delen zijn: "
+                "leg dan vast dát er niets te vergelijken viel. Rapporteer alleen; pas "
+                "de draft niet zelf aan."
             ),
         },
         "critique": {
@@ -67,13 +101,19 @@ def agent_brief(phase: str, post_dir: str, state: dict[str, Any]) -> dict[str, A
         },
         "synthesis": {
             **common,
-            "inputs": [f"{rel}/draft.md", f"{rel}/grok-feedback.md"],
+            "inputs": [
+                f"{rel}/draft.md",
+                f"{rel}/grok-feedback.md",
+                "RAG-archief (scripts/rag_cli.py search)",
+            ],
             "outputs": [f"{rel}/synthese.md"],
             "instruction": (
                 "Roep blogpost-onderzoeker aan voor synthese: weeg Grok-punten, schrijf "
                 "aanpasvoorstel naar synthese.md. Herschrijf draft.md niet in deze stap."
             ),
         },
+                f"{rag_search_step(onderwerp)} Zo weeg je Grok-kritiek tegen wat Edwin "
+                "hier eerder over schreef, niet alleen tegen de draft. "
         "visuals": {
             **common,
             "inputs": [f"{rel}/draft.md", "reference/huisstijl.md"],

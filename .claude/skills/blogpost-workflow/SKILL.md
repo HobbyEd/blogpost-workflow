@@ -126,6 +126,12 @@ Gebruik de **agent_brief** uit `run` / `next`. Korte mapping:
 ### Details die je niet mag vergeten
 
 - **Schrijver:** leest outline + `reference/huisstijl.md`; verzint geen feiten buiten de outline.
+- **Archief eerst.** Bij `outline`, `series` en `synthesis` begint de fase met
+  `python3 scripts/rag_cli.py search "<onderwerp>" --top-k 12`, en met
+  `reference/corpus-inventaris.md` ernaast. De `agent_brief` zet die stap er zelf in.
+  Retrieval is lexicaal, dus varieer je zoektermen; een idee in andere woorden vindt de
+  index niet, de inventaris wel. `reeks-consistentie-check` heeft geen Bash: draai de
+  zoekopdracht zelf en geef de treffers mee.
 - **Stijl-check / reeks-check:** rapporteren alleen; jij past draft aan na Edwins akkoord.
 - **Leesbaarheid-check draait altijd naast de stijl-check**, in dezelfde fase, direct erna.
   De stijl-check telt uitsluitend overtredingen; onder die meetlat is de optimale tekst kort,

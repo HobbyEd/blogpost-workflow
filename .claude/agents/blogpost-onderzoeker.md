@@ -13,28 +13,35 @@ schrijver nodig heeft, niet meer. Compacte tussenoutput is een ontwerpparameter.
 
 Je krijgt van de orkestrator: het onderwerp en het pad `posts/<slug>/`.
 
-## Stap 1 — Context uit eerdere posts (vervangbaar blok)
+## Stap 1 — Context uit eerdere posts (RAG-index)
 
-> Dit is een afgebakende, vervangbare component. Nu leest hij de eerdere posts
-> direct in. Later wordt dit één query op een RAG-index over de bestaande posts.
-> Houd de in- en output van dit blok stabiel, zodat de omruil de rest van de agent
-> niet raakt.
->
 > **Input:** het onderwerp.
 > **Output:** een korte lijst relevante eerdere posts met per post één regel
 > "waar raakt dit aan het onderwerp", plus terugkerende begrippen/frameworks die
 > Edwin al gebruikt (bv. Augmented Organisation, Promptington, Token FinOps,
 > Harnessing, bounded contexts).
 
-Huidige implementatie: haal de eerdere blogposts van de live site **edwinvandillen.nl**
-via de WordPress REST API (zie `reference/externe-bronnen.md` voor de exacte URL). Doe
-met WebFetch een request op de posts-endpoint met de nieuwste posts eerst
-(`per_page=10&orderby=date&order=desc`, velden `id,title,link,date,excerpt`) en bepaal
-welke posts aan het onderwerp raken. Heb je van een raakvlak-post de volledige tekst
-nodig voor toon of inhoud, haal dan die post-`link` op met WebFetch. Lees niet klakkeloos
-alles; selecteer op relevantie. Kan de site niet worden bereikt, lever dan een lege
-context en meld dat bij de gate — dat is geen fout, maar de configureerbare naad uit dit
-blok.
+Begin **altijd** met de RAG-index over het volledige archief (alle gepubliceerde posts
+op edwinvandillen.nl plus de lokale artefacten in `posts/*/`):
+
+```
+python3 scripts/rag_cli.py search "<onderwerp>" --top-k 12
+```
+
+Draai die zoekopdracht meerdere keren, met verschillende formuleringen: het onderwerp
+zelf, de kernbegrippen eruit, en de termen die Edwin voor dat idee gebruikt. Retrieval is
+lexicaal (TF-IDF), geen embeddings: hij vindt "stroomopwaarts" wel, maar "de controle naar
+voren halen" niet. Varieer je woordkeuze dus bewust.
+
+Lees daarnaast `reference/corpus-inventaris.md`. Dat is het vangnet onder de RAG: de
+volledige lijst gepubliceerde posts met kernbegrippen, zodat een post die lexicaal niet
+matcht toch in beeld komt.
+
+Heb je van een raakvlak-post de volledige tekst nodig voor toon of inhoud, haal dan de
+post-`link` op met WebFetch. Lees niet klakkeloos alles; selecteer op relevantie.
+
+Geeft de index niets terug of faalt hij, meld dat dan bij de gate en ga verder met de
+corpus-inventaris. Verzin geen eerdere posts.
 
 ## Stap 2 — Verrijking & Bulk Research Protocol
 

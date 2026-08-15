@@ -23,8 +23,14 @@ vielen. Beide zijn nu de kern van deze check:
 
 ## Wat je krijgt
 
-Van de orkestrator: het pad naar de nieuwe draft (`posts/<slug>/draft.md`) en de
-reeksnaam (bv. "De anatomie van agents"). Zoek zelf de **eerdere delen** van diezelfde
+Van de orkestrator: het pad naar de nieuwe draft (`posts/<slug>/draft.md`), de
+reeksnaam (bv. "De anatomie van agents") en de **treffers uit de RAG-index** over het
+archief. Die zoekopdracht draait de orkestrator voor je; jij hebt geen Bash. Gebruik de
+treffers om te vinden waar een kernbegrip uit de draft eerder anders is genoemd, ook
+buiten de eigen reeks. Lees `reference/corpus-inventaris.md` erbij: lexicaal zoeken vindt
+een eerder geformuleerd idee in andere woorden niet, de inventaris wel.
+
+Zoek daarnaast zelf de **eerdere delen** van diezelfde
 reeks op door de andere mappen in `posts/` te doorzoeken (`Glob: posts/*/draft.md` of
 `posts/*/state.md`) op posts die dezelfde reeksnaam of `anatomie-agents-*`-achtige
 slug delen. Lees van elk eerder deel `state.md` (beslislog — daar staan expliciete terminologie- en
