@@ -14,7 +14,23 @@ from .constants import (
     SOFT_GATES,
 )
 from .probes import count_visuals, probe_artefacts
-from .repository import append_log, now_iso
+from .repository import append_log, draft_fingerprint, now_iso
+
+
+def deploy_approval_valid(state: dict[str, Any], post_dir: str) -> bool:
+    """True als de deploy-goedkeuring nog bij de huidige draft hoort.
+
+    `deploy_approved` alleen is niet genoeg. De vlag bleef eerder staan terwijl de draft
+    daarna nog werd herschreven, waardoor de gate goedkeuring gaf op een tekst die niet
+    meer bestond. De goedkeuring hangt daarom aan een vingerafdruk van draft.md.
+    """
+    if not state["flags"].get("deploy_approved"):
+        return False
+    approval = state.get("deploy_approval") or {}
+    stored = approval.get("draft_sha")
+    if not stored:
+        return False
+    return stored == draft_fingerprint(post_dir)
 
 
 def next_phase_after(phase: str, flags: dict[str, Any]) -> str:
@@ -129,6 +145,17 @@ def _compute_next_for_ready_status(state: dict[str, Any], phase: str, post_dir: 
             "agent_brief": None,
         }
 
+    if phase == "deploy" and not deploy_approval_valid(state, post_dir):
+        return {
+            "action": "approve_deploy_again",
+            "phase": "deploy",
+            "summary": (
+                "draft.md is gewijzigd sinds de deploy-goedkeuring; die is vervallen. "
+                "Lees de gewijzigde tekst en keur opnieuw goed met `approve --deploy`."
+            ),
+            "agent_brief": None,
+        }
+
     return {
         "action": "run",
         "phase": phase,
@@ -157,7 +184,7 @@ def _precheck_run_clean(phase: str, state: dict[str, Any], post_dir: str) -> lis
         return [f"Status '{state['status']}' laat run niet toe."]
 
     probed = probe_artefacts(post_dir)
-    return _check_run_phase_artefact_requirements(phase, state, probed)
+    return _check_run_phase_artefact_requirements(phase, state, probed, post_dir)
 
 
 def _is_defer_visuals_active(phase: str, state: dict[str, Any]) -> bool:
@@ -169,7 +196,9 @@ def _is_defer_visuals_active(phase: str, state: dict[str, Any]) -> bool:
     )
 
 
-def _check_run_phase_artefact_requirements(phase: str, state: dict[str, Any], probed: dict[str, str]) -> list[str]:
+def _check_run_phase_artefact_requirements(
+    phase: str, state: dict[str, Any], probed: dict[str, str], post_dir: str
+) -> list[str]:
     """Controleert specifieke artefact-vereisten per fase vóór het starten van 'run'."""
     errors: list[str] = []
 
@@ -195,6 +224,12 @@ def _check_run_phase_artefact_requirements(phase: str, state: dict[str, Any], pr
     if phase == "deploy":
         if not state["flags"].get("deploy_approved"):
             errors.append("deploy vereist flags.deploy_approved=true (eerst: approve --deploy of set-flag deploy_approved true).")
+        elif not deploy_approval_valid(state, post_dir):
+            errors.append(
+                "draft.md is gewijzigd sinds de deploy-goedkeuring; die is daarmee "
+                "vervallen. Keur opnieuw goed met approve --deploy nadat je de "
+                "gewijzigde tekst hebt gezien."
+            )
         if probed["factcheck"] != "present" and not state["flags"].get("skip_factcheck"):
             errors.append(
                 "feitencheck.md ontbreekt. Publiceren zonder broncontrole is hoe een "
@@ -307,6 +342,41 @@ def _validate_style_completion(probed: dict[str, str]) -> list[str]:
             "onverbonden zinnen."
         )
     return errors
+def _validate_deploy_completion(state: dict[str, Any], post_id: int | None, edit_url: str | None) -> list[str]:
+    """Valideert vereisten voor het afronden van de deploy fase."""
+    errors: list[str] = []
+    pid = post_id or state["artefacts"].get("wp_post_id")
+    eurl = edit_url or state["artefacts"].get("edit_url")
+
+    if not pid:
+        errors.append("complete deploy vereist --post-id (of reeds gezet in state).")
+    if not eurl:
+        errors.append("complete deploy vereist --edit-url (of reeds gezet in state).")
+    if not state["flags"].get("deploy_approved"):
+        errors.append("deploy_approved is false.")
+
+    return errors
+
+
+def apply_approve_advance(state: dict[str, Any], note: str | None = None, deploy: bool = False) -> None:
+    """Keur gate goed en schuif door naar de volgende fase met schone flow."""
+    phase = state["phase"]
+    if deploy:
+        state["flags"]["deploy_approved"] = True
+
+    state["gate"]["last_decision"] = {
+        "at": now_iso(),
+        "decision": "approve",
+        "phase": phase,
+        "note": note,
+    }
+    state["gate"]["pending"] = None
+    state["blocked_reason"] = None
+    append_log(state, "gate_approved", note=note, phase=phase)
+
+    if phase == "intake":
+        state["phase"] = "outline"
+        state["status"] = "ready"
 
 
 def _validate_series_completion(probed: dict[str, str]) -> list[str]:

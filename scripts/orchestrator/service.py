@@ -30,6 +30,7 @@ from .formatters import (
 from .probes import probe_artefacts
 from .repository import (
     append_log,
+    draft_fingerprint,
     empty_state,
     load_state,
     now_iso,
@@ -49,6 +50,18 @@ from .archival_validator import (
     read_alignment_verdict,
 )
 from .rag_archive import archive_vectorstore
+
+
+def _record_deploy_approval(state: dict[str, Any], post_dir: str) -> None:
+    """Leg vast wélke draft is goedgekeurd voor deploy.
+
+    Zonder deze koppeling overleeft `deploy_approved` een correctieronde en geeft de
+    deploy-gate groen licht op een tekst die inmiddels is herschreven.
+    """
+    state["deploy_approval"] = {
+        "draft_sha": draft_fingerprint(post_dir),
+        "at": now_iso(),
+    }
 
 
 class WorkflowService:
@@ -256,6 +269,7 @@ class WorkflowService:
 
         if deploy:
             state["flags"]["deploy_approved"] = True
+            _record_deploy_approval(state, pdir)
             append_log(state, "deploy_approved_set", note=note)
             if state["phase"] == "deploy" and state["status"] == "ready":
                 save_state(pdir, state)
@@ -349,6 +363,11 @@ class WorkflowService:
             append_log(state, "flag_set", note=f"yolo_mode={value}")
         elif name in FLAG_NAMES:
             state["flags"][name] = value
+            if name == "deploy_approved":
+                if value:
+                    _record_deploy_approval(state, pdir)
+                else:
+                    state["deploy_approval"] = None
             append_log(state, "flag_set", note=f"{name}={value}")
         else:
             raise ValueError(f"Onbekende flag: {name}. Kies: yolo_mode, {', '.join(FLAG_NAMES)}")

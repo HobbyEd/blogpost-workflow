@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 from copy import deepcopy
@@ -44,6 +45,20 @@ def resolve_post_dir(post: str | None, post_dir: str | None) -> str:
 def state_path(post_dir: str) -> str:
     """Pad naar state.json binnen een postmap."""
     return os.path.join(post_dir, "state.json")
+
+
+def draft_fingerprint(post_dir: str) -> str | None:
+    """Vingerafdruk van draft.md, of None als die er niet is.
+
+    Hiermee wordt `deploy_approved` aan een concrete tekst gekoppeld. Zonder die
+    koppeling bleef een goedkeuring staan terwijl de draft daarna nog werd herschreven,
+    en stopte de deploy-gate niets meer.
+    """
+    path = os.path.join(post_dir, "draft.md")
+    if not os.path.isfile(path):
+        return None
+    with open(path, "rb") as f:
+        return hashlib.sha256(f.read()).hexdigest()
 
 
 def now_iso() -> str:
@@ -121,9 +136,9 @@ def empty_state(slug: str, titel: str, yolo: bool = False) -> dict[str, Any]:
             "deploy_approved": False,
         },
         "gate": {"pending": None, "last_decision": None},
-            "stijlcheck": "missing",
-            "leesbaarheid": "missing",
-            "reeks_check": "missing",
+        # Waaraan de deploy-goedkeuring hangt: de vingerafdruk van de draft die is
+        # goedgekeurd. Wijkt draft.md daarna af, dan vervalt de goedkeuring.
+        "deploy_approval": None,
         "blocked_reason": None,
         "log": [
             {

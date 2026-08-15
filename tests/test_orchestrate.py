@@ -218,13 +218,13 @@ class TestYoloMode(OrchestrateTestCase):
         for phase, artefact in (
             ("outline", "outline.md"),
             ("draft", "draft.md"),
-            ("style", None),
-            ("series", None),
+            ("style", ("stijlcheck.md", "leesbaarheid.md")),
+            ("series", ("reeks-check.md",)),
             ("critique", "grok-feedback.md"),
         ):
             self.cli("run", phase)
-            if artefact:
-                self.write(artefact)
+            for f in ((artefact,) if isinstance(artefact, str) else artefact or ()):
+                self.write(f)
             self.cli("complete", phase)
 
         self.assertEqual(self.state()["phase"], "synthesis")
@@ -272,19 +272,47 @@ class TestNextGuidance(OrchestrateTestCase):
         )
         self.assertEqual(payload["action"], "approve_deploy_first")
 
+    def _approve_deploy_for_current_draft(self, state: dict) -> None:
+        """Zet deploy_approved mét de vingerafdruk van de draft die er nu ligt."""
+        from scripts.orchestrator.repository import draft_fingerprint
+
+        state["flags"]["deploy_approved"] = True
+        state["deploy_approval"] = {"draft_sha": draft_fingerprint(self.post_dir), "at": "2026-01-01T00:00:00+00:00"}
+
     def test_next_suggests_run_after_deploy_approved(self) -> None:
         self.init_state(yolo=False)
+        self.write("draft.md")
         state = self.state()
         state["phase"] = "deploy"
         state["status"] = "ready"
-        state["flags"]["deploy_approved"] = True
+        self._approve_deploy_for_current_draft(state)
         _write_state(self.post_dir, state)
-        self.write("draft.md")
 
         code, payload, err = self.cli("next")
         self.assertEqual(code, 0, err)
         self.assertEqual(payload["action"], "run")
         self.assertEqual(payload["phase"], "deploy")
+
+    def test_next_vraagt_opnieuw_goedkeuring_na_wijziging_van_de_draft(self) -> None:
+        """De goedkeuring hangt aan de tekst, niet aan de post."""
+        self.init_state(yolo=False)
+        self.write("draft.md")
+        state = self.state()
+        state["phase"] = "deploy"
+        state["status"] = "ready"
+        self._approve_deploy_for_current_draft(state)
+        _write_state(self.post_dir, state)
+
+        # Correctieronde: de draft wordt herschreven ná de goedkeuring.
+        with open(os.path.join(self.post_dir, "draft.md"), "w", encoding="utf-8") as f:
+            f.write("# Draft\n\nHerschreven na de goedkeuring.\n")
+
+        code, payload, err = self.cli("next")
+        self.assertEqual(code, 0, err)
+        self.assertEqual(payload["action"], "approve_deploy_again")
+
+        code, payload, err = self.cli("run", "deploy")
+        self.assertNotEqual(code, 0, "run deploy moet weigeren op een vervallen goedkeuring")
 
     def test_run_deploy_succeeds_after_approve_deploy(self) -> None:
         self.init_state(yolo=False)
@@ -318,14 +346,17 @@ class TestNextGuidance(OrchestrateTestCase):
 
     def test_deploy_mag_wel_met_skip_factcheck(self) -> None:
         """De uitzondering bestaat, maar nooit stilzwijgend."""
+        from scripts.orchestrator.repository import draft_fingerprint
+
         self.init_state(yolo=False)
+        self.write("draft.md")
         state = self.state()
         state["phase"] = "deploy"
         state["status"] = "ready"
         state["flags"]["deploy_approved"] = True
         state["flags"]["skip_factcheck"] = True
+        state["deploy_approval"] = {"draft_sha": draft_fingerprint(self.post_dir), "at": "2026-01-01T00:00:00+00:00"}
         _write_state(self.post_dir, state)
-        self.write("draft.md")
 
         code, payload, err = self.cli("run", "deploy")
         self.assertEqual(code, 0, err)
@@ -340,12 +371,12 @@ class TestNamedExceptions(OrchestrateTestCase):
         for phase, artefact in (
             ("outline", "outline.md"),
             ("draft", "draft.md"),
-            ("style", None),
-            ("series", None),
+            ("style", ("stijlcheck.md", "leesbaarheid.md")),
+            ("series", ("reeks-check.md",)),
         ):
             self.cli("run", phase)
-            if artefact:
-                self.write(artefact)
+            for f in ((artefact,) if isinstance(artefact, str) else artefact or ()):
+                self.write(f)
             self.cli("complete", phase)
 
         code, payload, err = self.cli("set-flag", "skip_synthesis", "true")
@@ -414,13 +445,13 @@ class TestDoctor(OrchestrateTestCase):
         for phase, artefact in (
             ("outline", "outline.md"),
             ("draft", "draft.md"),
-            ("style", None),
-            ("series", None),
+            ("style", ("stijlcheck.md", "leesbaarheid.md")),
+            ("series", ("reeks-check.md",)),
             ("critique", "grok-feedback.md"),
         ):
             self.cli("run", phase)
-            if artefact:
-                self.write(artefact)
+            for f in ((artefact,) if isinstance(artefact, str) else artefact or ()):
+                self.write(f)
             self.cli("complete", phase)
 
         code, payload, err = self.cli("doctor")
