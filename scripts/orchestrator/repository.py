@@ -121,6 +121,9 @@ def empty_state(slug: str, titel: str, yolo: bool = False) -> dict[str, Any]:
         "artefacts": {
             "outline": "missing",
             "draft": "missing",
+            "stijlcheck": "missing",
+            "leesbaarheid": "missing",
+            "reeks_check": "missing",
             "grok_feedback": "missing",
             "synthese": "missing",
             "visuals": "missing",

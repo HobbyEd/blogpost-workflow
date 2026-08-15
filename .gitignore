@@ -17,3 +17,6 @@ venv/
 # Scratch / systeem
 .DS_Store
 Thumbs.db
+
+# Graphify: kennisgraaf-output en caches (herbouwbaar met /graphify)
+graphify-out/

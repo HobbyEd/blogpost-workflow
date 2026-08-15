@@ -126,13 +126,13 @@ Gebruik de **agent_brief** uit `run` / `next`. Korte mapping:
 
 ### Details die je niet mag vergeten
 
-- **Schrijver:** leest outline + `reference/huisstijl.md`; verzint geen feiten buiten de outline.
 - **Archief eerst.** Bij `outline`, `series` en `synthesis` begint de fase met
   `python3 scripts/rag_cli.py search "<onderwerp>" --top-k 12`, en met
   `reference/corpus-inventaris.md` ernaast. De `agent_brief` zet die stap er zelf in.
   Retrieval is lexicaal, dus varieer je zoektermen; een idee in andere woorden vindt de
   index niet, de inventaris wel. `reeks-consistentie-check` heeft geen Bash: draai de
   zoekopdracht zelf en geef de treffers mee.
+- **Schrijver:** leest outline + `reference/huisstijl.md`; verzint geen feiten buiten de outline.
 - **Stijl-check / reeks-check:** rapporteren alleen; jij past draft aan na Edwins akkoord.
   Ze schrijven hun rapport zelf naar `stijlcheck.md`, `leesbaarheid.md` en `reeks-check.md`;
   `complete style` en `complete series` weigeren zonder die bestanden. Bij een herkeuring
@@ -147,15 +147,15 @@ Gebruik de **agent_brief** uit `run` / `next`. Korte mapping:
   die sectie opnieuw schrijven. Losse ingrepen stapelen tot houterigheid, doordat elke
   splitsing een voegwoord weghaalt en elke schrapping een scharnier.
 - **Reeks-check:** eerdere delen in `posts/*/`; bij eerste deel van een reeks mag het rapport leeg zijn.
-- **Grok:** MCP `grok` + key in `.env`. Faalt de tool → `complete` niet forceren met nep-feedback; status blocked of reject, Edwin herstelt MCP.
-- **Synthese:** hard gate. Geen stille skip — alleen `set-flag skip_synthesis true` als Edwin dat wil.
-- **Herkeuring na de synthese (verplicht, beide checks).** De checks in fase 2b draaien op
 - **Archief-consistentie (5c) is niet de reeks-check.** 2c kijkt vroeg naar terminologie
   binnen één reeks; 5c kijkt laat naar inhoudelijke tegenspraak in het hele archief. De
   gate gaat alleen af bij een bevinding **met beide citaten**; `complete alignment`
   weigert een rapport zonder json-verdictblok of met een halve bevinding. Zonder bevinding
   schuift de fase automatisch door, ook buiten yolo. Bij een bevinding kiest Edwin:
   voortschrijdend inzicht (toelichting verplicht) of inhoudelijke fout (terug naar draft).
+- **Grok:** MCP `grok` + key in `.env`. Faalt de tool → `complete` niet forceren met nep-feedback; status blocked of reject, Edwin herstelt MCP.
+- **Synthese:** hard gate. Geen stille skip — alleen `set-flag skip_synthesis true` als Edwin dat wil.
+- **Herkeuring na de synthese (verplicht, beide checks).** De checks in fase 2b draaien op
   de draft zoals de schrijver hem opleverde. Daarna wijzig jij de draft nog bij de synthese
   en soms bij de visuals. Die wijzigingen zijn ongecontroleerd, en in de praktijk komen
   daar problemen uit: bij deel 1 van de intentie-reeks kwamen vijf van de zwaarste

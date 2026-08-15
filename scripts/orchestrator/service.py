@@ -44,10 +44,10 @@ from .repository import (
 
 
 from .archival_validator import (
-    resolve_alignment_discrepancy,
     apply_alignment_verdict,
     ingest_alignment_report,
     read_alignment_verdict,
+    resolve_alignment_discrepancy,
 )
 from .rag_archive import archive_vectorstore
 
@@ -123,6 +123,7 @@ class WorkflowService:
             "gate": state["gate"],
             "blocked_reason": state.get("blocked_reason"),
             "artefacts": state["artefacts"],
+            "archival_alignment": state.get("archival_alignment"),
             "next": action,
         }
 
@@ -136,7 +137,6 @@ class WorkflowService:
         rows = build_phase_table(state, pdir)
         md = render_phase_table_md(state, rows)
         return {
-            "archival_alignment": state.get("archival_alignment"),
             "slug": state["slug"],
             "titel": state["titel"],
             "rows": rows,

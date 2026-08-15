@@ -288,41 +288,6 @@ def postcheck_complete(
     return errors
 
 
-def _validate_deploy_completion(state: dict[str, Any], post_id: int | None, edit_url: str | None) -> list[str]:
-    """Valideert vereisten voor het afronden van de deploy fase."""
-    errors: list[str] = []
-    pid = post_id or state["artefacts"].get("wp_post_id")
-    eurl = edit_url or state["artefacts"].get("edit_url")
-
-    if not pid:
-        errors.append("complete deploy vereist --post-id (of reeds gezet in state).")
-    if not eurl:
-        errors.append("complete deploy vereist --edit-url (of reeds gezet in state).")
-    if not state["flags"].get("deploy_approved"):
-        errors.append("deploy_approved is false.")
-
-    return errors
-
-
-def apply_approve_advance(state: dict[str, Any], note: str | None = None, deploy: bool = False) -> None:
-    """Keur gate goed en schuif door naar de volgende fase met schone flow."""
-    phase = state["phase"]
-    if deploy:
-        state["flags"]["deploy_approved"] = True
-
-    state["gate"]["last_decision"] = {
-        "at": now_iso(),
-        "decision": "approve",
-        "phase": phase,
-        "note": note,
-    }
-    state["gate"]["pending"] = None
-    state["blocked_reason"] = None
-    append_log(state, "gate_approved", note=note, phase=phase)
-
-    if phase == "intake":
-        state["phase"] = "outline"
-        state["status"] = "ready"
 def _validate_style_completion(probed: dict[str, str]) -> list[str]:
     """Valideert fase 2b: de draft plus beide rapporten.
 
@@ -342,41 +307,6 @@ def _validate_style_completion(probed: dict[str, str]) -> list[str]:
             "onverbonden zinnen."
         )
     return errors
-def _validate_deploy_completion(state: dict[str, Any], post_id: int | None, edit_url: str | None) -> list[str]:
-    """Valideert vereisten voor het afronden van de deploy fase."""
-    errors: list[str] = []
-    pid = post_id or state["artefacts"].get("wp_post_id")
-    eurl = edit_url or state["artefacts"].get("edit_url")
-
-    if not pid:
-        errors.append("complete deploy vereist --post-id (of reeds gezet in state).")
-    if not eurl:
-        errors.append("complete deploy vereist --edit-url (of reeds gezet in state).")
-    if not state["flags"].get("deploy_approved"):
-        errors.append("deploy_approved is false.")
-
-    return errors
-
-
-def apply_approve_advance(state: dict[str, Any], note: str | None = None, deploy: bool = False) -> None:
-    """Keur gate goed en schuif door naar de volgende fase met schone flow."""
-    phase = state["phase"]
-    if deploy:
-        state["flags"]["deploy_approved"] = True
-
-    state["gate"]["last_decision"] = {
-        "at": now_iso(),
-        "decision": "approve",
-        "phase": phase,
-        "note": note,
-    }
-    state["gate"]["pending"] = None
-    state["blocked_reason"] = None
-    append_log(state, "gate_approved", note=note, phase=phase)
-
-    if phase == "intake":
-        state["phase"] = "outline"
-        state["status"] = "ready"
 
 
 def _validate_series_completion(probed: dict[str, str]) -> list[str]:
@@ -412,6 +342,41 @@ def _validate_alignment_completion(post_dir: str, probed: dict[str, str]) -> lis
     return []
 
 
+def _validate_deploy_completion(state: dict[str, Any], post_id: int | None, edit_url: str | None) -> list[str]:
+    """Valideert vereisten voor het afronden van de deploy fase."""
+    errors: list[str] = []
+    pid = post_id or state["artefacts"].get("wp_post_id")
+    eurl = edit_url or state["artefacts"].get("edit_url")
+
+    if not pid:
+        errors.append("complete deploy vereist --post-id (of reeds gezet in state).")
+    if not eurl:
+        errors.append("complete deploy vereist --edit-url (of reeds gezet in state).")
+    if not state["flags"].get("deploy_approved"):
+        errors.append("deploy_approved is false.")
+
+    return errors
+
+
+def apply_approve_advance(state: dict[str, Any], note: str | None = None, deploy: bool = False) -> None:
+    """Keur gate goed en schuif door naar de volgende fase met schone flow."""
+    phase = state["phase"]
+    if deploy:
+        state["flags"]["deploy_approved"] = True
+
+    state["gate"]["last_decision"] = {
+        "at": now_iso(),
+        "decision": "approve",
+        "phase": phase,
+        "note": note,
+    }
+    state["gate"]["pending"] = None
+    state["blocked_reason"] = None
+    append_log(state, "gate_approved", note=note, phase=phase)
+
+    if phase == "intake":
+        state["phase"] = "outline"
+        state["status"] = "ready"
         return
 
     if phase == "deploy":

@@ -112,12 +112,12 @@ def agent_brief(phase: str, post_dir: str, state: dict[str, Any]) -> dict[str, A
             ],
             "outputs": [f"{rel}/synthese.md"],
             "instruction": (
+                f"{rag_search_step(onderwerp)} Zo weeg je Grok-kritiek tegen wat Edwin "
+                "hier eerder over schreef, niet alleen tegen de draft. "
                 "Roep blogpost-onderzoeker aan voor synthese: weeg Grok-punten, schrijf "
                 "aanpasvoorstel naar synthese.md. Herschrijf draft.md niet in deze stap."
             ),
         },
-                f"{rag_search_step(onderwerp)} Zo weeg je Grok-kritiek tegen wat Edwin "
-                "hier eerder over schreef, niet alleen tegen de draft. "
         "visuals": {
             **common,
             "inputs": [f"{rel}/draft.md", "reference/huisstijl.md"],
@@ -137,10 +137,6 @@ def agent_brief(phase: str, post_dir: str, state: dict[str, Any]) -> dict[str, A
                 f"{rel}/feitencheck.md. Dit is de laatste controle voor publicatie."
             ),
         },
-        "deploy": {
-            **common,
-            "inputs": [f"{rel}/draft.md", f"{rel}/visuals/"],
-            "outputs": ["WordPress concept (post_id, edit_url)"],
         "alignment": {
             **common,
             "inputs": [
@@ -160,6 +156,10 @@ def agent_brief(phase: str, post_dir: str, state: dict[str, Any]) -> dict[str, A
                 "(status ALIGNMENT_OK of DISCREPANCY_DETECTED). Pas draft.md niet aan."
             ),
         },
+        "deploy": {
+            **common,
+            "inputs": [f"{rel}/draft.md", f"{rel}/visuals/"],
+            "outputs": ["WordPress concept (post_id, edit_url)"],
             "instruction": (
                 "Alleen na deploy_approved. Roep blogpost-deploy / "
                 f"python3 scripts/deploy_post.py --post-dir {rel} aan. "

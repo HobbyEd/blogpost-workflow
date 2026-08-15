@@ -144,7 +144,7 @@ class TestServiceLinearPipeline(ServiceTestBase):
         self.assertTrue(res["ok"])
         self.create_post_file(slug, "reeks-check.md", "# Reeks-consistentie")
         res = self.service.complete_phase(phase="series", post_dir=pdir)
-        self.assertTrue(res["ok"])
+        self.assertTrue(res["ok"], res.get("errors"))
         res = self.service.approve_gate(post_dir=pdir)
         self.assertEqual(res["phase"], "critique")
 
@@ -320,8 +320,6 @@ class TestServiceDoctorAndRepair(ServiceTestBase):
         self.assertEqual(rep["proposal"]["phase"], "style")
 
 
-if __name__ == "__main__":
-    unittest.main()
 class TestServiceAlignmentGate(ServiceTestBase):
     """De archief-consistentie-gate uit ADR-007, fase 5c."""
 
@@ -443,3 +441,5 @@ class TestServiceAlignmentGate(ServiceTestBase):
         self.assertIsNone(state["blocked_reason"], "status ready mag geen blocked_reason houden")
 
 
+if __name__ == "__main__":
+    unittest.main()
