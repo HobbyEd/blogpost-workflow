@@ -83,7 +83,14 @@ class OrchestrateTestCase(unittest.TestCase):
         _write_state(self.post_dir, state)
         return state
 
-    def write(self, name: str, content: str = "inhoud\n") -> None:
+    #: Controlerapporten openen met een bevindingenblok (ADR-010 §6, stap 2); zonder dat
+    #: blok weigert `complete`. Leeg betekent: niets gevonden.
+    CHECK_REPORTS = ("stijlcheck.md", "leesbaarheid.md", "reeks-check.md", "feitencheck.md")
+    LEEG_RAPPORT = '# Rapport\n\n```json\n{"findings": []}\n```\n'
+
+    def write(self, name: str, content: str | None = None) -> None:
+        if content is None:
+            content = self.LEEG_RAPPORT if name in self.CHECK_REPORTS else "inhoud\n"
         path = os.path.join(self.post_dir, name)
         os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:
@@ -637,20 +644,38 @@ class TestVisualsDetectie(OrchestrateTestCase):
         self.assertEqual(code, 2)
         self.assertIn("feitencheck", " ".join(payload["errors"]).lower())
 
-    def test_factcheck_is_harde_gate_ook_in_yolo(self) -> None:
-        """De laatste controle voor publicatie mag yolo niet stilzwijgend passeren."""
+    BLOKKEREND_RAPPORT = (
+        '# Rapport\n\n```json\n{"findings": [\n'
+        '  {"severity": "blocking", "categorie": "misquote", "waar": "r.92",\n'
+        '   "wat": "Het citaat mist de openingszinsnede uit de bron."}\n]}\n```\n'
+    )
+
+    def _factcheck_met(self, rapport: str) -> None:
         self.init_state(yolo=True)
         state = self.state()
         state["phase"] = "factcheck"
         state["status"] = "running"
         _write_state(self.post_dir, state)
         self.write("draft.md")
-        self.write("feitencheck.md")
+        self.write("feitencheck.md", rapport)
+
+    def test_factcheck_met_bevinding_stopt_ook_in_yolo(self) -> None:
+        """De laatste controle voor publicatie mag yolo niet stilzwijgend passeren."""
+        self._factcheck_met(self.BLOKKEREND_RAPPORT)
 
         code, payload, err = self.cli("complete", "factcheck")
         self.assertEqual(code, 0, err)
         self.assertEqual(self.state()["status"], "waiting_gate")
         self.assertEqual(self.state()["phase"], "factcheck")
+
+    def test_factcheck_zonder_bevinding_schuift_door(self) -> None:
+        """Een controle die niets vond, heeft niets voor te leggen (ADR-010 §3.1)."""
+        self._factcheck_met(self.LEEG_RAPPORT)
+
+        code, payload, err = self.cli("complete", "factcheck")
+        self.assertEqual(code, 0, err)
+        self.assertEqual(self.state()["phase"], "alignment")
+        self.assertEqual(self.state()["status"], "ready")
 
     def test_svg_en_png_van_dezelfde_visual_tellen_als_een(self) -> None:
         """De PNG is de render van de SVG, geen tweede visual."""

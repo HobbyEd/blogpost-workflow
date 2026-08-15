@@ -80,6 +80,33 @@ geschreven in plaats van gepatcht.
 
 ## Rapportformaat
 
+### Het bevindingenblok (verplicht)
+
+Je rapport **opent** met een ```json-blok. Dat is wat de state machine leest; de proza
+eronder is voor Edwin. Zonder dit blok weigert `complete style`.
+
+```json
+{
+  "findings": [
+    {"severity": "blocking", "categorie": "buiten de band", "waar": "sectie 3",
+     "wat": "wat er aan de hand is, in één zin",
+     "suggestie": "optioneel: wat je ervoor in de plaats stelt"}
+  ]
+}
+```
+
+Een lege lijst betekent: niets gevonden. Dat is een geldige uitkomst en de gate schuift
+dan vanzelf door.
+
+**Twee zwaartes, en het onderscheid bepaalt of de keten stopt:**
+
+- `blocking` — een meetwaarde buiten de band van de referentieposts, of een sectie die het oordeel 'herschrijven' krijgt. Dat zijn de gevallen waarin de tekst als opsomming is gaan lezen.
+- `advisory` — een losse hakkelende overgang, een ontbrekend scharnier, stellagewerk. Wel melden, niet blokkeren.
+
+Kies bewust. Zet je alles op `blocking`, dan stopt de keten elke ronde en verandert er
+niets aan de situatie die ADR-010 beschrijft: 49 goedkeuringen, nul afwijzingen. Zet je
+alles op `advisory`, dan glijdt er een fout langs.
+
 Schrijf je rapport naar **`posts/<slug>/leesbaarheid.md`**. Dat is het enige bestand dat je
 aanmaakt of wijzigt; `draft.md` blijft ongemoeid. Zonder dit bestand weigert
 `complete style`.

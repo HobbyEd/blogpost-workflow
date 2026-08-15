@@ -10,6 +10,31 @@ from typing import Any
 
 from scripts.orchestrator.service import WorkflowService
 
+#: Een controlerapport zonder bevindingen (ADR-010 §6, stap 2).
+LEEG_RAPPORT = '# Rapport\n\n```json\n{"findings": []}\n```\n'
+
+#: Een controlerapport met één blokkerende bevinding.
+BLOKKEREND_RAPPORT = """# Rapport
+
+```json
+{"findings": [
+  {"severity": "blocking", "categorie": "misquote", "waar": "r.92",
+   "wat": "Het citaat mist de openingszinsnede uit de bron."}
+]}
+```
+"""
+
+#: Een controlerapport met alleen punten ter overweging.
+ADVISORY_RAPPORT = """# Rapport
+
+```json
+{"findings": [
+  {"severity": "advisory", "categorie": "komma+en", "waar": "r.11",
+   "wat": "Opsomming, geen twee hoofdzinnen; geen overtreding."}
+]}
+```
+"""
+
 #: Rapporten zoals de subagent archief-consistentie-check ze schrijft (ADR-007).
 ALIGNMENT_OK_REPORT = """# Archief-consistentie (ADR-007)
 
@@ -44,7 +69,12 @@ class ServiceTestBase(unittest.TestCase):
     def tearDown(self) -> None:
         shutil.rmtree(self.tmp_dir, ignore_errors=True)
 
-    def create_post_file(self, slug: str, filename: str, content: str = "content\n") -> str:
+    #: Controlerapporten openen met een bevindingenblok (ADR-010 §6, stap 2).
+    CHECK_REPORTS = ("stijlcheck.md", "leesbaarheid.md", "reeks-check.md", "feitencheck.md")
+
+    def create_post_file(self, slug: str, filename: str, content: str | None = None) -> str:
+        if content is None:
+            content = LEEG_RAPPORT if filename in self.CHECK_REPORTS else "content\n"
         pdir = os.path.join(self.tmp_dir, slug)
         os.makedirs(pdir, exist_ok=True)
         path = os.path.join(pdir, filename)
@@ -127,25 +157,25 @@ class TestServiceLinearPipeline(ServiceTestBase):
         res = self.service.approve_gate(post_dir=pdir, note="Draft akkoord")
         self.assertEqual(res["phase"], "style")
 
-        # 4. Style phase: beide rapporten zijn verplicht
+        # 4. Style phase: beide rapporten zijn verplicht, en zonder blokkerende bevinding
+        # schuift de gate vanzelf door (ADR-010 §3.1).
         res = self.service.run_phase(phase="style", post_dir=pdir)
         self.assertTrue(res["ok"])
-        self.create_post_file(slug, "stijlcheck.md", "# Stijl-check")
+        self.create_post_file(slug, "stijlcheck.md")
         res = self.service.complete_phase(phase="style", post_dir=pdir)
         self.assertFalse(res["ok"], "zonder leesbaarheid.md is de style-fase niet af")
-        self.create_post_file(slug, "leesbaarheid.md", "# Leesbaarheid")
+        self.create_post_file(slug, "leesbaarheid.md")
         res = self.service.complete_phase(phase="style", post_dir=pdir)
         self.assertTrue(res["ok"], res.get("errors"))
-        res = self.service.approve_gate(post_dir=pdir)
         self.assertEqual(res["phase"], "series")
+        self.assertEqual(res["status"], "ready")
 
         # 5. Series phase
         res = self.service.run_phase(phase="series", post_dir=pdir)
         self.assertTrue(res["ok"])
-        self.create_post_file(slug, "reeks-check.md", "# Reeks-consistentie")
+        self.create_post_file(slug, "reeks-check.md")
         res = self.service.complete_phase(phase="series", post_dir=pdir)
         self.assertTrue(res["ok"], res.get("errors"))
-        res = self.service.approve_gate(post_dir=pdir)
         self.assertEqual(res["phase"], "critique")
 
         # 6. Critique phase
@@ -183,10 +213,9 @@ class TestServiceLinearPipeline(ServiceTestBase):
         # 9. Factcheck phase (HARD GATE)
         res = self.service.run_phase(phase="factcheck", post_dir=pdir)
         self.assertTrue(res["ok"])
-        self.create_post_file(slug, "feitencheck.md", "# Feitencheck ok")
+        self.create_post_file(slug, "feitencheck.md")
         res = self.service.complete_phase(phase="factcheck", post_dir=pdir)
-        self.assertTrue(res["ok"])
-        res = self.service.approve_gate(post_dir=pdir)
+        self.assertTrue(res["ok"], res.get("errors"))
         self.assertEqual(res["phase"], "alignment")
 
         # 9b. Alignment phase (ADR-007): zonder bevinding schuift de gate automatisch
@@ -441,6 +470,67 @@ class TestServiceAlignmentGate(ServiceTestBase):
         self.assertIsNone(state["blocked_reason"], "status ready mag geen blocked_reason houden")
 
 
+class TestVoorwaardelijkeGates(ServiceTestBase):
+    """Een controle die niets vond, heeft niets voor te leggen (ADR-010 §3.1)."""
+
+    def _op_style(self, slug: str, stijl: str, leesbaar: str) -> str:
+        from scripts.orchestrator.repository import load_state, save_state
+
+        pdir = os.path.join(self.tmp_dir, slug)
+        self.service.init_post(slug=slug, titel="Gates", post_dir=pdir)
+        self.create_post_file(slug, "draft.md", "# Draft\n")
+        self.create_post_file(slug, "stijlcheck.md", stijl)
+        self.create_post_file(slug, "leesbaarheid.md", leesbaar)
+        s = load_state(pdir)
+        s["phase"], s["status"] = "style", "ready"
+        save_state(pdir, s)
+        self.service.run_phase(phase="style", post_dir=pdir)
+        return pdir
+
+    def test_zonder_bevinding_schuift_door(self) -> None:
+        pdir = self._op_style("gate-leeg", LEEG_RAPPORT, LEEG_RAPPORT)
+        res = self.service.complete_phase(phase="style", post_dir=pdir)
+        self.assertEqual(res["phase"], "series")
+        self.assertEqual(res["status"], "ready")
+
+    def test_alleen_ter_overweging_schuift_ook_door(self) -> None:
+        """De stijl-check vindt bijna altijd kandidaten; die mogen niet blokkeren."""
+        pdir = self._op_style("gate-advies", ADVISORY_RAPPORT, LEEG_RAPPORT)
+        res = self.service.complete_phase(phase="style", post_dir=pdir)
+        self.assertEqual(res["phase"], "series")
+
+        verdict = self.service.get_status(post_dir=pdir)["verdicts"]["style"]
+        self.assertEqual(verdict["blocking"], 0)
+        self.assertEqual(verdict["advisory"], 1)
+
+    def test_blokkerende_bevinding_stopt_de_gate(self) -> None:
+        pdir = self._op_style("gate-blok", BLOKKEREND_RAPPORT, LEEG_RAPPORT)
+        res = self.service.complete_phase(phase="style", post_dir=pdir)
+        self.assertEqual(res["phase"], "style")
+        self.assertEqual(res["status"], "waiting_gate")
+
+        volgende = self.service.get_next(post_dir=pdir)
+        self.assertEqual(volgende["gate_type"], "hard")
+
+    def test_bevinding_in_het_tweede_rapport_telt_ook(self) -> None:
+        pdir = self._op_style("gate-tweede", LEEG_RAPPORT, BLOKKEREND_RAPPORT)
+        res = self.service.complete_phase(phase="style", post_dir=pdir)
+        self.assertEqual(res["status"], "waiting_gate")
+
+    def test_rapport_zonder_bevindingenblok_wordt_geweigerd(self) -> None:
+        pdir = self._op_style("gate-geen-blok", "# Ziet er prima uit\n", LEEG_RAPPORT)
+        res = self.service.complete_phase(phase="style", post_dir=pdir)
+        self.assertFalse(res["ok"])
+        self.assertIn("json-blok", " ".join(res["errors"]))
+
+    def test_onbekende_zwaarte_wordt_geweigerd(self) -> None:
+        rapport = '# Rapport\n\n```json\n{"findings": [{"severity": "ernstig", "categorie": "x", "waar": "r.1", "wat": "y"}]}\n```\n'
+        pdir = self._op_style("gate-zwaarte", rapport, LEEG_RAPPORT)
+        res = self.service.complete_phase(phase="style", post_dir=pdir)
+        self.assertFalse(res["ok"])
+        self.assertIn("zwaarte", " ".join(res["errors"]))
+
+
 class TestRapportActualiteit(ServiceTestBase):
     """Een controle op een tekst die niet meer bestaat, is geen controle (ADR-010 §3.5)."""
 
@@ -450,7 +540,7 @@ class TestRapportActualiteit(ServiceTestBase):
         pdir = os.path.join(self.tmp_dir, slug)
         self.service.init_post(slug=slug, titel="Actualiteit", post_dir=pdir)
         self.create_post_file(slug, "draft.md", "# Draft\n\nEerste versie.\n")
-        self.create_post_file(slug, "feitencheck.md", "# Feitencheck")
+        self.create_post_file(slug, "feitencheck.md")
         self.create_post_file(slug, "archief-consistentie.md", ALIGNMENT_OK_REPORT)
 
         # Beide controlefases netjes afronden, zodat hun vingerafdruk wordt vastgelegd.
@@ -513,7 +603,7 @@ class TestRapportActualiteit(ServiceTestBase):
         pdir = os.path.join(self.tmp_dir, slug)
         self.service.init_post(slug=slug, titel="Legacy", post_dir=pdir)
         self.create_post_file(slug, "draft.md", "# Draft\n")
-        self.create_post_file(slug, "feitencheck.md", "# Feitencheck")
+        self.create_post_file(slug, "feitencheck.md")
         self.create_post_file(slug, "archief-consistentie.md", ALIGNMENT_OK_REPORT)
         s = load_state(pdir)
         s["phase"], s["status"] = "deploy", "ready"

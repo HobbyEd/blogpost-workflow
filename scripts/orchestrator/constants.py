@@ -42,10 +42,11 @@ SOFT_GATES = {
     "critique",
     "visuals",
 }
-# De alignment-gate staat hier bewust niet in: hij is **voorwaardelijk** hard (ADR-007).
-# Zonder bevinding schuift hij automatisch door, met een bevinding stopt hij ook in
+# Alleen de gates waar werkelijk iets te kiezen valt. De controlefases staan hier
+# bewust niet in: die zijn **voorwaardelijk** hard (CONDITIONAL_GATES, ADR-010 §3.1).
+# Zonder blokkerende bevinding schuiven ze door, met een bevinding stoppen ze ook in
 # yolo_mode. Die afweging zit in engine.gate_type(), dat de state nodig heeft.
-HARD_GATES = {"synthesis", "factcheck", "deploy", "intake"}
+HARD_GATES = {"synthesis", "deploy", "intake"}
 
 STATUSES = {"ready", "running", "waiting_gate", "blocked", "done"}
 
@@ -75,6 +76,20 @@ DEPLOY_REQUIRES_FRESH = ("factcheck", "alignment")
 
 # grok-feedback.md staat hier bewust niet bij. Een tweede kritiekronde is een keuze van
 # de auteur, niet iets wat een tekstwijziging afdwingt (ADR-010 §3.2).
+
+# Welke rapporten een controlefase oplevert. Elk rapport opent met een json-blok met
+# bevindingen, zodat de gate zelf kan vaststellen of er iets voor te leggen is.
+PHASE_REPORTS = {
+    "style": ("stijlcheck.md", "leesbaarheid.md"),
+    "series": ("reeks-check.md",),
+    "factcheck": ("feitencheck.md",),
+    # alignment houdt het verdictformaat uit ADR-007 en staat hier niet bij.
+}
+
+# Fases waarvan de gate alleen stopt bij een blokkerende bevinding (ADR-010 §3.1). De
+# overige gates blijven onvoorwaardelijk: intake en outline zijn de Richten-gate, deploy
+# is de Oordelen-gate, en synthesis is het beslismoment over de kritiekpunten.
+CONDITIONAL_GATES = ("style", "series", "factcheck", "alignment")
 
 # Welke artefact-sleutel (uit ARTEFACT_FILES / probe_artefacts) hoort bij welke
 # fase, voor de statustabel. None = geen eigen artefact (rapport-only fases).

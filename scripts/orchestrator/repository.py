@@ -168,6 +168,8 @@ def empty_state(slug: str, titel: str, yolo: bool = False) -> dict[str, Any]:
         "deploy_approval": None,
         # Van welke draft het resultaat van elke controlefase is afgeleid (ADR-010 §3.5).
         "derived_from": {},
+        # Uitkomst per controlefase: hoeveel blokkerend, hoeveel ter overweging.
+        "verdicts": {},
         "blocked_reason": None,
         "log": [
             {

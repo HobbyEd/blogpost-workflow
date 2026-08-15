@@ -251,8 +251,17 @@ met de hand opnieuw moesten en waar het misgaan het duurst is.
    verouderd. Anders zou elke post van vóór deze registratie meteen vastlopen, ook als de
    rapporten prima klopten. Die gevallen leveren een informatieve melding in `doctor`, geen
    blokkade. Prijs: de eerste ronde na invoering is nog niet beschermd.
-2. Gates voorwaardelijk maken: alleen stoppen bij een bevinding, zoals de alignment-gate al
-   doet sinds ADR-007.
+2. ~~Gates voorwaardelijk maken: alleen stoppen bij een bevinding.~~ **Uitgevoerd
+   2026-08-15.** `style`, `series`, `factcheck` en `alignment` schuiven door zodra hun
+   rapport geen `blocking`-bevinding bevat. Elk rapport opent met een json-blok met
+   `findings`; `complete` weigert een rapport zonder dat blok, zodat de gate niet terugvalt
+   op vertrouwen.
+
+   Kernpunt: de twee zwaartes. De stijl-check vindt in vrijwel elke ronde kandidaten die
+   geen overtreding zijn. Zonder het onderscheid tussen `blocking` en `advisory` zou de
+   gate altijd afgaan en verandert er niets aan de 49 stempels. `factcheck` is daarmee geen
+   onvoorwaardelijk harde gate meer; de bescherming komt nu uit drie eisen samen: het
+   rapport moet bestaan, een leesbaar verdict hebben, en actueel zijn (stap 1).
 3. De bevindingen van de vijf controles bundelen tot één overzicht per post.
 4. De fases hergroeperen tot de drie blokken, met de stepper mee.
 5. De synthese omzetten naar een beslismoment per punt, met vastlegging van de keuze en de

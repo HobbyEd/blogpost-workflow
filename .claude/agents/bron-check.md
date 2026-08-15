@@ -100,6 +100,33 @@ Lees de hele draft door en meld wat er verder niet klopt:
 
 ## Rapportformaat
 
+### Het bevindingenblok (verplicht)
+
+Je rapport **opent** met een ```json-blok. Dat is wat de state machine leest; de proza
+eronder is voor Edwin. Zonder dit blok weigert `complete factcheck`.
+
+```json
+{
+  "findings": [
+    {"severity": "blocking", "categorie": "misquote", "waar": "r.92",
+     "wat": "wat er aan de hand is, in één zin",
+     "suggestie": "optioneel: wat je ervoor in de plaats stelt"}
+  ]
+}
+```
+
+Een lege lijst betekent: niets gevonden. Dat is een geldige uitkomst en de gate schuift
+dan vanzelf door.
+
+**Twee zwaartes, en het onderscheid bepaalt of de keten stopt:**
+
+- `blocking` — een citaat dat niet letterlijk in de bron staat, een bron die de claim niet draagt, een onbereikbare bron, of een onjuist cijfer, jaartal of paginanummer. Deel 1 stond live met een citaat dat in de paper niet voorkwam.
+- `advisory` — een aanbeveling die geen bronprobleem is: een terminologische slordigheid, een dubbele lege regel, een formulering die scherper kan.
+
+Kies bewust. Zet je alles op `blocking`, dan stopt de keten elke ronde en verandert er
+niets aan de situatie die ADR-010 beschrijft: 49 goedkeuringen, nul afwijzingen. Zet je
+alles op `advisory`, dan glijdt er een fout langs.
+
 Schrijf naar `posts/<slug>/feitencheck.md`:
 
 ```markdown

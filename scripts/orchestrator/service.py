@@ -15,6 +15,7 @@ from typing import Any
 
 from .briefs import agent_brief
 from .constants import (
+    CONDITIONAL_GATES,
     FLAG_NAMES,
     PHASE_LABELS,
     PHASES,
@@ -58,6 +59,7 @@ from .archival_validator import (
     resolve_alignment_discrepancy,
 )
 from .rag_archive import archive_vectorstore
+from .verdicts import read_phase_findings, summarize
 
 
 def _record_deploy_approval(state: dict[str, Any], post_dir: str) -> None:
@@ -132,6 +134,7 @@ class WorkflowService:
             "blocked_reason": state.get("blocked_reason"),
             "artefacts": state["artefacts"],
             "archival_alignment": state.get("archival_alignment"),
+            "verdicts": state.get("verdicts") or {},
             "next": action,
         }
 
@@ -241,6 +244,18 @@ class WorkflowService:
             # Leg vast van welke draft dit rapport is afgeleid, zodat een latere
             # tekstwijziging zichtbaar maakt dat het verouderd is (ADR-010 §3.5).
             record_derivation(state, phase, pdir)
+
+        if phase in CONDITIONAL_GATES:
+            # De postcheck heeft het bevindingenblok al gevalideerd; hier landt de telling
+            # in state.json, zodat de gate weet of er iets voor te leggen is (ADR-010 §3.1).
+            samenvatting = summarize(read_phase_findings(pdir, phase))
+            state.setdefault("verdicts", {})[phase] = samenvatting
+            append_log(
+                state,
+                "verdict_recorded",
+                note=f"{samenvatting['blocking']} blokkerend, {samenvatting['advisory']} ter overweging",
+                phase=phase,
+            )
 
         if phase == "alignment":
             # De postcheck heeft het rapport al gevalideerd; hier landt het verdict in

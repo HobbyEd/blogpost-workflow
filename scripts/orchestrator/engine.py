@@ -4,10 +4,11 @@ from __future__ import annotations
 
 from typing import Any
 
-from .archival_validator import is_discrepant, read_alignment_verdict
+from .archival_validator import read_alignment_verdict
 from .briefs import agent_brief
 from .constants import (
     ARTEFACT_FILES,
+    CONDITIONAL_GATES,
     DEPLOY_REQUIRES_FRESH,
     HARD_GATES,
     MIN_VISUALS,
@@ -17,6 +18,7 @@ from .constants import (
 )
 from .probes import count_visuals, probe_artefacts
 from .repository import append_log, draft_fingerprint, now_iso, stale_phases
+from .verdicts import has_blocking, read_phase_findings
 
 
 def deploy_approval_valid(state: dict[str, Any], post_dir: str) -> bool:
@@ -58,15 +60,18 @@ def next_phase_after(phase: str, flags: dict[str, Any]) -> str:
 def gate_type(phase: str, state: dict[str, Any] | None = None) -> str:
     """Geef 'hard' of 'soft' voor de gate na een fase.
 
-    De alignment-gate is als enige **voorwaardelijk** hard (ADR-007): zonder bevinding
-    schuift hij automatisch door, met een bevinding moet een mens kiezen tussen
-    voortschrijdend inzicht en inhoudelijke fout. Zonder state is het antwoord 'hard',
-    want dan valt niet vast te stellen dat er geen bevinding is.
+    De controlefases hebben een **voorwaardelijke** gate (ADR-010 §3.1): zonder
+    blokkerende bevinding schuiven ze automatisch door, met een bevinding moet een mens
+    beslissen. Zonder state is het antwoord 'hard', want dan valt niet vast te stellen dat
+    er geen bevinding is.
+
+    De onvoorwaardelijke gates blijven staan waar er werkelijk iets te kiezen valt: intake
+    en outline (de richting), synthesis (welke kritiekpunten je overneemt) en deploy.
     """
-    if phase == "alignment":
+    if phase in CONDITIONAL_GATES:
         if state is None:
             return "hard"
-        return "hard" if is_discrepant(state) else "soft"
+        return "hard" if has_blocking(state, phase) else "soft"
     if phase in HARD_GATES:
         return "hard"
     return "soft"
@@ -258,19 +263,11 @@ def postcheck_complete(
     phase_validators = {
         "outline": lambda: ["outline.md ontbreekt of is leeg."] if probed["outline"] != "present" else [],
         "draft": lambda: ["draft.md ontbreekt of is leeg."] if probed["draft"] != "present" else [],
-        "style": lambda: _validate_style_completion(probed),
-        "series": lambda: _validate_series_completion(probed),
+        "style": lambda: _validate_style_completion(probed, post_dir),
+        "series": lambda: _validate_series_completion(probed, post_dir),
         "critique": lambda: ["grok-feedback.md ontbreekt of is leeg."] if probed["grok_feedback"] != "present" else [],
         "synthesis": lambda: ["synthese.md ontbreekt of is leeg."] if probed["synthese"] != "present" else [],
-        "factcheck": lambda: (
-            [
-                "feitencheck.md ontbreekt of is leeg. De bron-check legt elk citaat naast de "
-                "bron; zonder dat rapport gaat er niets naar publicatie. Wil je hem echt "
-                "overslaan, gebruik dan expliciet: set-flag skip_factcheck true."
-            ]
-            if probed["factcheck"] != "present"
-            else []
-        ),
+        "factcheck": lambda: _validate_factcheck_completion(probed, post_dir),
         "visuals": lambda: (
             [
                 f"minder dan {MIN_VISUALS} visuals gevonden "
@@ -315,7 +312,31 @@ def _check_report_freshness(state: dict[str, Any], post_dir: str) -> list[str]:
     ]
 
 
-def _validate_style_completion(probed: dict[str, str]) -> list[str]:
+def _validate_factcheck_completion(probed: dict[str, str], post_dir: str) -> list[str]:
+    """Valideert fase 5b: het rapport van de bron-check plus zijn bevindingenblok."""
+    if probed["factcheck"] != "present":
+        return [
+            "feitencheck.md ontbreekt of is leeg. De bron-check legt elk citaat naast de "
+            "bron; zonder dat rapport gaat er niets naar publicatie. Wil je hem echt "
+            "overslaan, gebruik dan expliciet: set-flag skip_factcheck true."
+        ]
+    return _validate_verdicts("factcheck", post_dir)
+
+
+def _validate_verdicts(phase: str, post_dir: str) -> list[str]:
+    """Elk controlerapport moet een leesbaar bevindingenblok hebben (ADR-010 §6, stap 2).
+
+    Zonder dat blok kan de gate niet vaststellen of er iets voor te leggen is, en valt hij
+    terug op een mens die er elf keer per post doorheen klikt.
+    """
+    try:
+        read_phase_findings(post_dir, phase)
+    except (ValueError, FileNotFoundError) as e:
+        return [str(e)]
+    return []
+
+
+def _validate_style_completion(probed: dict[str, str], post_dir: str) -> list[str]:
     """Valideert fase 2b: de draft plus beide rapporten.
 
     De stijl-check en de leesbaarheid-check zijn bewust tegengesteld gekalibreerd: de
@@ -333,10 +354,10 @@ def _validate_style_completion(probed: dict[str, str]) -> list[str]:
             "naast de stijl-check; zonder dat rapport beloont de meetlat korte, "
             "onverbonden zinnen."
         )
-    return errors
+    return errors or _validate_verdicts("style", post_dir)
 
 
-def _validate_series_completion(probed: dict[str, str]) -> list[str]:
+def _validate_series_completion(probed: dict[str, str], post_dir: str) -> list[str]:
     """Valideert fase 2c: de draft plus het reeks-consistentierapport."""
     errors: list[str] = []
     if probed["draft"] != "present":
@@ -347,7 +368,7 @@ def _validate_series_completion(probed: dict[str, str]) -> list[str]:
             "hoort er een rapport te staan; dan met de vaststelling dat er geen eerdere "
             "delen zijn."
         )
-    return errors
+    return errors or _validate_verdicts("series", post_dir)
 
 
 def _validate_alignment_completion(post_dir: str, probed: dict[str, str]) -> list[str]:
@@ -423,13 +444,19 @@ def maybe_auto_approve(state: dict[str, Any], completed_phase: str) -> bool:
     """Keur de gate automatisch goed waar dat mag. Geeft terug of dat gebeurd is.
 
     Twee gevallen:
-    - **alignment zonder bevinding** schuift altijd door, ook buiten yolo_mode. De gate
-      bestaat om een gevonden tegenspraak voor te leggen; zonder tegenspraak is er niets
-      voor te leggen (ADR-007). Met bevinding is de gate hard en stopt hij ook in yolo.
+    - **een controlefase zonder blokkerende bevinding** schuift altijd door, ook buiten
+      yolo_mode. De gate bestaat om een gevonden fout voor te leggen; is die er niet, dan
+      is er niets voor te leggen (ADR-010 §3.1). Met bevinding is de gate hard en stopt hij
+      ook in yolo. Punten ter overweging worden geteld in de gate-notitie, maar houden de
+      keten niet tegen; ze staan in het rapport.
     - **een soft gate in yolo_mode**, zoals voorheen.
     """
-    if completed_phase == "alignment" and not is_discrepant(state):
-        apply_approve_advance(state, note="archief-consistentie: geen bevinding (ADR-007)")
+    if completed_phase in CONDITIONAL_GATES and not has_blocking(state, completed_phase):
+        aantal = ((state.get("verdicts") or {}).get(completed_phase) or {}).get("advisory", 0)
+        toelichting = f", {aantal} ter overweging" if aantal else ""
+        apply_approve_advance(
+            state, note=f"{completed_phase}: geen blokkerende bevinding{toelichting} (ADR-010)"
+        )
         return True
 
     if not state.get("yolo_mode") or gate_type(completed_phase, state) != "soft":

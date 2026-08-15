@@ -117,6 +117,33 @@ kernquote van deel 1. Meld liever te veel dan dat je iets ongezien laat.
 
 ## Rapportformaat
 
+### Het bevindingenblok (verplicht)
+
+Je rapport **opent** met een ```json-blok. Dat is wat de state machine leest; de proza
+eronder is voor Edwin. Zonder dit blok weigert `complete style`.
+
+```json
+{
+  "findings": [
+    {"severity": "blocking", "categorie": "em-dash", "waar": "r.14",
+     "wat": "wat er aan de hand is, in één zin",
+     "suggestie": "optioneel: wat je ervoor in de plaats stelt"}
+  ]
+}
+```
+
+Een lege lijst betekent: niets gevonden. Dat is een geldige uitkomst en de gate schuift
+dan vanzelf door.
+
+**Twee zwaartes, en het onderscheid bepaalt of de keten stopt:**
+
+- `blocking` — een overtreding van een harde huisstijlregel: emoji, zwaktemarkeerder, gedachtestreep buiten de toegestane patronen, superlatief, of een kwantor of causale claim zonder bron of mechanisme.
+- `advisory` — een kandidaat die jouw oordeel vraagt en het niet haalde. Komma+en in een opsomming, een gedachtestreep in een citaat, een grensgeval. Noem hem, met je oordeel erbij, maar houd de keten niet tegen.
+
+Kies bewust. Zet je alles op `blocking`, dan stopt de keten elke ronde en verandert er
+niets aan de situatie die ADR-010 beschrijft: 49 goedkeuringen, nul afwijzingen. Zet je
+alles op `advisory`, dan glijdt er een fout langs.
+
 Schrijf je rapport naar **`posts/<slug>/stijlcheck.md`**. Dat is het enige bestand dat je
 aanmaakt of wijzigt; `draft.md` blijft ongemoeid. Zonder dit bestand weigert
 `complete style`.

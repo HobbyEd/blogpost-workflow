@@ -107,6 +107,33 @@ het los met een korte toelichting.
 
 ## Rapportformaat
 
+### Het bevindingenblok (verplicht)
+
+Je rapport **opent** met een ```json-blok. Dat is wat de state machine leest; de proza
+eronder is voor Edwin. Zonder dit blok weigert `complete series`.
+
+```json
+{
+  "findings": [
+    {"severity": "blocking", "categorie": "verkeerde deelverwijzing", "waar": "r.144",
+     "wat": "wat er aan de hand is, in één zin",
+     "suggestie": "optioneel: wat je ervoor in de plaats stelt"}
+  ]
+}
+```
+
+Een lege lijst betekent: niets gevonden. Dat is een geldige uitkomst en de gate schuift
+dan vanzelf door.
+
+**Twee zwaartes, en het onderscheid bepaalt of de keten stopt:**
+
+- `blocking` — een aantoonbaar onjuiste verwijzing naar een ander deel: een verkeerd deelnummer, een verkeerd `?p=`-nummer, of een inhoud toegeschreven aan een deel waar die niet staat. Dat is precies wat twee keer op rij misging.
+- `advisory` — een terminologieverschil of titel-overlap die jouw oordeel vraagt. Twee delen mogen hetzelfde concept met andere woorden benaderen.
+
+Kies bewust. Zet je alles op `blocking`, dan stopt de keten elke ronde en verandert er
+niets aan de situatie die ADR-010 beschrijft: 49 goedkeuringen, nul afwijzingen. Zet je
+alles op `advisory`, dan glijdt er een fout langs.
+
 Schrijf je rapport naar **`posts/<slug>/reeks-check.md`**. Dat is het enige bestand dat je
 aanmaakt of wijzigt; `draft.md` blijft ongemoeid. Zonder dit bestand weigert
 `complete series`.

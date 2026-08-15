@@ -133,6 +133,12 @@ Gebruik de **agent_brief** uit `run` / `next`. Korte mapping:
   index niet, de inventaris wel. `reeks-consistentie-check` heeft geen Bash: draai de
   zoekopdracht zelf en geef de treffers mee.
 - **Schrijver:** leest outline + `reference/huisstijl.md`; verzint geen feiten buiten de outline.
+- **De controle-gates stoppen alleen bij een bevinding.** `style`, `series`, `factcheck` en
+  `alignment` schuiven vanzelf door zodra hun rapport geen `blocking`-bevinding bevat, ook
+  buiten yolo. Met een blokkerende bevinding stoppen ze ook ín yolo. Elk rapport opent
+  daarom met een json-blok met `findings`; `complete` weigert een rapport zonder dat blok.
+  Punten met zwaarte `advisory` worden geteld en staan in het rapport, maar houden de keten
+  niet tegen (ADR-010 §3.1).
 - **Stijl-check / reeks-check:** rapporteren alleen; jij past draft aan na Edwins akkoord.
   Ze schrijven hun rapport zelf naar `stijlcheck.md`, `leesbaarheid.md` en `reeks-check.md`;
   `complete style` en `complete series` weigeren zonder die bestanden. Bij een herkeuring
