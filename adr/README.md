@@ -11,15 +11,19 @@ In deze map leggen we alle architecturele en technische keuzes vast (ADR's), inc
 | Nummer | Titel | Status | Datum |
 |---|---|---|---|
 | [`00`](file:///Users/evdillen/edwinvandillen@gmail.com%20-%20Google%20Drive/My%20Drive/16.%20AI/03.%20Blogpost/01.%20Blogpost%20agents/adr/00-overall-design-blogpost-webui.md) | **Overall Design Document: Web UI & Agent Platform** | Accepted | 2026-08-12 |
-| `001` | [Strict Deterministic Control Plane in Python](file:///Users/evdillen/edwinvandillen@gmail.com%20-%20Google%20Drive/My%20Drive/16.%20AI/03.%20Blogpost/01.%20Blogpost%20agents/adr/001-strict-deterministic-control-plane.md) | Proposed | 2026-08-13 |
-| `002` | [Modular Orchestrator Service Package](file:///Users/evdillen/edwinvandillen@gmail.com%20-%20Google%20Drive/My%20Drive/16.%20AI/03.%20Blogpost/01.%20Blogpost%20agents/adr/002-modular-orchestrator-service-package.md) | Proposed | 2026-08-13 |
-| `003` | [Two-Phase Workflow — Interactive Brainstorm vs YOLO Stepper Engine](file:///Users/evdillen/edwinvandillen@gmail.com%20-%20Google%20Drive/My%20Drive/16.%20AI/03.%20Blogpost/01.%20Blogpost%20agents/adr/003-two-phase-interactive-yolo-workflow.md) | Proposed | 2026-08-13 |
-| `004` | [Hard vs Soft Quality Gates Strategy](file:///Users/evdillen/edwinvandillen@gmail.com%20-%20Google%20Drive/My%20Drive/16.%20AI/03.%20Blogpost/01.%20Blogpost%20agents/adr/004-hard-soft-quality-gates-strategy.md) | Proposed | 2026-08-13 |
-| `005` | [Bulk Research Protocol & Local Source Fetching Tooling](file:///Users/evdillen/edwinvandillen@gmail.com%20-%20Google%20Drive/My%20Drive/16.%20AI/03.%20Blogpost/01.%20Blogpost%20agents/adr/005-bulk-research-protocol-and-source-fetching.md) | Proposed | 2026-08-13 |
+| `001` | [Strict Deterministic Control Plane in Python](file:///Users/evdillen/edwinvandillen@gmail.com%20-%20Google%20Drive/My%20Drive/16.%20AI/03.%20Blogpost/01.%20Blogpost%20agents/adr/001-strict-deterministic-control-plane.md) | Accepted | 2026-08-13 |
+| `002` | [Modular Orchestrator Service Package](file:///Users/evdillen/edwinvandillen@gmail.com%20-%20Google%20Drive/My%20Drive/16.%20AI/03.%20Blogpost/01.%20Blogpost%20agents/adr/002-modular-orchestrator-service-package.md) | Accepted | 2026-08-13 |
+| `003` | [Two-Phase Workflow — Interactive Brainstorm vs YOLO Stepper Engine](file:///Users/evdillen/edwinvandillen@gmail.com%20-%20Google%20Drive/My%20Drive/16.%20AI/03.%20Blogpost/01.%20Blogpost%20agents/adr/003-two-phase-interactive-yolo-workflow.md) | Accepted | 2026-08-13 |
+| `004` | [Hard vs Soft Quality Gates Strategy](file:///Users/evdillen/edwinvandillen@gmail.com%20-%20Google%20Drive/My%20Drive/16.%20AI/03.%20Blogpost/01.%20Blogpost%20agents/adr/004-hard-soft-quality-gates-strategy.md) | Accepted | 2026-08-13 |
+| `005` | [Bulk Research Protocol & Local Source Fetching Tooling](file:///Users/evdillen/edwinvandillen@gmail.com%20-%20Google%20Drive/My%20Drive/16.%20AI/03.%20Blogpost/01.%20Blogpost%20agents/adr/005-bulk-research-protocol-and-source-fetching.md) | Accepted | 2026-08-13 |
 | `006` | [Local RAG Archive Vectorstore for Archival Consistency](file:///Users/evdillen/edwinvandillen@gmail.com%20-%20Google%20Drive/My%20Drive/16.%20AI/03.%20Blogpost/01.%20Blogpost%20agents/adr/006-local-rag-vectorstore-blog-archive.md) | Proposed | 2026-08-13 |
-| `007` | [Pre-Deployment Archival Alignment Validation Agent](file:///Users/evdillen/edwinvandillen@gmail.com%20-%20Google%20Drive/My%20Drive/16.%20AI/03.%20Blogpost/01.%20Blogpost%20agents/adr/007-archival-alignment-validation-agent.md) | Proposed | 2026-08-13 |
+| `007` | [Pre-Deploy Archief-Consistentie Agent & Discrepantie Decision Gate](file:///Users/evdillen/edwinvandillen@gmail.com%20-%20Google%20Drive/My%20Drive/16.%20AI/03.%20Blogpost/01.%20Blogpost%20agents/adr/007-archival-alignment-validation-agent.md) | Accepted | 2026-08-14 |
 | `008` | [Admin Settings Tab, Secured RAG Maintenance & Non-Blocking Background Indexer](file:///Users/evdillen/edwinvandillen@gmail.com%20-%20Google%20Drive/My%20Drive/16.%20AI/03.%20Blogpost/01.%20Blogpost%20agents/adr/008-admin-settings-tab-and-background-rag-indexer.md) | Accepted | 2026-08-13 |
-| `009` | [Pre-Deploy Subject Alignment/Disalignment Agent & Discrepancy Gate](file:///Users/evdillen/edwinvandillen@gmail.com%20-%20Google%20Drive/My%20Drive/16.%20AI/03.%20Blogpost/01.%20Blogpost%20agents/adr/009-pre-deploy-subject-alignment-disalignment-agent-and-discrepancy-gate.md) | Accepted | 2026-08-13 |
+| ~~`009`~~ | ~~Pre-Deploy Subject Alignment/Disalignment Agent & Discrepancy Gate~~ | Samengevoegd in ADR-007 | 2026-08-14 |
+
+> **ADR-009 bestaat niet meer.** ADR-007 en ADR-009 beschreven dezelfde agent: 007 legde
+> vast wanneer hij in de keten draait, 009 hoe hij werkt. Op 2026-08-14 is 009 in 007
+> opgenomen en verwijderd. Het nummer 009 wordt niet hergebruikt.
 
 ---
 
