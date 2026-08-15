@@ -412,7 +412,11 @@ def reindex_rag_archive_async(
 
 @app.post("/api/posts/{slug}/validate-alignment")
 def validate_alignment(slug: str) -> dict[str, Any]:
-    """Voer de Archief Alignment Check uit (Claude 3.5 Sonnet / ADR-009) en genereer archief-consistentie.md."""
+    """Lees het verdict uit archief-consistentie.md in state.json (ADR-007).
+
+    Voert de check niet uit: die doet de subagent archief-consistentie-check in fase 5c.
+    Ontbreekt het rapport, dan volgt een 404.
+    """
     try:
         return service.validate_alignment(post=slug)
     except FileNotFoundError as e:
@@ -423,7 +427,7 @@ def validate_alignment(slug: str) -> dict[str, Any]:
 
 @app.post("/api/posts/{slug}/resolve-alignment")
 def resolve_alignment(slug: str, req: ResolveAlignmentRequest) -> dict[str, Any]:
-    """Verwerk beslissing van de auteur bij een inhoudelijke afwijking (ADR-009)."""
+    """Verwerk beslissing van de auteur bij een inhoudelijke afwijking (ADR-007)."""
     try:
         return service.resolve_alignment(post=slug, action=req.action, note=req.note)
     except ValueError as e:

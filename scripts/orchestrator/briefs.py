@@ -137,6 +137,25 @@ def agent_brief(phase: str, post_dir: str, state: dict[str, Any]) -> dict[str, A
             **common,
             "inputs": [f"{rel}/draft.md", f"{rel}/visuals/"],
             "outputs": ["WordPress concept (post_id, edit_url)"],
+        "alignment": {
+            **common,
+            "inputs": [
+                f"{rel}/draft.md",
+                "RAG-archief (scripts/rag_cli.py search)",
+                "reference/corpus-inventaris.md",
+            ],
+            "outputs": [f"{rel}/archief-consistentie.md"],
+            "instruction": (
+                "Roep archief-consistentie-check aan. Leg de definitieve draft naast het "
+                "hele archief en zoek inhoudelijke tegenspraak met eerder gepubliceerd "
+                f"werk. {rag_search_step(onderwerp)} Zoek per kernstelling apart, niet "
+                "één keer op het onderwerp. Meld een bevinding alleen met beide citaten: "
+                "de zin uit het concept en de zin uit de eerdere post; zonder dat paar "
+                "weigert complete het rapport. Schrijf "
+                f"{rel}/archief-consistentie.md, beginnend met het json-verdictblok "
+                "(status ALIGNMENT_OK of DISCREPANCY_DETECTED). Pas draft.md niet aan."
+            ),
+        },
             "instruction": (
                 "Alleen na deploy_approved. Roep blogpost-deploy / "
                 f"python3 scripts/deploy_post.py --post-dir {rel} aan. "

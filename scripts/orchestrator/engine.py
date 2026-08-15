@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from .archival_validator import is_discrepant, read_alignment_verdict
 from .briefs import agent_brief
 from .constants import (
     HARD_GATES,
@@ -36,8 +37,18 @@ def next_phase_after(phase: str, flags: dict[str, Any]) -> str:
     return "outline" if next_phase == "intake" else next_phase
 
 
-def gate_type(phase: str) -> str:
-    """Geef 'hard' of 'soft' afhankelijk van de fase-eigenschap."""
+def gate_type(phase: str, state: dict[str, Any] | None = None) -> str:
+    """Geef 'hard' of 'soft' voor de gate na een fase.
+
+    De alignment-gate is als enige **voorwaardelijk** hard (ADR-007): zonder bevinding
+    schuift hij automatisch door, met een bevinding moet een mens kiezen tussen
+    voortschrijdend inzicht en inhoudelijke fout. Zonder state is het antwoord 'hard',
+    want dan valt niet vast te stellen dat er geen bevinding is.
+    """
+    if phase == "alignment":
+        if state is None:
+            return "hard"
+        return "hard" if is_discrepant(state) else "soft"
     if phase in HARD_GATES:
         return "hard"
     return "soft"
@@ -79,7 +90,7 @@ def compute_next(state: dict[str, Any], post_dir: str) -> dict[str, Any]:
 def _compute_next_for_waiting_gate(state: dict[str, Any], phase: str) -> dict[str, Any]:
     """Helper voor 'waiting_gate' status acties."""
     pending = state["gate"].get("pending") or phase
-    gtype = gate_type(pending)
+    gtype = gate_type(pending, state)
     extra = " Voor deploy: approve --deploy zet deploy_approved." if pending == "deploy" or phase == "deploy" else ""
     return {
         "action": "approve_or_reject",
@@ -209,8 +220,8 @@ def postcheck_complete(
     phase_validators = {
         "outline": lambda: ["outline.md ontbreekt of is leeg."] if probed["outline"] != "present" else [],
         "draft": lambda: ["draft.md ontbreekt of is leeg."] if probed["draft"] != "present" else [],
-        "style": lambda: ["draft.md ontbreekt of is leeg na style/series."] if probed["draft"] != "present" else [],
-        "series": lambda: ["draft.md ontbreekt of is leeg na style/series."] if probed["draft"] != "present" else [],
+        "style": lambda: _validate_style_completion(probed),
+        "series": lambda: _validate_series_completion(probed),
         "critique": lambda: ["grok-feedback.md ontbreekt of is leeg."] if probed["grok_feedback"] != "present" else [],
         "synthesis": lambda: ["synthese.md ontbreekt of is leeg."] if probed["synthese"] != "present" else [],
         "factcheck": lambda: (
@@ -231,11 +242,7 @@ def postcheck_complete(
             if probed["visuals"] != "present"
             else []
         ),
-        "alignment": lambda: (
-            ["archief-consistentie.md ontbreekt of is leeg. Voer de Archief Alignment Check uit (ADR-009)."]
-            if probed.get("alignment") != "present"
-            else []
-        ),
+        "alignment": lambda: _validate_alignment_completion(post_dir, probed),
         "deploy": lambda: _validate_deploy_completion(state, post_id, edit_url),
     }
 
@@ -281,6 +288,60 @@ def apply_approve_advance(state: dict[str, Any], note: str | None = None, deploy
     if phase == "intake":
         state["phase"] = "outline"
         state["status"] = "ready"
+def _validate_style_completion(probed: dict[str, str]) -> list[str]:
+    """Valideert fase 2b: de draft plus beide rapporten.
+
+    De stijl-check en de leesbaarheid-check zijn bewust tegengesteld gekalibreerd: de
+    eerste telt overtredingen, de tweede meet of het nog als betoog leest. Eén van de
+    twee is dus geen halve controle maar een scheve. Daarom eist deze fase ze allebei.
+    """
+    errors: list[str] = []
+    if probed["draft"] != "present":
+        errors.append("draft.md ontbreekt of is leeg na style.")
+    if probed.get("stijlcheck") != "present":
+        errors.append("stijlcheck.md ontbreekt of is leeg. De stijl-check rapporteert naar dat bestand.")
+    if probed.get("leesbaarheid") != "present":
+        errors.append(
+            "leesbaarheid.md ontbreekt of is leeg. De leesbaarheid-check draait altijd "
+            "naast de stijl-check; zonder dat rapport beloont de meetlat korte, "
+            "onverbonden zinnen."
+        )
+    return errors
+
+
+def _validate_series_completion(probed: dict[str, str]) -> list[str]:
+    """Valideert fase 2c: de draft plus het reeks-consistentierapport."""
+    errors: list[str] = []
+    if probed["draft"] != "present":
+        errors.append("draft.md ontbreekt of is leeg na series.")
+    if probed.get("reeks_check") != "present":
+        errors.append(
+            "reeks-check.md ontbreekt of is leeg. Ook bij het eerste deel van een reeks "
+            "hoort er een rapport te staan; dan met de vaststelling dat er geen eerdere "
+            "delen zijn."
+        )
+    return errors
+
+
+def _validate_alignment_completion(post_dir: str, probed: dict[str, str]) -> list[str]:
+    """Valideert het rapport van de archief-consistentie-check (ADR-007).
+
+    Aanwezigheid is niet genoeg: het rapport moet een leesbaar verdict bevatten, en elke
+    bevinding moet beide citaten hebben. Anders schuift een leeg of half rapport de gate
+    voorbij en betekent 'alignment' niets.
+    """
+    if probed.get("alignment") != "present":
+        return [
+            "archief-consistentie.md ontbreekt of is leeg. Draai de fase alignment: de "
+            "subagent archief-consistentie-check schrijft dit rapport (ADR-007)."
+        ]
+    try:
+        read_alignment_verdict(post_dir)
+    except (ValueError, FileNotFoundError) as e:
+        return [str(e)]
+    return []
+
+
         return
 
     if phase == "deploy":
@@ -296,9 +357,20 @@ def apply_approve_advance(state: dict[str, Any], note: str | None = None, deploy
     state["status"] = "ready" if nxt != "done" else "done"
 
 
-def maybe_yolo_approve(state: dict[str, Any], completed_phase: str) -> bool:
-    """Return True indien yolo soft gate auto-approved."""
-    if not state.get("yolo_mode") or gate_type(completed_phase) != "soft":
+def maybe_auto_approve(state: dict[str, Any], completed_phase: str) -> bool:
+    """Keur de gate automatisch goed waar dat mag. Geeft terug of dat gebeurd is.
+
+    Twee gevallen:
+    - **alignment zonder bevinding** schuift altijd door, ook buiten yolo_mode. De gate
+      bestaat om een gevonden tegenspraak voor te leggen; zonder tegenspraak is er niets
+      voor te leggen (ADR-007). Met bevinding is de gate hard en stopt hij ook in yolo.
+    - **een soft gate in yolo_mode**, zoals voorheen.
+    """
+    if completed_phase == "alignment" and not is_discrepant(state):
+        apply_approve_advance(state, note="archief-consistentie: geen bevinding (ADR-007)")
+        return True
+
+    if not state.get("yolo_mode") or gate_type(completed_phase, state) != "soft":
         return False
 
     apply_approve_advance(state, note="yolo auto-approve (soft gate)")

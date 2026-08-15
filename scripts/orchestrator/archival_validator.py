@@ -1,133 +1,172 @@
-"""Archival Alignment & Disalignment Validation Agent (ADR-009 / Claude 3.5 Sonnet).
+"""Archief-consistentie: verdict inlezen en het discrepantie-gate beheren (ADR-007).
 
-Deze module voert de pre-deploy inhoudelijke vergelijking uit tussen het concept
-(draft.md / synthese.md) en het RAG-blogarchief, en beheert het Discrepantie Decision Gate.
+De inhoudelijke vergelijking zelf gebeurt **niet hier**. Die doet de subagent
+`archief-consistentie-check` in fase 5c, net als de stijl-check en de bron-check: hij
+bevraagt de RAG-index, beoordeelt, en schrijft `archief-consistentie.md`.
+
+Deze module leest het verdict uit dat rapport en vertaalt het naar `state.json`. Ze
+beoordeelt niets zelf. Een eerdere versie deed dat wel, met `if match["score"] < 0.25`,
+en die logica stond omgekeerd: een lage gelijkenisscore betekent dat een passage weinig
+met het stuk te maken heeft, niet dat hij het tegenspreekt.
 """
 
 from __future__ import annotations
 
 import json
 import os
-from datetime import datetime
+import re
 from typing import Any
 
-from .rag_archive import archive_vectorstore
 from .repository import append_log, load_state, now_iso, resolve_post_dir, save_state
 
+REPORT_FILE = "archief-consistentie.md"
 
-def validate_archival_alignment(
-    post: str | None = None, post_dir: str | None = None
-) -> dict[str, Any]:
-    """Voer de Archief Alignment Check uit (Claude 3.5 Sonnet / ADR-009) en bijwerken van state.json."""
-    pdir = resolve_post_dir(post, post_dir)
-    slug = os.path.basename(pdir)
-    state = load_state(pdir)
+ALIGNMENT_OK = "ALIGNMENT_OK"
+DISCREPANCY_DETECTED = "DISCREPANCY_DETECTED"
+VALID_STATUSES = {ALIGNMENT_OK, DISCREPANCY_DETECTED}
 
-    # Herindexeer RAG archief voor actuele gegevens
-    archive_vectorstore.index_all_posts()
+#: Velden die elke bevinding moet hebben. `previous_text` en `current_text` samen zijn
+#: het geciteerde paar uit ADR-007: zonder beide citaten is er geen bevinding.
+REQUIRED_DISCREPANCY_FIELDS = ("historical_slug", "previous_text", "current_text")
 
-    # Zoek het meest recente conceptbestand
-    draft_path = os.path.join(pdir, "draft.md")
-    synth_path = os.path.join(pdir, "synthese.md")
-    target_file = draft_path if os.path.isfile(draft_path) else synth_path
-    if not os.path.isfile(target_file):
-        target_file = os.path.join(pdir, "briefing.md")
+_JSON_FENCE = re.compile(r"```json\s*\n(.*?)\n```", re.S)
 
-    if not os.path.isfile(target_file):
-        raise FileNotFoundError(f"Geen conceptbestand gevonden in {pdir}")
 
-    with open(target_file, "r", encoding="utf-8") as f:
-        concept_text = f.read()
+def report_path(post_dir: str) -> str:
+    """Pad naar het rapport van de archief-consistentie-check."""
+    return os.path.join(post_dir, REPORT_FILE)
 
-    # RAG vectorzoekopdracht naar historische overeenkomsten (excl. huidige post)
-    raw_matches = archive_vectorstore.search(concept_text[:2000], top_k=8)
-    historical_matches = [m for m in raw_matches if m["slug"] != slug]
 
-    # Analyse & Discrepantie Detectie (Claude 3.5 Sonnet logica)
-    discrepancies = []
-    for match in historical_matches:
-        # Detecteer tegenstrijdige termen of gewijzigde definities
-        if match["score"] < 0.25 and len(historical_matches) > 1:
-            discrepancies.append({
-                "historical_slug": match["slug"],
-                "filename": match["filename"],
-                "score": match["score"],
-                "previous_text": match["text"][:200],
-            })
+def parse_alignment_report(text: str) -> dict[str, Any]:
+    """Lees het machineleesbare verdict uit de tekst van het rapport.
 
-    is_discrepant = len(discrepancies) > 0
-    alignment_status = "DISCREPANCY_DETECTED" if is_discrepant else "ALIGNMENT_OK"
+    Het rapport begint met een ```json-blok. De prozatekst eronder is voor de mens;
+    dit blok is voor de state machine. Gooit ValueError als het blok ontbreekt, niet
+    parseert, of niet aan ADR-007 voldoet.
+    """
+    match = _JSON_FENCE.search(text)
+    if not match:
+        raise ValueError(
+            f"{REPORT_FILE} bevat geen ```json-verdictblok. De agent moet het rapport "
+            "openen met een json-blok met 'status' en 'discrepancies'."
+        )
+    try:
+        verdict = json.loads(match.group(1))
+    except json.JSONDecodeError as e:
+        raise ValueError(f"Het verdictblok in {REPORT_FILE} is geen geldige JSON: {e}") from None
 
-    # Rapport genereren: archief-consistentie.md
-    lines = [
-        "# Archief-Consistentie & Inhoudelijke Validatie (ADR-009)",
-        "",
-        f"*Geanalyseerd door: **archief-alignment-check (Claude 3.5 Sonnet)***",
-        f"*Tijdstip: {now_iso()}*",
-        f"*Doelpost: `{slug}`*",
-        "",
-        "---",
-        "",
-        "## 1. Validatie Status",
-        f"- **Resultaat**: {'⚠️ DISCREPANTIE GEVONDEN' if is_discrepant else '✅ ALIGNMENT OK (In lijn met archief)'}",
-        f"- **Gevonden Archief Referenties**: {len(historical_matches)} passages",
-        "",
-        "## 2. Gevonden Inhoudelijke Discrepanties",
-    ]
+    if not isinstance(verdict, dict):
+        raise ValueError(f"Het verdictblok in {REPORT_FILE} moet een object zijn.")
 
-    if is_discrepant:
-        for idx, d in enumerate(discrepancies, 1):
-            lines.extend([
-                f"### {idx}. Mogelijke Afwijking t.o.v. `{d['historical_slug']}`",
-                f"> \"{d['previous_text']}...\"",
-                "",
-            ])
-    else:
-        lines.append("Geen tegenstrijdigheden geconstateerd met eerdere publicaties op edwinvandillen.nl.")
+    status = verdict.get("status")
+    if status not in VALID_STATUSES:
+        raise ValueError(
+            f"Onbekende status '{status}' in {REPORT_FILE}. "
+            f"Gebruik {ALIGNMENT_OK} of {DISCREPANCY_DETECTED}."
+        )
 
-    lines.extend([
-        "",
-        "## 3. Discrepantie Decision Gate Opties",
-        "1. **Voortschrijdend Inzicht**: Auteur accepteert afwijking als bewuste innovatie.",
-        "2. **Inhoudelijke Fout**: Auteur wijst af en stuurt concept terug naar draft.",
-        "",
-        "---",
-        "*ADR-009 Archival Alignment Engine*",
-    ])
+    raw = verdict.get("discrepancies") or []
+    if not isinstance(raw, list):
+        raise ValueError(f"'discrepancies' in {REPORT_FILE} moet een lijst zijn.")
 
-    report_content = "\n".join(lines)
-    report_path = os.path.join(pdir, "archief-consistentie.md")
+    discrepancies = [_normalize_discrepancy(d, idx) for idx, d in enumerate(raw, 1)]
 
-    with open(report_path, "w", encoding="utf-8") as f:
-        f.write(report_content)
+    if status == DISCREPANCY_DETECTED and not discrepancies:
+        raise ValueError(
+            f"{DISCREPANCY_DETECTED} zonder bevindingen in {REPORT_FILE}. "
+            "Een gate die afgaat zonder geciteerd paar wordt weggeklikt (ADR-007)."
+        )
+    if status == ALIGNMENT_OK and discrepancies:
+        raise ValueError(
+            f"{ALIGNMENT_OK} met {len(discrepancies)} bevinding(en) in {REPORT_FILE}. "
+            "Kies één van beide."
+        )
 
-    # Bijwerken van state.json
-    state["archival_alignment"] = {
-        "status": alignment_status,
-        "score": round(sum(m["score"] for m in historical_matches) / len(historical_matches), 2) if historical_matches else 1.0,
-        "discrepancies": discrepancies,
-        "resolution": None,
+    return {"status": status, "discrepancies": discrepancies}
+
+
+def _normalize_discrepancy(item: Any, idx: int) -> dict[str, Any]:
+    """Controleer één bevinding op het geciteerde paar en normaliseer de velden."""
+    if not isinstance(item, dict):
+        raise ValueError(f"Bevinding {idx} in {REPORT_FILE} is geen object.")
+
+    missing = [f for f in REQUIRED_DISCREPANCY_FIELDS if not str(item.get(f) or "").strip()]
+    if missing:
+        raise ValueError(
+            f"Bevinding {idx} in {REPORT_FILE} mist {', '.join(missing)}. ADR-007 eist bij "
+            "elke bevinding beide citaten: de zin uit het concept en de zin uit de "
+            "eerdere post. Kan de agent die niet geven, dan is er geen bevinding."
+        )
+
+    return {
+        "historical_slug": str(item["historical_slug"]).strip(),
+        "historical_ref": str(item.get("historical_ref") or "").strip() or None,
+        "previous_text": str(item["previous_text"]).strip(),
+        "current_text": str(item["current_text"]).strip(),
+        "toelichting": str(item.get("toelichting") or "").strip() or None,
     }
 
-    if is_discrepant:
-        state["status"] = "waiting_gate"
-        state["gate"]["pending"] = "alignment"
-        state["blocked_reason"] = "Inhoudelijke discrepantie gevonden met archief (ADR-009)."
-        append_log(state, "alignment_discrepancy_found", phase="alignment")
-    else:
-        state["phase"] = "alignment"
-        state["status"] = "waiting_gate"
-        state["gate"]["pending"] = "alignment"
-        append_log(state, "alignment_ok", phase="alignment")
 
+def read_alignment_verdict(post_dir: str) -> dict[str, Any]:
+    """Lees en valideer het verdict uit het rapport op schijf."""
+    path = report_path(post_dir)
+    if not os.path.isfile(path):
+        raise FileNotFoundError(
+            f"{REPORT_FILE} ontbreekt in {post_dir}. Draai eerst de fase alignment: de "
+            "subagent archief-consistentie-check schrijft dit rapport."
+        )
+    with open(path, encoding="utf-8") as f:
+        return parse_alignment_report(f.read())
+
+
+def apply_alignment_verdict(state: dict[str, Any], verdict: dict[str, Any]) -> bool:
+    """Zet het verdict in state.json. Geeft terug of er een discrepantie is.
+
+    Raakt phase en status niet aan; dat doet de gate-logica in engine.py.
+    """
+    state["archival_alignment"] = {
+        "status": verdict["status"],
+        "discrepancies": verdict["discrepancies"],
+        "resolution": None,
+        "checked_at": now_iso(),
+    }
+    return verdict["status"] == DISCREPANCY_DETECTED
+
+
+def is_discrepant(state: dict[str, Any]) -> bool:
+    """True zolang een gevonden discrepantie nog niet door de auteur is afgehandeld."""
+    return (state.get("archival_alignment") or {}).get("status") == DISCREPANCY_DETECTED
+
+
+def ingest_alignment_report(
+    post: str | None = None, post_dir: str | None = None
+) -> dict[str, Any]:
+    """Lees het rapport in en werk state.json bij, zonder de fase te verschuiven.
+
+    Idempotent: bedoeld voor de Web UI om het verdict te verversen. De fase-overgang
+    loopt via de normale `complete alignment` in de service.
+    """
+    pdir = resolve_post_dir(post, post_dir)
+    state = load_state(pdir)
+    verdict = read_alignment_verdict(pdir)
+    discrepant = apply_alignment_verdict(state, verdict)
+    append_log(
+        state,
+        "alignment_discrepancy_found" if discrepant else "alignment_ok",
+        note=f"{len(verdict['discrepancies'])} bevinding(en)" if discrepant else None,
+        phase="alignment",
+    )
     save_state(pdir, state)
+
+    with open(report_path(pdir), encoding="utf-8") as f:
+        report_content = f.read()
 
     return {
         "ok": True,
-        "slug": slug,
-        "alignment_status": alignment_status,
-        "is_discrepant": is_discrepant,
-        "report_path": report_path,
+        "slug": state["slug"],
+        "alignment_status": verdict["status"],
+        "is_discrepant": discrepant,
+        "report_path": report_path(pdir),
         "report_preview": report_content,
         "state": state,
     }
@@ -139,14 +178,20 @@ def resolve_alignment_discrepancy(
     action: str = "progressive_insight",
     note: str | None = None,
 ) -> dict[str, Any]:
-    """Verwerk beslissing van de auteur bij een inhoudelijke discrepantie (ADR-009)."""
+    """Verwerk de beslissing van de auteur bij een gevonden discrepantie (ADR-007)."""
     pdir = resolve_post_dir(post, post_dir)
     state = load_state(pdir)
+
+    if not state.get("archival_alignment"):
+        raise ValueError(
+            "Er is geen archief-consistentie-verdict om af te handelen. Draai eerst de "
+            "fase alignment."
+        )
 
     if action == "progressive_insight":
         if not note or not note.strip():
             raise ValueError("Een toelichtingsnotitie is verplicht bij voortschrijdend inzicht.")
-        
+
         state["archival_alignment"]["resolution"] = {
             "type": "progressive_insight",
             "author_note": note.strip(),
@@ -160,14 +205,9 @@ def resolve_alignment_discrepancy(
         append_log(state, "discrepancy_resolved_progressive_insight", note=note, phase="alignment")
         save_state(pdir, state)
 
-        return {
-            "ok": True,
-            "action": "progressive_insight",
-            "note": note,
-            "state": state,
-        }
+        return {"ok": True, "action": "progressive_insight", "note": note, "state": state}
 
-    elif action == "error_rejected":
+    if action == "error_rejected":
         state["archival_alignment"]["resolution"] = {
             "type": "error_rejected",
             "author_note": note.strip() if note else "Afgekeurd als inhoudelijke fout",
@@ -176,15 +216,18 @@ def resolve_alignment_discrepancy(
         state["archival_alignment"]["status"] = "REJECTED_AS_ERROR"
         state["phase"] = "draft"
         state["status"] = "ready"
-        state["blocked_reason"] = "Inhoudelijke fout geconstateerd bij archief alignment."
-        append_log(state, "discrepancy_rejected_as_error", note=note, phase="draft")
+        state["gate"]["pending"] = None
+        # Geen blocked_reason: de status is 'ready', niet 'blocked'. De reden staat in
+        # het logboek en in archival_alignment.resolution.
+        state["blocked_reason"] = None
+        append_log(
+            state,
+            "discrepancy_rejected_as_error",
+            note=note or "Inhoudelijke fout geconstateerd bij archief-consistentie.",
+            phase="draft",
+        )
         save_state(pdir, state)
 
-        return {
-            "ok": True,
-            "action": "error_rejected",
-            "note": note,
-            "state": state,
-        }
-    else:
-        raise ValueError(f"Onbekende actie '{action}'. Gebruik 'progressive_insight' of 'error_rejected'.")
+        return {"ok": True, "action": "error_rejected", "note": note, "state": state}
+
+    raise ValueError(f"Onbekende actie '{action}'. Gebruik 'progressive_insight' of 'error_rejected'.")

@@ -19,7 +19,7 @@ from .engine import (
     _precheck_run_clean,
     apply_approve_advance,
     compute_next,
-    maybe_yolo_approve,
+    maybe_auto_approve,
     postcheck_complete,
 )
 from .formatters import (
@@ -44,7 +44,9 @@ from .repository import (
 
 from .archival_validator import (
     resolve_alignment_discrepancy,
-    validate_archival_alignment,
+    apply_alignment_verdict,
+    ingest_alignment_report,
+    read_alignment_verdict,
 )
 from .rag_archive import archive_vectorstore
 
@@ -121,6 +123,7 @@ class WorkflowService:
         rows = build_phase_table(state, pdir)
         md = render_phase_table_md(state, rows)
         return {
+            "archival_alignment": state.get("archival_alignment"),
             "slug": state["slug"],
             "titel": state["titel"],
             "rows": rows,
@@ -213,7 +216,19 @@ class WorkflowService:
         state["blocked_reason"] = None
         append_log(state, "complete_ok", phase=phase)
 
-        yolo_advanced = maybe_yolo_approve(state, phase)
+        if phase == "alignment":
+            # De postcheck heeft het rapport al gevalideerd; hier landt het verdict in
+            # state.json, zodat de gate-logica weet of er een bevinding is (ADR-007).
+            verdict = read_alignment_verdict(pdir)
+            discrepant = apply_alignment_verdict(state, verdict)
+            append_log(
+                state,
+                "alignment_discrepancy_found" if discrepant else "alignment_ok",
+                note=f"{len(verdict['discrepancies'])} bevinding(en)" if discrepant else None,
+                phase="alignment",
+            )
+
+        yolo_advanced = maybe_auto_approve(state, phase)
         if not yolo_advanced:
             state["status"] = "waiting_gate"
             state["gate"]["pending"] = phase
@@ -570,8 +585,13 @@ class WorkflowService:
     def validate_alignment(
         self, post: str | None = None, post_dir: str | None = None
     ) -> dict[str, Any]:
-        """Voer Archief-Consistentie Validatie uit (ADR-009) en genereer archief-consistentie.md."""
-        return validate_archival_alignment(post=post, post_dir=post_dir)
+        """Lees het verdict uit archief-consistentie.md in state.json (ADR-007).
+
+        De inhoudelijke vergelijking doet de subagent archief-consistentie-check in fase
+        5c; deze methode voert die check niet uit, ze leest alleen het resultaat. Ze
+        verschuift de fase niet: dat loopt via `complete alignment`.
+        """
+        return ingest_alignment_report(post=post, post_dir=post_dir)
 
     def resolve_alignment(
         self,
@@ -580,7 +600,7 @@ class WorkflowService:
         action: str = "progressive_insight",
         note: str | None = None,
     ) -> dict[str, Any]:
-        """Verwerk auteur beslissing bij inhoudelijke afwijking (ADR-009)."""
+        """Verwerk auteur beslissing bij inhoudelijke afwijking (ADR-007)."""
         return resolve_alignment_discrepancy(post=post, post_dir=post_dir, action=action, note=note)
 
 

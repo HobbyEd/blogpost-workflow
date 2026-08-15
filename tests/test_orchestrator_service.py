@@ -10,6 +10,31 @@ from typing import Any
 
 from scripts.orchestrator.service import WorkflowService
 
+#: Rapporten zoals de subagent archief-consistentie-check ze schrijft (ADR-007).
+ALIGNMENT_OK_REPORT = """# Archief-consistentie (ADR-007)
+
+```json
+{"status": "ALIGNMENT_OK", "discrepancies": []}
+```
+
+Geen tegenspraak gevonden met eerder gepubliceerd werk.
+"""
+
+ALIGNMENT_DISCREPANCY_REPORT = """# Archief-consistentie (ADR-007)
+
+```json
+{"status": "DISCREPANCY_DETECTED", "discrepancies": [
+  {"historical_slug": "intentie-1-waarom-intentie-waarde-draagt",
+   "historical_ref": "https://edwinvandillen.nl/?p=500",
+   "previous_text": "Intentie hoort thuis bij de opdrachtgever.",
+   "current_text": "Intentie hoort thuis bij de uitvoerder.",
+   "toelichting": "Twee onverenigbare antwoorden op dezelfde vraag."}
+]}
+```
+
+Eén bevinding.
+"""
+
 
 class ServiceTestBase(unittest.TestCase):
     def setUp(self) -> None:
@@ -159,13 +184,14 @@ class TestServiceLinearPipeline(ServiceTestBase):
         res = self.service.approve_gate(post_dir=pdir)
         self.assertEqual(res["phase"], "alignment")
 
-        # 9b. Alignment phase (HARD GATE - ADR-009)
+        # 9b. Alignment phase (ADR-007): zonder bevinding schuift de gate automatisch
+        # door naar deploy, ook zonder yolo. Er is dan niets voor te leggen.
         res = self.service.run_phase(phase="alignment", post_dir=pdir)
         self.assertTrue(res["ok"])
-        self.create_post_file(slug, "archief-consistentie.md", "# Archief Alignment ok")
+        self.create_post_file(slug, "archief-consistentie.md", ALIGNMENT_OK_REPORT)
         res = self.service.complete_phase(phase="alignment", post_dir=pdir)
         self.assertTrue(res["ok"])
-        res = self.service.approve_gate(post_dir=pdir)
+        self.assertTrue(res["yolo_advanced"])
         self.assertEqual(res["phase"], "deploy")
 
         # 10. Deploy phase (HARD GATE)
@@ -291,3 +317,124 @@ class TestServiceDoctorAndRepair(ServiceTestBase):
 
 if __name__ == "__main__":
     unittest.main()
+class TestServiceAlignmentGate(ServiceTestBase):
+    """De archief-consistentie-gate uit ADR-007, fase 5c."""
+
+    def _post_op_alignment(self, slug: str, yolo: bool = False) -> str:
+        """Zet een post klaar in fase alignment met status ready."""
+        pdir = os.path.join(self.tmp_dir, slug)
+        self.service.init_post(slug=slug, titel="Alignment Test", post_dir=pdir, yolo=yolo)
+        self.create_post_file(slug, "draft.md", "# Draft")
+        state = self.service.get_status(post_dir=pdir)
+        self.service.set_flag(name="skip_factcheck", value=True, post_dir=pdir)
+        # Fase direct zetten; de weg ernaartoe is elders al gedekt.
+        from scripts.orchestrator.repository import load_state, save_state
+
+        s = load_state(pdir)
+        s["phase"] = "alignment"
+        s["status"] = "ready"
+        save_state(pdir, s)
+        self.assertEqual(state["slug"], slug)
+        return pdir
+
+    def test_geen_bevinding_schuift_automatisch_door(self) -> None:
+        pdir = self._post_op_alignment("align-ok")
+        self.service.run_phase(phase="alignment", post_dir=pdir)
+        self.create_post_file("align-ok", "archief-consistentie.md", ALIGNMENT_OK_REPORT)
+
+        res = self.service.complete_phase(phase="alignment", post_dir=pdir)
+        self.assertTrue(res["ok"])
+        self.assertEqual(res["phase"], "deploy")
+        self.assertEqual(res["status"], "ready")
+
+    def test_bevinding_stopt_bij_de_gate_ook_zonder_yolo(self) -> None:
+        pdir = self._post_op_alignment("align-discrepant")
+        self.service.run_phase(phase="alignment", post_dir=pdir)
+        self.create_post_file(
+            "align-discrepant", "archief-consistentie.md", ALIGNMENT_DISCREPANCY_REPORT
+        )
+
+        res = self.service.complete_phase(phase="alignment", post_dir=pdir)
+        self.assertTrue(res["ok"])
+        self.assertEqual(res["phase"], "alignment")
+        self.assertEqual(res["status"], "waiting_gate")
+
+        status = self.service.get_status(post_dir=pdir)
+        self.assertEqual(status["archival_alignment"]["status"], "DISCREPANCY_DETECTED")
+        self.assertEqual(status["next"]["gate_type"], "hard")
+
+    def test_bevinding_stopt_ook_in_yolo_mode(self) -> None:
+        """De hele reden dat de gate bestaat: yolo mag hem niet passeren."""
+        pdir = self._post_op_alignment("align-yolo", yolo=True)
+        self.service.run_phase(phase="alignment", post_dir=pdir)
+        self.create_post_file(
+            "align-yolo", "archief-consistentie.md", ALIGNMENT_DISCREPANCY_REPORT
+        )
+
+        res = self.service.complete_phase(phase="alignment", post_dir=pdir)
+        self.assertEqual(res["status"], "waiting_gate")
+        self.assertEqual(res["phase"], "alignment")
+
+    def test_rapport_zonder_verdictblok_wordt_geweigerd(self) -> None:
+        pdir = self._post_op_alignment("align-geen-verdict")
+        self.service.run_phase(phase="alignment", post_dir=pdir)
+        self.create_post_file(
+            "align-geen-verdict", "archief-consistentie.md", "# Ziet er prima uit\n"
+        )
+
+        res = self.service.complete_phase(phase="alignment", post_dir=pdir)
+        self.assertFalse(res["ok"])
+        self.assertIn("verdictblok", " ".join(res["errors"]))
+
+    def test_bevinding_zonder_geciteerd_paar_wordt_geweigerd(self) -> None:
+        """ADR-007: zonder beide citaten is er geen bevinding."""
+        pdir = self._post_op_alignment("align-half-citaat")
+        self.service.run_phase(phase="alignment", post_dir=pdir)
+        half = """# Archief-consistentie
+
+```json
+{"status": "DISCREPANCY_DETECTED", "discrepancies": [
+  {"historical_slug": "intentie-1", "previous_text": "Iets uit een eerdere post."}
+]}
+```
+"""
+        self.create_post_file("align-half-citaat", "archief-consistentie.md", half)
+
+        res = self.service.complete_phase(phase="alignment", post_dir=pdir)
+        self.assertFalse(res["ok"])
+        self.assertIn("current_text", " ".join(res["errors"]))
+
+    def test_voortschrijdend_inzicht_vereist_een_toelichting(self) -> None:
+        pdir = self._post_op_alignment("align-resolutie")
+        self.service.run_phase(phase="alignment", post_dir=pdir)
+        self.create_post_file(
+            "align-resolutie", "archief-consistentie.md", ALIGNMENT_DISCREPANCY_REPORT
+        )
+        self.service.complete_phase(phase="alignment", post_dir=pdir)
+
+        with self.assertRaises(ValueError):
+            self.service.resolve_alignment(post_dir=pdir, action="progressive_insight", note="  ")
+
+        res = self.service.resolve_alignment(
+            post_dir=pdir, action="progressive_insight", note="Bewust herzien in deel 4."
+        )
+        self.assertTrue(res["ok"])
+        state = res["state"]
+        self.assertEqual(state["archival_alignment"]["status"], "RESOLVED_PROGRESSIVE_INSIGHT")
+        self.assertEqual(state["archival_alignment"]["resolution"]["author_note"], "Bewust herzien in deel 4.")
+
+    def test_afwijzen_als_fout_zet_terug_naar_draft(self) -> None:
+        pdir = self._post_op_alignment("align-afwijzen")
+        self.service.run_phase(phase="alignment", post_dir=pdir)
+        self.create_post_file(
+            "align-afwijzen", "archief-consistentie.md", ALIGNMENT_DISCREPANCY_REPORT
+        )
+        self.service.complete_phase(phase="alignment", post_dir=pdir)
+
+        res = self.service.resolve_alignment(post_dir=pdir, action="error_rejected")
+        state = res["state"]
+        self.assertEqual(state["phase"], "draft")
+        self.assertEqual(state["status"], "ready")
+        self.assertIsNone(state["blocked_reason"], "status ready mag geen blocked_reason houden")
+
+

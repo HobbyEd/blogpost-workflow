@@ -388,8 +388,15 @@ function renderControls(nextAction, statusInfo) {
   const act = nextAction.action;
   const phase = nextAction.phase || statusInfo.phase;
 
-  if (statusInfo.phase === 'alignment' && statusInfo.status === 'waiting_gate') {
+  // Alleen bij een gevonden bevinding hoort de discrepantie-keuze (ADR-007). Zonder
+  // bevinding schuift de fase automatisch door en is er niets te kiezen.
+  const alignment = statusInfo.archival_alignment || {};
+  if (statusInfo.phase === 'alignment'
+      && statusInfo.status === 'waiting_gate'
+      && alignment.status === 'DISCREPANCY_DETECTED') {
+    const count = (alignment.discrepancies || []).length;
     bar.innerHTML = `
+      <span class="badge badge-waiting">⚠️ ${count} inhoudelijke ${count === 1 ? 'bevinding' : 'bevindingen'} t.o.v. het archief</span>
       <button class="btn btn-success" onclick="openDiscrepancyModal('progressive_insight')">💡 Accepteer als Voortschrijdend Inzicht</button>
       <button class="btn btn-danger" onclick="executeResolveDiscrepancy('error_rejected')">❌ Afwijzen als Inhoudelijke Fout</button>
     `;
@@ -522,17 +529,34 @@ function showTab(tab) {
   }
 }
 
+// Het rapport wordt geschreven door de subagent archief-consistentie-check in fase 5c
+// (ADR-007). Dit tabblad toont het; het start geen analyse. De knop ververst het verdict
+// in state.json op basis van het rapport dat op schijf staat.
 async function loadArchiefTabContent(container) {
-  container.innerHTML = `<em>RAG Archief-Alignment analyse uitvoeren voor <code>${escapeHTML(activeSlug)}</code>...</em>`;
+  const bestaand = currentPostDetail && currentPostDetail.artefact_contents
+    ? currentPostDetail.artefact_contents['archief-consistentie.md']
+    : null;
+
+  if (!bestaand) {
+    container.innerHTML = `<em>Nog geen <code>archief-consistentie.md</code> voor <code>${escapeHTML(activeSlug)}</code>. `
+      + `Draai eerst fase 5c (<code>run alignment</code>); de subagent archief-consistentie-check schrijft het rapport.</em>`;
+    return;
+  }
+
+  container.innerHTML = `
+    <div style="margin-bottom: 12px;">
+      <button class="btn" onclick="refreshAlignmentVerdict()">🔄 Verdict opnieuw inlezen</button>
+    </div>
+    <pre style="white-space: pre-wrap; font-family: inherit; color: var(--text-primary);">${escapeHTML(bestaand)}</pre>`;
+}
+
+async function refreshAlignmentVerdict() {
   try {
     const data = await fetchJSON(`/api/posts/${activeSlug}/validate-alignment`, { method: 'POST' });
-    if (data.report_preview) {
-      container.innerHTML = `<pre style="white-space: pre-wrap; font-family: inherit; color: var(--text-primary);">${escapeHTML(data.report_preview)}</pre>`;
-    } else {
-      container.innerHTML = '<em>Geen analyseverslag beschikbaar.</em>';
-    }
+    showNotification(`Verdict ingelezen: ${data.alignment_status}`, data.is_discrepant ? 'warning' : 'success');
+    await loadPostDetail(activeSlug);
   } catch (err) {
-    container.innerHTML = `<div style="color: var(--danger-color);">Fout bij uitvoeren Archief Alignment: ${escapeHTML(err.message)}</div>`;
+    showNotification(`Verdict inlezen mislukt: ${err.message}`, 'error');
   }
 }
 

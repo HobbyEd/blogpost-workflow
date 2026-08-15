@@ -42,7 +42,10 @@ SOFT_GATES = {
     "critique",
     "visuals",
 }
-HARD_GATES = {"synthesis", "factcheck", "alignment", "deploy", "intake"}
+# De alignment-gate staat hier bewust niet in: hij is **voorwaardelijk** hard (ADR-007).
+# Zonder bevinding schuift hij automatisch door, met een bevinding stopt hij ook in
+# yolo_mode. Die afweging zit in engine.gate_type(), dat de state nodig heeft.
+HARD_GATES = {"synthesis", "factcheck", "deploy", "intake"}
 
 STATUSES = {"ready", "running", "waiting_gate", "blocked", "done"}
 
@@ -83,7 +86,7 @@ AGENT_FOR_PHASE = {
     "synthesis": "blogpost-onderzoeker",
     "visuals": "blogpost-visuals",
     "factcheck": "bron-check",
-    "alignment": "archief-alignment-check",
+    "alignment": "archief-consistentie-check",
     "deploy": "blogpost-deploy",
 }
 
@@ -97,7 +100,7 @@ PHASE_LABELS = {
     "synthesis": "4 Synthese",
     "visuals": "5 Visuals",
     "factcheck": "5b Bron- en feitencontrole",
-    "alignment": "5c Archief Alignment (Sonnet)",
+    "alignment": "5c Archief-consistentie",
     "deploy": "6 Deploy (concept)",
     "done": "Klaar",
 }

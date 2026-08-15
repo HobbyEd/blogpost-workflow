@@ -121,6 +121,7 @@ Gebruik de **agent_brief** uit `run` / `next`. Korte mapping:
 | `synthesis` | `blogpost-onderzoeker` | `synthese.md`; Edwin beslist per punt; jij past `draft.md` aan na approve |
 | `visuals` | `blogpost-visuals` | `visuals/*` + refs in draft; render via `scripts/render_svg.py` |
 | `factcheck` | `bron-check` | `feitencheck.md`; **harde gate**, ook in yolo |
+| `alignment` | `archief-consistentie-check` | `archief-consistentie.md`; gate alleen bij een bevinding |
 | `deploy` | `blogpost-deploy` | `scripts/deploy_post.py` → concept; daarna `complete deploy --post-id … --edit-url …` |
 
 ### Details die je niet mag vergeten
@@ -146,6 +147,12 @@ Gebruik de **agent_brief** uit `run` / `next`. Korte mapping:
 - **Grok:** MCP `grok` + key in `.env`. Faalt de tool → `complete` niet forceren met nep-feedback; status blocked of reject, Edwin herstelt MCP.
 - **Synthese:** hard gate. Geen stille skip — alleen `set-flag skip_synthesis true` als Edwin dat wil.
 - **Herkeuring na de synthese (verplicht, beide checks).** De checks in fase 2b draaien op
+- **Archief-consistentie (5c) is niet de reeks-check.** 2c kijkt vroeg naar terminologie
+  binnen één reeks; 5c kijkt laat naar inhoudelijke tegenspraak in het hele archief. De
+  gate gaat alleen af bij een bevinding **met beide citaten**; `complete alignment`
+  weigert een rapport zonder json-verdictblok of met een halve bevinding. Zonder bevinding
+  schuift de fase automatisch door, ook buiten yolo. Bij een bevinding kiest Edwin:
+  voortschrijdend inzicht (toelichting verplicht) of inhoudelijke fout (terug naar draft).
   de draft zoals de schrijver hem opleverde. Daarna wijzig jij de draft nog bij de synthese
   en soms bij de visuals. Die wijzigingen zijn ongecontroleerd, en in de praktijk komen
   daar problemen uit: bij deel 1 van de intentie-reeks kwamen vijf van de zwaarste
