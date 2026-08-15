@@ -389,7 +389,7 @@ def reindex_rag_archive_async(
     x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token"),
 ) -> dict[str, Any]:
     """Herindexeer het RAG archief op de achtergrond (non-blocking, beveiligd met ADMIN_TOKEN - ADR-008)."""
-    expected_token = os.environ.get("ADMIN_TOKEN") or os.environ.get("admin_token")
+    expected_token = os.environ.get("ADMIN_TOKEN")
     if expected_token and x_admin_token != expected_token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

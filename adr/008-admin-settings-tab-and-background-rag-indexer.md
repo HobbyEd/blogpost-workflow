@@ -96,7 +96,7 @@ Er wordt een 3e top-level modus/tab toegevoegd aan de Web UI:
 
 ## 4. Beveiliging & Autorisatie Protocol
 
-- **Token Validatie**: Backend controleert de meegestuurde header `X-Admin-Token` tegen de omgevingsvariabele `ADMIN_TOKEN` (of `admin_token` uit `.env`).
+- **Token Validatie**: Backend controleert de meegestuurde header `X-Admin-Token` tegen de omgevingsvariabele `ADMIN_TOKEN` uit `.env`.
 - **Foutafhandeling**: Bij een ontbrekende of onjuiste token retourneert de API:
   ```json
   {
