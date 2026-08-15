@@ -14,7 +14,12 @@ from copy import deepcopy
 from typing import Any
 
 from .briefs import agent_brief
-from .constants import FLAG_NAMES, PHASE_LABELS, PHASES
+from .constants import (
+    FLAG_NAMES,
+    PHASE_LABELS,
+    PHASES,
+    PHASES_DERIVED_FROM_DRAFT,
+)
 from .engine import (
     _precheck_run_clean,
     apply_approve_advance,
@@ -33,6 +38,9 @@ from .repository import (
     draft_fingerprint,
     empty_state,
     load_state,
+    record_derivation,
+    stale_phases,
+    unrecorded_phases,
     now_iso,
     posts_root,
     resolve_post_dir,
@@ -229,6 +237,11 @@ class WorkflowService:
         state["blocked_reason"] = None
         append_log(state, "complete_ok", phase=phase)
 
+        if phase in PHASES_DERIVED_FROM_DRAFT:
+            # Leg vast van welke draft dit rapport is afgeleid, zodat een latere
+            # tekstwijziging zichtbaar maakt dat het verouderd is (ADR-010 §3.5).
+            record_derivation(state, phase, pdir)
+
         if phase == "alignment":
             # De postcheck heeft het rapport al gevalideerd; hier landt het verdict in
             # state.json, zodat de gate-logica weet of er een bevinding is (ADR-007).
@@ -400,6 +413,7 @@ class WorkflowService:
         phase_issues, hard_errors = _check_phase_artefact_prerequisites(state, probed)
         issues.extend(phase_issues)
         issues.extend(_check_status_and_flag_consistency(state, probed))
+        issues.extend(_check_report_freshness(state, pdir, probed))
 
         return {
             "ok": hard_errors == 0,
@@ -621,6 +635,37 @@ class WorkflowService:
     ) -> dict[str, Any]:
         """Verwerk auteur beslissing bij inhoudelijke afwijking (ADR-007)."""
         return resolve_alignment_discrepancy(post=post, post_dir=post_dir, action=action, note=note)
+
+
+def _check_report_freshness(
+    state: dict[str, Any], post_dir: str, probed: dict[str, str]
+) -> list[dict[str, str]]:
+    """Meld rapporten die bij een oudere versie van draft.md horen (ADR-010 §3.5)."""
+    aanwezig = [p for p in PHASES_DERIVED_FROM_DRAFT if probed.get(_ARTEFACT_VOOR_FASE.get(p, p)) == "present"]
+    issues = [
+        {
+            "severity": "warning",
+            "msg": f"rapport van fase '{p}' hoort bij een oudere draft; opnieuw draaien",
+        }
+        for p in stale_phases(state, post_dir, aanwezig)
+    ]
+    issues.extend(
+        {
+            "severity": "info",
+            "msg": f"rapport van fase '{p}' heeft geen vingerafdruk; actualiteit niet te toetsen",
+        }
+        for p in unrecorded_phases(state, aanwezig)
+    )
+    return issues
+
+
+#: Welke artefact-sleutel bepaalt of het rapport van een fase op schijf staat.
+_ARTEFACT_VOOR_FASE = {
+    "style": "stijlcheck",
+    "series": "reeks_check",
+    "factcheck": "factcheck",
+    "alignment": "alignment",
+}
 
 
 def _check_state_vs_disk_drift(state: dict[str, Any], probed: dict[str, str]) -> list[dict[str, str]]:

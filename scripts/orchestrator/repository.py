@@ -7,7 +7,7 @@ import json
 import os
 from copy import deepcopy
 from datetime import date, datetime, timezone
-from typing import Any
+from typing import Any, Iterable
 
 from .constants import (
     FLAG_NAMES,
@@ -59,6 +59,30 @@ def draft_fingerprint(post_dir: str) -> str | None:
         return None
     with open(path, "rb") as f:
         return hashlib.sha256(f.read()).hexdigest()
+
+
+def record_derivation(state: dict[str, Any], phase: str, post_dir: str) -> None:
+    """Leg vast van welke draft het resultaat van deze fase is afgeleid (ADR-010 §3.5)."""
+    state.setdefault("derived_from", {})[phase] = draft_fingerprint(post_dir)
+
+
+def stale_phases(state: dict[str, Any], post_dir: str, phases: Iterable[str]) -> list[str]:
+    """Geef de fases waarvan het rapport aantoonbaar bij een oudere draft hoort.
+
+    Alleen fases met een vastgelegde vingerafdruk die afwijkt van de huidige draft. Een
+    fase zonder vingerafdruk telt níet als verouderd: dat zijn posts van vóór deze
+    registratie, en die zonder aanleiding blokkeren maakt de melding waardeloos. Voor dat
+    geval is er `unrecorded_phases`, die alleen waarschuwt.
+    """
+    huidig = draft_fingerprint(post_dir)
+    afgeleid = state.get("derived_from") or {}
+    return [p for p in phases if afgeleid.get(p) is not None and afgeleid[p] != huidig]
+
+
+def unrecorded_phases(state: dict[str, Any], phases: Iterable[str]) -> list[str]:
+    """Geef de fases zonder vastgelegde vingerafdruk: niet te toetsen op actualiteit."""
+    afgeleid = state.get("derived_from") or {}
+    return [p for p in phases if afgeleid.get(p) is None]
 
 
 def now_iso() -> str:
@@ -142,6 +166,8 @@ def empty_state(slug: str, titel: str, yolo: bool = False) -> dict[str, Any]:
         # Waaraan de deploy-goedkeuring hangt: de vingerafdruk van de draft die is
         # goedgekeurd. Wijkt draft.md daarna af, dan vervalt de goedkeuring.
         "deploy_approval": None,
+        # Van welke draft het resultaat van elke controlefase is afgeleid (ADR-010 §3.5).
+        "derived_from": {},
         "blocked_reason": None,
         "log": [
             {

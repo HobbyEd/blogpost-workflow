@@ -63,6 +63,19 @@ ARTEFACT_FILES = {
 
 FLAG_NAMES = ("skip_synthesis", "defer_critique", "skip_factcheck", "deploy_approved")
 
+# Fases waarvan het resultaat uit draft.md is afgeleid: wijzigt de draft, dan is hun
+# rapport verouderd (ADR-010 §3.5). Bij het afronden van deze fases wordt de
+# vingerafdruk van de draft vastgelegd in state.derived_from.
+PHASES_DERIVED_FROM_DRAFT = ("style", "series", "factcheck", "alignment")
+
+# Welke daarvan een deploy tegenhouden zolang ze verouderd zijn. De stijl- en
+# reeksrapporten worden wel bijgehouden maar blokkeren nog niet; die stap komt bij het
+# bundelen van de bevindingen (ADR-010 §6, stap 2 en 3).
+DEPLOY_REQUIRES_FRESH = ("factcheck", "alignment")
+
+# grok-feedback.md staat hier bewust niet bij. Een tweede kritiekronde is een keuze van
+# de auteur, niet iets wat een tekstwijziging afdwingt (ADR-010 §3.2).
+
 # Welke artefact-sleutel (uit ARTEFACT_FILES / probe_artefacts) hoort bij welke
 # fase, voor de statustabel. None = geen eigen artefact (rapport-only fases).
 PHASE_ARTEFACT_KEY = {

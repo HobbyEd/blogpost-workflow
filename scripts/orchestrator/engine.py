@@ -7,6 +7,8 @@ from typing import Any
 from .archival_validator import is_discrepant, read_alignment_verdict
 from .briefs import agent_brief
 from .constants import (
+    ARTEFACT_FILES,
+    DEPLOY_REQUIRES_FRESH,
     HARD_GATES,
     MIN_VISUALS,
     PHASES,
@@ -14,7 +16,7 @@ from .constants import (
     SOFT_GATES,
 )
 from .probes import count_visuals, probe_artefacts
-from .repository import append_log, draft_fingerprint, now_iso
+from .repository import append_log, draft_fingerprint, now_iso, stale_phases
 
 
 def deploy_approval_valid(state: dict[str, Any], post_dir: str) -> bool:
@@ -230,6 +232,7 @@ def _check_run_phase_artefact_requirements(
                 "vervallen. Keur opnieuw goed met approve --deploy nadat je de "
                 "gewijzigde tekst hebt gezien."
             )
+        errors.extend(_check_report_freshness(state, post_dir))
         if probed["factcheck"] != "present" and not state["flags"].get("skip_factcheck"):
             errors.append(
                 "feitencheck.md ontbreekt. Publiceren zonder broncontrole is hoe een "
@@ -286,6 +289,30 @@ def postcheck_complete(
         errors.extend(validator())
 
     return errors
+
+
+def _check_report_freshness(state: dict[str, Any], post_dir: str) -> list[str]:
+    """Weiger een deploy zolang een rapport bij een oudere draft hoort (ADR-010 §3.5).
+
+    Op 15 augustus 2026 moest met de hand worden vastgesteld welke controles na een
+    correctieronde opnieuw moesten. De feitencheck op schijf dekte toen nog de tekst van
+    drie dagen eerder, terwijl er zes citaten uit waren verdwenen. Dat is precies het
+    moment waarop tekst en bronnenapparaat uit elkaar lopen.
+    """
+    te_toetsen = [
+        p for p in DEPLOY_REQUIRES_FRESH
+        if not (p == "factcheck" and state["flags"].get("skip_factcheck"))
+    ]
+    verouderd = stale_phases(state, post_dir, te_toetsen)
+    if not verouderd:
+        return []
+
+    namen = ", ".join(ARTEFACT_FILES.get(p, p) for p in verouderd)
+    return [
+        f"{namen} hoort bij een oudere versie van draft.md. Draai de fase(s) "
+        f"{', '.join(verouderd)} opnieuw voordat je deployt; een controle op een tekst "
+        "die niet meer bestaat is geen controle."
+    ]
 
 
 def _validate_style_completion(probed: dict[str, str]) -> list[str]:

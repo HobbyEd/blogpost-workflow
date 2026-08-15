@@ -241,8 +241,16 @@ met de hand opnieuw moesten en waar het misgaan het duurst is.
 
 ## 6. Uitvoeringsvolgorde
 
-1. Vingerafdruk uitbreiden naar `feitencheck.md` en `archief-consistentie.md`. Staat los van
-   de gate-indeling en dekt het geval waar op 15 augustus met de hand omheen is gewerkt.
+1. ~~Vingerafdruk uitbreiden naar `feitencheck.md` en `archief-consistentie.md`.~~
+   **Uitgevoerd 2026-08-15.** `state.derived_from` legt bij `complete` vast van welke draft
+   elk rapport is afgeleid; `run deploy` weigert zolang de feitencheck of de archiefcheck
+   bij een oudere tekst hoort. Stijl- en reeksrapport worden wel geregistreerd maar
+   blokkeren nog niet.
+
+   Eén ontwerpkeuze daarbij: een fase **zonder** vastgelegde vingerafdruk telt niet als
+   verouderd. Anders zou elke post van vóór deze registratie meteen vastlopen, ook als de
+   rapporten prima klopten. Die gevallen leveren een informatieve melding in `doctor`, geen
+   blokkade. Prijs: de eerste ronde na invoering is nog niet beschermd.
 2. Gates voorwaardelijk maken: alleen stoppen bij een bevinding, zoals de alignment-gate al
    doet sinds ADR-007.
 3. De bevindingen van de vijf controles bundelen tot één overzicht per post.

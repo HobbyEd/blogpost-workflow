@@ -441,5 +441,101 @@ class TestServiceAlignmentGate(ServiceTestBase):
         self.assertIsNone(state["blocked_reason"], "status ready mag geen blocked_reason houden")
 
 
+class TestRapportActualiteit(ServiceTestBase):
+    """Een controle op een tekst die niet meer bestaat, is geen controle (ADR-010 §3.5)."""
+
+    def _klaar_voor_deploy(self, slug: str) -> str:
+        from scripts.orchestrator.repository import load_state, save_state
+
+        pdir = os.path.join(self.tmp_dir, slug)
+        self.service.init_post(slug=slug, titel="Actualiteit", post_dir=pdir)
+        self.create_post_file(slug, "draft.md", "# Draft\n\nEerste versie.\n")
+        self.create_post_file(slug, "feitencheck.md", "# Feitencheck")
+        self.create_post_file(slug, "archief-consistentie.md", ALIGNMENT_OK_REPORT)
+
+        # Beide controlefases netjes afronden, zodat hun vingerafdruk wordt vastgelegd.
+        for fase in ("factcheck", "alignment"):
+            s = load_state(pdir)
+            s["phase"], s["status"] = fase, "ready"
+            save_state(pdir, s)
+            self.service.run_phase(phase=fase, post_dir=pdir)
+            res = self.service.complete_phase(phase=fase, post_dir=pdir)
+            self.assertTrue(res["ok"], res.get("errors"))
+
+        s = load_state(pdir)
+        s["phase"], s["status"] = "deploy", "ready"
+        save_state(pdir, s)
+        self.service.approve_gate(post_dir=pdir, deploy=True)
+        return pdir
+
+    def _herschrijf_draft(self, slug: str) -> None:
+        self.create_post_file(slug, "draft.md", "# Draft\n\nHerschreven na de controles.\n")
+
+    def test_vingerafdruk_wordt_vastgelegd_bij_complete(self) -> None:
+        pdir = self._klaar_voor_deploy("actueel")
+        from scripts.orchestrator.repository import draft_fingerprint, load_state
+
+        afgeleid = load_state(pdir)["derived_from"]
+        self.assertEqual(afgeleid["factcheck"], draft_fingerprint(pdir))
+        self.assertEqual(afgeleid["alignment"], draft_fingerprint(pdir))
+
+    def test_deploy_mag_met_actuele_rapporten(self) -> None:
+        pdir = self._klaar_voor_deploy("actueel-deploy")
+        res = self.service.run_phase(phase="deploy", post_dir=pdir)
+        self.assertTrue(res["ok"], res.get("errors"))
+
+    def test_deploy_geweigerd_na_herschreven_draft(self) -> None:
+        pdir = self._klaar_voor_deploy("verouderd")
+        self._herschrijf_draft("verouderd")
+
+        res = self.service.run_phase(phase="deploy", post_dir=pdir)
+        self.assertFalse(res["ok"])
+        fouten = " ".join(res["errors"])
+        self.assertIn("feitencheck.md", fouten)
+        self.assertIn("archief-consistentie.md", fouten)
+
+    def test_skip_factcheck_haalt_alleen_de_feitencheck_uit_de_eis(self) -> None:
+        pdir = self._klaar_voor_deploy("skip-fc")
+        self._herschrijf_draft("skip-fc")
+        self.service.set_flag(name="skip_factcheck", value=True, post_dir=pdir)
+
+        res = self.service.run_phase(phase="deploy", post_dir=pdir)
+        self.assertFalse(res["ok"], "alignment is nog steeds verouderd")
+        fouten = " ".join(res["errors"])
+        self.assertNotIn("feitencheck.md", fouten)
+        self.assertIn("archief-consistentie.md", fouten)
+
+    def test_zonder_vingerafdruk_blokkeert_niets(self) -> None:
+        """Posts van vóór deze registratie mogen niet zonder aanleiding vastlopen."""
+        from scripts.orchestrator.repository import load_state, save_state
+
+        slug = "legacy"
+        pdir = os.path.join(self.tmp_dir, slug)
+        self.service.init_post(slug=slug, titel="Legacy", post_dir=pdir)
+        self.create_post_file(slug, "draft.md", "# Draft\n")
+        self.create_post_file(slug, "feitencheck.md", "# Feitencheck")
+        self.create_post_file(slug, "archief-consistentie.md", ALIGNMENT_OK_REPORT)
+        s = load_state(pdir)
+        s["phase"], s["status"] = "deploy", "ready"
+        s["derived_from"] = {}
+        save_state(pdir, s)
+        self.service.approve_gate(post_dir=pdir, deploy=True)
+
+        res = self.service.run_phase(phase="deploy", post_dir=pdir)
+        self.assertTrue(res["ok"], res.get("errors"))
+
+        doc = self.service.doctor(post_dir=pdir)
+        meldingen = " ".join(i["msg"] for i in doc["issues"])
+        self.assertIn("geen vingerafdruk", meldingen)
+
+    def test_doctor_meldt_een_verouderd_rapport(self) -> None:
+        pdir = self._klaar_voor_deploy("doctor-verouderd")
+        self._herschrijf_draft("doctor-verouderd")
+
+        doc = self.service.doctor(post_dir=pdir)
+        meldingen = " ".join(i["msg"] for i in doc["issues"])
+        self.assertIn("oudere draft", meldingen)
+
+
 if __name__ == "__main__":
     unittest.main()
