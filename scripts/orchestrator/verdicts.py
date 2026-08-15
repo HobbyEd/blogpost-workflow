@@ -136,6 +136,106 @@ def summarize(bevindingen: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def collect_findings(post_dir: str, state: dict[str, Any]) -> dict[str, Any]:
+    """Bundel de bevindingen van alle controlefases tot één overzicht (ADR-010 §6, stap 3).
+
+    Bewust afgeleid op het moment van lezen, niet opgeslagen. Een opgeslagen bundel gaat
+    verouderen zodra een rapport opnieuw draait, en dat is precies de fout die deze week
+    drie keer is gevonden. De rapporten op schijf blijven de enige bron.
+
+    Per fase wordt ook de actualiteit gemeld: hoort het rapport nog bij de huidige draft?
+    """
+    from .constants import CONDITIONAL_GATES, PHASE_ARTEFACT_KEY
+    from .probes import probe_artefacts
+    from .repository import stale_phases, unrecorded_phases
+
+    probed = probe_artefacts(post_dir)
+    verouderd = set(stale_phases(state, post_dir, CONDITIONAL_GATES))
+    ongeregistreerd = set(unrecorded_phases(state, CONDITIONAL_GATES))
+
+    fases: list[dict[str, Any]] = []
+    alle: list[dict[str, Any]] = []
+
+    for phase in CONDITIONAL_GATES:
+        artefact = PHASE_ARTEFACT_KEY.get(phase)
+        if artefact and probed.get(artefact) != "present":
+            fases.append({"phase": phase, "staat": "niet gedraaid", "blocking": 0, "advisory": 0})
+            continue
+
+        try:
+            bevindingen = read_phase_findings(post_dir, phase)
+        except (FileNotFoundError, ValueError) as e:
+            fases.append({"phase": phase, "staat": "onleesbaar", "fout": str(e), "blocking": 0, "advisory": 0})
+            continue
+
+        if phase in verouderd:
+            staat = "verouderd"
+        elif phase in ongeregistreerd:
+            staat = "geen vingerafdruk"
+        else:
+            staat = "actueel"
+
+        samenvatting = summarize(bevindingen)
+        fases.append({
+            "phase": phase,
+            "staat": staat,
+            "blocking": samenvatting["blocking"],
+            "advisory": samenvatting["advisory"],
+        })
+        for b in bevindingen:
+            alle.append({**b, "phase": phase})
+
+    # Blokkerend eerst; daarbinnen op fasevolgorde zoals de keten ze aflegt.
+    volgorde = {p: i for i, p in enumerate(CONDITIONAL_GATES)}
+    alle.sort(key=lambda b: (b["severity"] != BLOCKING, volgorde.get(b["phase"], 99)))
+
+    return {
+        "blocking": sum(1 for b in alle if b["severity"] == BLOCKING),
+        "advisory": sum(1 for b in alle if b["severity"] == ADVISORY),
+        "phases": fases,
+        "findings": alle,
+    }
+
+
+def render_findings_md(bundel: dict[str, Any]) -> str:
+    """Maak het bevindingenoverzicht leesbaar voor de terminal en de UI."""
+    regels = [
+        f"**{bundel['blocking']} blokkerend, {bundel['advisory']} ter overweging**",
+        "",
+        "| Fase | Staat | Blokkerend | Ter overweging |",
+        "|---|---|---|---|",
+    ]
+    for f in bundel["phases"]:
+        regels.append(f"| {f['phase']} | {f['staat']} | {f['blocking']} | {f['advisory']} |")
+
+    if bundel["findings"]:
+        regels += ["", "## Bevindingen", ""]
+        for b in bundel["findings"]:
+            merk = "🔴" if b["severity"] == BLOCKING else "🟡"
+            regels.append(f"- {merk} **{b['phase']} · {b['categorie']}** ({b['waar']}) — {b['wat']}")
+            if b.get("suggestie"):
+                regels.append(f"  - suggestie: {b['suggestie']}")
+    else:
+        regels += ["", "Geen bevindingen."]
+
+    # Altijd tonen, ook als er geen bevindingen zijn: een onleesbaar rapport telt nul
+    # bevindingen, en zonder deze sectie leest dat als "niets gevonden".
+    onleesbaar = [f for f in bundel["phases"] if f["staat"] == "onleesbaar"]
+    if onleesbaar:
+        regels += ["", "## Niet te lezen", ""]
+        regels += [f"- **{f['phase']}** — {f['fout']}" for f in onleesbaar]
+
+    verouderd = [f for f in bundel["phases"] if f["staat"] == "verouderd"]
+    if verouderd:
+        regels += ["", "## Verouderd", ""]
+        regels += [
+            f"- **{f['phase']}** — het rapport hoort bij een oudere versie van draft.md"
+            for f in verouderd
+        ]
+
+    return "\n".join(regels)
+
+
 def has_blocking(state: dict[str, Any], phase: str) -> bool:
     """True als de laatst vastgelegde uitkomst van deze fase een blokkerende bevinding had."""
     return bool(((state.get("verdicts") or {}).get(phase) or {}).get("blocking"))

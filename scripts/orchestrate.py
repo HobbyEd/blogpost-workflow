@@ -62,6 +62,10 @@ def build_parser() -> argparse.ArgumentParser:
     add_post_args(sp)
     sp.add_argument("--json", action="store_true")
 
+    sp = sub.add_parser("findings", help="Bevindingen van alle controlefases gebundeld")
+    add_post_args(sp)
+    sp.add_argument("--json", action="store_true")
+
     sp = sub.add_parser("next", help="Eén toegestane vervolgactie + agent_brief")
     add_post_args(sp)
 
@@ -156,6 +160,14 @@ def main(argv: list[str] | None = None) -> int:
                         indent=2,
                     )
                 )
+            else:
+                print(res["markdown"])
+            return 0
+
+        if args.command == "findings":
+            res = service.get_findings(post=args.post, post_dir=args.post_dir)
+            if args.json:
+                print(json.dumps(res, ensure_ascii=False, indent=2))
             else:
                 print(res["markdown"])
             return 0

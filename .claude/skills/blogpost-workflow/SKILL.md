@@ -133,6 +133,10 @@ Gebruik de **agent_brief** uit `run` / `next`. Korte mapping:
   index niet, de inventaris wel. `reeks-consistentie-check` heeft geen Bash: draai de
   zoekopdracht zelf en geef de treffers mee.
 - **Schrijver:** leest outline + `reference/huisstijl.md`; verzint geen feiten buiten de outline.
+- **Eén overzicht van alle bevindingen:** `python3 scripts/orchestrate.py findings --post <slug>`.
+  Bundelt style, series, factcheck en alignment, blokkerend eerst, met per fase of het
+  rapport actueel, verouderd, onleesbaar of niet gedraaid is. Leg dat voor bij de gate in
+  plaats van vijf losse bestanden.
 - **De controle-gates stoppen alleen bij een bevinding.** `style`, `series`, `factcheck` en
   `alignment` schuiven vanzelf door zodra hun rapport geen `blocking`-bevinding bevat, ook
   buiten yolo. Met een blokkerende bevinding stoppen ze ook ín yolo. Elk rapport opent

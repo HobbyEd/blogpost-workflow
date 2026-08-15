@@ -531,6 +531,59 @@ class TestVoorwaardelijkeGates(ServiceTestBase):
         self.assertIn("zwaarte", " ".join(res["errors"]))
 
 
+class TestBevindingenBundel(ServiceTestBase):
+    """Eén overzicht in plaats van vijf bestanden (ADR-010 §6, stap 3)."""
+
+    def _post_met_rapporten(self, slug: str) -> str:
+        pdir = os.path.join(self.tmp_dir, slug)
+        self.service.init_post(slug=slug, titel="Bundel", post_dir=pdir)
+        self.create_post_file(slug, "draft.md", "# Draft\n")
+        self.create_post_file(slug, "stijlcheck.md", ADVISORY_RAPPORT)
+        self.create_post_file(slug, "leesbaarheid.md", LEEG_RAPPORT)
+        self.create_post_file(slug, "reeks-check.md", BLOKKEREND_RAPPORT)
+        self.create_post_file(slug, "feitencheck.md", LEEG_RAPPORT)
+        self.create_post_file(slug, "archief-consistentie.md", ALIGNMENT_DISCREPANCY_REPORT)
+        return pdir
+
+    def test_bundelt_over_alle_controlefases(self) -> None:
+        pdir = self._post_met_rapporten("bundel")
+        res = self.service.get_findings(post_dir=pdir)
+
+        self.assertEqual(res["blocking"], 2, "reeks-check en alignment")
+        self.assertEqual(res["advisory"], 1, "stijl-check")
+        self.assertEqual({f["phase"] for f in res["phases"]}, {"style", "series", "factcheck", "alignment"})
+
+    def test_blokkerend_staat_bovenaan(self) -> None:
+        pdir = self._post_met_rapporten("bundel-volgorde")
+        res = self.service.get_findings(post_dir=pdir)
+        zwaartes = [b["severity"] for b in res["findings"]]
+        self.assertEqual(zwaartes, ["blocking", "blocking", "advisory"])
+
+    def test_niet_gedraaide_fase_wordt_als_zodanig_gemeld(self) -> None:
+        slug = "bundel-leeg"
+        pdir = os.path.join(self.tmp_dir, slug)
+        self.service.init_post(slug=slug, titel="Bundel leeg", post_dir=pdir)
+        self.create_post_file(slug, "draft.md", "# Draft\n")
+
+        res = self.service.get_findings(post_dir=pdir)
+        self.assertEqual(res["blocking"], 0)
+        self.assertTrue(all(f["staat"] == "niet gedraaid" for f in res["phases"]))
+        self.assertIn("Geen bevindingen", res["markdown"])
+
+    def test_onleesbaar_rapport_valt_op_maar_breekt_niets(self) -> None:
+        slug = "bundel-kapot"
+        pdir = os.path.join(self.tmp_dir, slug)
+        self.service.init_post(slug=slug, titel="Bundel kapot", post_dir=pdir)
+        self.create_post_file(slug, "draft.md", "# Draft\n")
+        self.create_post_file(slug, "stijlcheck.md", "# Geen blok\n")
+        self.create_post_file(slug, "leesbaarheid.md", LEEG_RAPPORT)
+
+        res = self.service.get_findings(post_dir=pdir)
+        style = next(f for f in res["phases"] if f["phase"] == "style")
+        self.assertEqual(style["staat"], "onleesbaar")
+        self.assertIn("Niet te lezen", res["markdown"])
+
+
 class TestRapportActualiteit(ServiceTestBase):
     """Een controle op een tekst die niet meer bestaat, is geen controle (ADR-010 §3.5)."""
 

@@ -213,6 +213,18 @@ def get_post_detail(slug: str) -> dict[str, Any]:
         raise HTTPException(status_code=404, detail=str(e))
 
 
+@app.get("/api/posts/{slug}/findings")
+def get_findings(slug: str) -> dict[str, Any]:
+    """Bundel de bevindingen van alle controlefases (ADR-010 §6, stap 3).
+
+    Afgeleid uit de rapporten op schijf, zodat het overzicht niet kan verouderen.
+    """
+    try:
+        return service.get_findings(post=slug)
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
 @app.post("/api/posts/{slug}/run/{phase}")
 def run_phase(slug: str, phase: str) -> dict[str, Any]:
     """Start een specifieke fase voor een blogpost."""

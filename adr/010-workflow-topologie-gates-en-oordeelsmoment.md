@@ -262,7 +262,18 @@ met de hand opnieuw moesten en waar het misgaan het duurst is.
    gate altijd afgaan en verandert er niets aan de 49 stempels. `factcheck` is daarmee geen
    onvoorwaardelijk harde gate meer; de bescherming komt nu uit drie eisen samen: het
    rapport moet bestaan, een leesbaar verdict hebben, en actueel zijn (stap 1).
-3. De bevindingen van de vijf controles bundelen tot één overzicht per post.
+3. ~~De bevindingen van de vijf controles bundelen tot één overzicht per post.~~
+   **Uitgevoerd 2026-08-15.** `orchestrate.py findings`, `GET /api/posts/{slug}/findings`
+   en een tabblad in de web-UI. Blokkerend eerst, daarna op fasevolgorde.
+
+   Het overzicht wordt **afgeleid bij het opvragen**, niet opgeslagen. Een opgeslagen
+   bundel gaat verouderen zodra een controle opnieuw draait, en dat is de fout die deze
+   week drie keer is gevonden. De rapporten op schijf blijven de enige bron.
+
+   Per fase toont het overzicht ook de staat: actueel, verouderd, niet gedraaid of
+   onleesbaar. Dat laatste bleek meteen nodig: bij deel 2 tellen drie rapporten nul
+   bevindingen omdat ze van vóór het verdictformaat dateren. Zonder die kolom leest dat
+   als "niets gevonden".
 4. De fases hergroeperen tot de drie blokken, met de stepper mee.
 5. De synthese omzetten naar een beslismoment per punt, met vastlegging van de keuze en de
    motivering (3.3).

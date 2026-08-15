@@ -516,6 +516,8 @@ function showTab(tab) {
 
   if (tab === 'status') {
     contentEl.innerHTML = renderStatusMarkdown(currentPostDetail);
+  } else if (tab === 'bevindingen') {
+    loadBevindingenTab(contentEl);
   } else if (tab === 'archief') {
     loadArchiefTabContent(contentEl);
   } else {
@@ -526,6 +528,46 @@ function showTab(tab) {
     } else {
       contentEl.innerHTML = `<em>Artefact '${tab}' ontbreekt of is leeg voor deze post.</em>`;
     }
+  }
+}
+
+// De bevindingen van alle controlefases in één lijst (ADR-010 §6, stap 3). Ze worden bij
+// het opvragen afgeleid uit de rapporten op schijf, dus dit overzicht kan niet verouderen.
+async function loadBevindingenTab(container) {
+  container.innerHTML = '<em>Bevindingen ophalen...</em>';
+  try {
+    const data = await fetchJSON(`/api/posts/${activeSlug}/findings`);
+    const kop = data.blocking
+      ? `<span class="badge badge-blocked">${data.blocking} blokkerend</span>`
+      : `<span class="badge badge-done">geen blokkerende bevinding</span>`;
+    const rijen = data.phases.map(f => `
+      <tr>
+        <td>${escapeHTML(f.phase)}</td>
+        <td>${escapeHTML(f.staat)}</td>
+        <td>${f.blocking}</td>
+        <td>${f.advisory}</td>
+      </tr>`).join('');
+    const lijst = data.findings.length
+      ? data.findings.map(b => `
+          <li>
+            <strong>${b.severity === 'blocking' ? '🔴' : '🟡'} ${escapeHTML(b.phase)} · ${escapeHTML(b.categorie)}</strong>
+            <span style="color: var(--text-muted);">(${escapeHTML(b.waar)})</span><br>
+            ${escapeHTML(b.wat)}
+            ${b.suggestie ? `<br><em>suggestie: ${escapeHTML(b.suggestie)}</em>` : ''}
+          </li>`).join('')
+      : '<li><em>Geen bevindingen.</em></li>';
+
+    container.innerHTML = `
+      <div style="margin-bottom: 12px;">${kop}
+        <span style="color: var(--text-muted); margin-left: 8px;">${data.advisory} ter overweging</span>
+      </div>
+      <table class="phase-table">
+        <thead><tr><th>Fase</th><th>Staat</th><th>Blokkerend</th><th>Ter overweging</th></tr></thead>
+        <tbody>${rijen}</tbody>
+      </table>
+      <ul style="margin-top: 16px; line-height: 1.6;">${lijst}</ul>`;
+  } catch (err) {
+    container.innerHTML = `<div style="color: var(--danger-color);">Bevindingen ophalen mislukt: ${escapeHTML(err.message)}</div>`;
   }
 }
 

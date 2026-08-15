@@ -681,3 +681,21 @@ header {
   from { transform: translateX(100%); opacity: 0; }
   to { transform: translateX(0); opacity: 1; }
 }
+
+/* Bevindingenoverzicht (ADR-010 §6, stap 3) */
+.phase-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+.phase-table th,
+.phase-table td {
+  text-align: left;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border-color, rgba(255, 255, 255, 0.12));
+}
+.phase-table th {
+  color: var(--text-muted);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}

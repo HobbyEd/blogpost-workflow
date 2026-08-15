@@ -59,7 +59,12 @@ from .archival_validator import (
     resolve_alignment_discrepancy,
 )
 from .rag_archive import archive_vectorstore
-from .verdicts import read_phase_findings, summarize
+from .verdicts import (
+    collect_findings,
+    read_phase_findings,
+    render_findings_md,
+    summarize,
+)
 
 
 def _record_deploy_approval(state: dict[str, Any], post_dir: str) -> None:
@@ -136,6 +141,23 @@ class WorkflowService:
             "archival_alignment": state.get("archival_alignment"),
             "verdicts": state.get("verdicts") or {},
             "next": action,
+        }
+
+    def get_findings(
+        self, post: str | None = None, post_dir: str | None = None
+    ) -> dict[str, Any]:
+        """Bundel de bevindingen van alle controlefases (ADR-010 §6, stap 3).
+
+        Afgeleid uit de rapporten op schijf, niet uit een opgeslagen kopie: die zou
+        verouderen zodra een controle opnieuw draait.
+        """
+        pdir = self.resolve_dir(post, post_dir)
+        state = load_state(pdir)
+        bundel = collect_findings(pdir, state)
+        return {
+            "slug": state["slug"],
+            **bundel,
+            "markdown": render_findings_md(bundel),
         }
 
     def get_table(
