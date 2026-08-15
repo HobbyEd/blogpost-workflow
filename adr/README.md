@@ -20,6 +20,7 @@ In deze map leggen we alle architecturele en technische keuzes vast (ADR's), inc
 | `007` | [Pre-Deploy Archief-Consistentie Agent & Discrepantie Decision Gate](file:///Users/evdillen/edwinvandillen@gmail.com%20-%20Google%20Drive/My%20Drive/16.%20AI/03.%20Blogpost/01.%20Blogpost%20agents/adr/007-archival-alignment-validation-agent.md) | Accepted | 2026-08-14 |
 | `008` | [Admin Settings Tab, Secured RAG Maintenance & Non-Blocking Background Indexer](file:///Users/evdillen/edwinvandillen@gmail.com%20-%20Google%20Drive/My%20Drive/16.%20AI/03.%20Blogpost/01.%20Blogpost%20agents/adr/008-admin-settings-tab-and-background-rag-indexer.md) | Accepted | 2026-08-13 |
 | ~~`009`~~ | ~~Pre-Deploy Subject Alignment/Disalignment Agent & Discrepancy Gate~~ | Samengevoegd in ADR-007 | 2026-08-14 |
+| `010` | [Workflow-topologie — waar de mens beslist en wat er opnieuw moet](file:///Users/evdillen/edwinvandillen@gmail.com%20-%20Google%20Drive/My%20Drive/16.%20AI/03.%20Blogpost/01.%20Blogpost%20agents/adr/010-workflow-topologie-gates-en-oordeelsmoment.md) | Proposed | 2026-08-15 |
 
 > **ADR-009 bestaat niet meer.** ADR-007 en ADR-009 beschreven dezelfde agent: 007 legde
 > vast wanneer hij in de keten draait, 009 hoe hij werkt. Op 2026-08-14 is 009 in 007

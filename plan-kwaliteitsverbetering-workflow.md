@@ -258,7 +258,8 @@ dat bestand. Zodra er een modelaanroep-pad is: echt maken met de bestaande
 
 De enige echte beslissing in dit plan.
 
-**C1. ADR-010 schrijven** met de twee routes tegen elkaar. Ontbreekt volledig in de negen
+**C1. ADR-011 schrijven** met de twee routes tegen elkaar (nummer 010 is inmiddels vergeven
+aan de workflow-topologie). Ontbreekt volledig in de negen
 bestaande ADR's, terwijl het de kern van het doel is.
 
 **C2. Implementeren.** Aanbevolen: **route B, headless Claude Code op een altijd-aan
