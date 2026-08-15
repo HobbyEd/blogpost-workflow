@@ -127,17 +127,22 @@ class TestServiceLinearPipeline(ServiceTestBase):
         res = self.service.approve_gate(post_dir=pdir, note="Draft akkoord")
         self.assertEqual(res["phase"], "style")
 
-        # 4. Style phase
+        # 4. Style phase: beide rapporten zijn verplicht
         res = self.service.run_phase(phase="style", post_dir=pdir)
         self.assertTrue(res["ok"])
+        self.create_post_file(slug, "stijlcheck.md", "# Stijl-check")
         res = self.service.complete_phase(phase="style", post_dir=pdir)
-        self.assertTrue(res["ok"])
+        self.assertFalse(res["ok"], "zonder leesbaarheid.md is de style-fase niet af")
+        self.create_post_file(slug, "leesbaarheid.md", "# Leesbaarheid")
+        res = self.service.complete_phase(phase="style", post_dir=pdir)
+        self.assertTrue(res["ok"], res.get("errors"))
         res = self.service.approve_gate(post_dir=pdir)
         self.assertEqual(res["phase"], "series")
 
         # 5. Series phase
         res = self.service.run_phase(phase="series", post_dir=pdir)
         self.assertTrue(res["ok"])
+        self.create_post_file(slug, "reeks-check.md", "# Reeks-consistentie")
         res = self.service.complete_phase(phase="series", post_dir=pdir)
         self.assertTrue(res["ok"])
         res = self.service.approve_gate(post_dir=pdir)

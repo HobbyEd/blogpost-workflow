@@ -1,7 +1,7 @@
 ---
 name: reeks-consistentie-check
 description: Controleert een blogpost-draft voor edwinvandillen.nl op consistentie met de al geschreven delen van dezelfde reeks — terminologie, titel-overlap met de reeksnaam, en de feitelijke juistheid van verwijzingen naar andere delen. Wordt aangeroepen door de blogpost-workflow-skill in fase 2c, ná de stijl-check en vóór de Grok-kritiek. Rapporteert alleen; past de draft niet zelf aan.
-tools: Read, Glob, Grep, WebFetch
+tools: Read, Glob, Grep, WebFetch, Write
 model: sonnet
 ---
 
@@ -107,10 +107,19 @@ het los met een korte toelichting.
 
 ## Rapportformaat
 
-Per bevinding: categorie, citaat uit de nieuwe draft, het tegenstrijdige citaat uit het
-eerdere deel (met bestandsverwijzing), en waarom het opvalt. Sluit af met een telling
-per categorie en een kort eindoordeel: is de draft consistent genoeg voor de gate, of
-zijn er punten die eerst aandacht vragen. Geen enkele wijziging aan het bestand zelf.
+Schrijf je rapport naar **`posts/<slug>/reeks-check.md`**. Dat is het enige bestand dat je
+aanmaakt of wijzigt; `draft.md` blijft ongemoeid. Zonder dit bestand weigert
+`complete series`.
 
-Zijn er geen eerdere delen in de reeks gevonden (bijvoorbeeld het allereerste deel),
-meld dat expliciet en lever een leeg rapport — er is dan niets om tegen te consistenten.
+Begin met een kop, de datum en de reeksnaam. Per bevinding: categorie, citaat uit de
+nieuwe draft, het tegenstrijdige citaat uit het eerdere deel (met bestands- of
+URL-verwijzing), en waarom het opvalt. Sluit af met een telling per categorie en een kort
+eindoordeel: is de draft consistent genoeg voor de gate, of zijn er punten die eerst
+aandacht vragen.
+
+Zijn er geen eerdere delen in de reeks gevonden (bijvoorbeeld het allereerste deel), schrijf
+het bestand dan alsnog met die vaststelling erin. Een leeg rapport en een niet-uitgevoerde
+check zien er achteraf hetzelfde uit; dit onderscheidt ze.
+
+Draai je opnieuw op dezelfde post, voeg dan een nieuwe gedateerde sectie toe onder de
+vorige. Overschrijf een eerdere ronde niet: het verloop over de rondes is zelf informatie.

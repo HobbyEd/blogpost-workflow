@@ -115,8 +115,8 @@ Gebruik de **agent_brief** uit `run` / `next`. Korte mapping:
 |-------------|----------|----------------------|
 | `outline` | `blogpost-onderzoeker` | `outline.md` |
 | `draft` | `blogpost-schrijver` | `draft.md` |
-| `style` | `stijl-check` **en** `leesbaarheid-check` | twee rapporten; draft eventueel corrigeren na gate |
-| `series` | `reeks-consistentie-check` | rapport; draft corrigeren na gate |
+| `style` | `stijl-check` **en** `leesbaarheid-check` | `stijlcheck.md` + `leesbaarheid.md`; draft corrigeren na gate |
+| `series` | `reeks-consistentie-check` | `reeks-check.md`; draft corrigeren na gate |
 | `critique` | `grok-reviewer` | `grok-feedback.md` (nooit verzonnen kritiek) |
 | `synthesis` | `blogpost-onderzoeker` | `synthese.md`; Edwin beslist per punt; jij past `draft.md` aan na approve |
 | `visuals` | `blogpost-visuals` | `visuals/*` + refs in draft; render via `scripts/render_svg.py` |
@@ -134,6 +134,9 @@ Gebruik de **agent_brief** uit `run` / `next`. Korte mapping:
   index niet, de inventaris wel. `reeks-consistentie-check` heeft geen Bash: draai de
   zoekopdracht zelf en geef de treffers mee.
 - **Stijl-check / reeks-check:** rapporteren alleen; jij past draft aan na Edwins akkoord.
+  Ze schrijven hun rapport zelf naar `stijlcheck.md`, `leesbaarheid.md` en `reeks-check.md`;
+  `complete style` en `complete series` weigeren zonder die bestanden. Bij een herkeuring
+  komt er een gedateerde sectie bij, het bestand wordt niet overschreven.
 - **Leesbaarheid-check draait altijd naast de stijl-check**, in dezelfde fase, direct erna.
   De stijl-check telt uitsluitend overtredingen; onder die meetlat is de optimale tekst kort,
   onverbonden en voorzichtig. Bij deel 1 van de intentie-reeks leverde een correctieronde

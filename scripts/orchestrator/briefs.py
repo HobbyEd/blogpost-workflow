@@ -64,10 +64,14 @@ def agent_brief(phase: str, post_dir: str, state: dict[str, Any]) -> dict[str, A
         "style": {
             **common,
             "inputs": [f"{rel}/draft.md", "reference/huisstijl.md"],
-            "outputs": ["rapport aan orkestrator/host (geen file verplicht)"],
+            "outputs": [f"{rel}/stijlcheck.md", f"{rel}/leesbaarheid.md"],
             "instruction": (
-                "Roep stijl-check aan op draft.md. Rapporteer alleen; pas de draft niet zelf aan. "
-                "Leg het rapport vast in de gate-notitie bij approve/reject."
+                "Roep stijl-check én leesbaarheid-check aan op draft.md; ze draaien altijd "
+                f"samen. De stijl-check schrijft {rel}/stijlcheck.md, de leesbaarheid-check "
+                f"{rel}/leesbaarheid.md. Beide rapporteren alleen en passen draft.md niet aan; "
+                "corrigeren doe jij ná Edwins akkoord. Draai je deze fase opnieuw (de "
+                "verplichte herkeuring na de synthese), laat de agents dan een nieuwe "
+                "gedateerde ronde toevoegen in plaats van het bestand te overschrijven."
             ),
         },
         "series": {

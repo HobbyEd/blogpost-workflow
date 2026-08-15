@@ -192,7 +192,11 @@ def get_post_detail(slug: str) -> dict[str, Any]:
         # Inlezen van artefact bestandsinhoud (draft.md, outline.md, etc.)
         pdir = os.path.join(service.posts_root(), slug)
         artefact_contents = {}
-        for fname in ["draft.md", "synthese.md", "outline.md", "briefing.md", "grok-feedback.md", "feitencheck.md", "archief-consistentie.md"]:
+        for fname in [
+            "draft.md", "synthese.md", "outline.md", "briefing.md", "grok-feedback.md",
+            "stijlcheck.md", "leesbaarheid.md", "reeks-check.md",
+            "feitencheck.md", "archief-consistentie.md",
+        ]:
             fpath = os.path.join(pdir, fname)
             if os.path.isfile(fpath):
                 try:

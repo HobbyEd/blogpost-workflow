@@ -1,7 +1,7 @@
 ---
 name: leesbaarheid-check
 description: Controleert of een blogpost-draft voor edwinvandillen.nl vloeiend leest in plaats van als een opsomming van losse beweringen. Meet zinslengte-variatie, voegwoorddichtheid en alinea-aanhaking met een script, en beoordeelt daarnaast door lezen waar het betoog hakkelt. Vormt bewust tegenwicht tegen de stijl-check, die alleen overtredingen telt en daardoor korte, onverbonden zinnen beloont. Wordt aangeroepen door de blogpost-workflow-skill direct na de stijl-check. Rapporteert alleen; past de draft niet zelf aan.
-tools: Read, Grep, Bash
+tools: Read, Grep, Bash, Write
 model: sonnet
 ---
 
@@ -80,6 +80,14 @@ geschreven in plaats van gepatcht.
 
 ## Rapportformaat
 
-Begin met de tabel uit het meetscript. Daarna de bevindingen per categorie met
-regelnummer, citaat en een herschreven suggestie. Sluit af met het sectie-oordeel en één
-zin: leest de draft als een betoog of als een lijst. Wijzig het bestand niet.
+Schrijf je rapport naar **`posts/<slug>/leesbaarheid.md`**. Dat is het enige bestand dat je
+aanmaakt of wijzigt; `draft.md` blijft ongemoeid. Zonder dit bestand weigert
+`complete style`.
+
+Begin met een kop, de datum en de tabel uit het meetscript. Daarna de bevindingen per
+categorie met regelnummer, citaat en een herschreven suggestie. Sluit af met het
+sectie-oordeel en één zin: leest de draft als een betoog of als een lijst.
+
+Draai je opnieuw op dezelfde post (de herkeuring na de synthese), voeg dan een nieuwe
+gedateerde sectie toe onder de vorige. Overschrijf de eerdere ronde niet: de meetwaarden
+naast elkaar laten zien of de correctieronde de tekst heeft opgeknipt.

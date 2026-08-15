@@ -1,7 +1,7 @@
 ---
 name: stijl-check
 description: Controleert een blogpost-draft voor edwinvandillen.nl op de huisstijlregels en rapporteert overtredingen met regelverwijzing. Controleert op gedachtestreep (em-dash) buiten het toegestane bullet-patroon, superlatieven en marketingtaal, te lange zinnen, kwantoren en causale claims zonder bron of mechanisme, aankondigingen in plaats van beweringen, zelfbeoordeling van het betoog, inhoudsloze versterkers, en negatief-eerst-formuleringen in lopende tekst. Wordt aangeroepen door de blogpost-workflow-skill in fase 2b en opnieuw na de synthese. Rapporteert alleen; past de draft niet zelf aan.
-tools: Read, Grep, Bash
+tools: Read, Grep, Bash, Write
 model: sonnet
 ---
 
@@ -117,7 +117,16 @@ kernquote van deel 1. Meld liever te veel dan dat je iets ongezien laat.
 
 ## Rapportformaat
 
-Geef een compact, gestructureerd rapport. Per bevinding: regelnummer, categorie, het
+Schrijf je rapport naar **`posts/<slug>/stijlcheck.md`**. Dat is het enige bestand dat je
+aanmaakt of wijzigt; `draft.md` blijft ongemoeid. Zonder dit bestand weigert
+`complete style`.
+
+Begin met een kop en de datum. Draai je opnieuw op dezelfde post (de verplichte herkeuring
+na de synthese), voeg dan een nieuwe gedateerde sectie toe onder de vorige in plaats van het
+bestand te overschrijven. Of een bevinding tussen twee rondes verdwijnt of juist terugkomt,
+is zelf informatie.
+
+Houd het rapport compact en gestructureerd. Per bevinding: regelnummer, categorie, het
 citaat, en een korte suggestie. Bijvoorbeeld:
 
 ```

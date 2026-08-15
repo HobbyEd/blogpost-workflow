@@ -52,6 +52,9 @@ STATUSES = {"ready", "running", "waiting_gate", "blocked", "done"}
 ARTEFACT_FILES = {
     "outline": "outline.md",
     "draft": "draft.md",
+    "stijlcheck": "stijlcheck.md",
+    "leesbaarheid": "leesbaarheid.md",
+    "reeks_check": "reeks-check.md",
     "grok_feedback": "grok-feedback.md",
     "synthese": "synthese.md",
     "factcheck": "feitencheck.md",
@@ -66,8 +69,10 @@ PHASE_ARTEFACT_KEY = {
     "intake": None,
     "outline": "outline",
     "draft": "draft",
-    "style": None,
-    "series": None,
+    # style levert twee rapporten (stijlcheck.md en leesbaarheid.md); de tabel toont er
+    # één, de postcheck eist ze allebei.
+    "style": "stijlcheck",
+    "series": "reeks_check",
     "critique": "grok_feedback",
     "synthesis": "synthese",
     "visuals": "visuals",

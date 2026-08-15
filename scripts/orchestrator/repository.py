@@ -121,6 +121,9 @@ def empty_state(slug: str, titel: str, yolo: bool = False) -> dict[str, Any]:
             "deploy_approved": False,
         },
         "gate": {"pending": None, "last_decision": None},
+            "stijlcheck": "missing",
+            "leesbaarheid": "missing",
+            "reeks_check": "missing",
         "blocked_reason": None,
         "log": [
             {
