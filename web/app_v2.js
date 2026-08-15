@@ -194,18 +194,28 @@ async function handleFinalizeChatSubmit(event) {
   }
 }
 
+// `hard` markeert de gates die onvoorwaardelijk stoppen. De controlefases (stijl, reeks,
+// factcheck, alignment) zijn sinds ADR-010 §3.1 voorwaardelijk: ze stoppen alleen bij een
+// blokkerende bevinding, en staan hier dus niet als harde gate.
 const PHASES = [
-  { id: "intake", label: "Intake", hard: false },
-  { id: "outline", label: "Outline", hard: false },
-  { id: "draft", label: "Draft", hard: false },
-  { id: "style", label: "Stijl", hard: false },
-  { id: "series", label: "Reeks", hard: false },
-  { id: "critique", label: "Critique", hard: false },
-  { id: "synthesis", label: "Synthese", hard: true },
-  { id: "visuals", label: "Visuals", hard: false },
-  { id: "factcheck", label: "Factcheck", hard: true },
-  { id: "alignment", label: "Alignment", hard: true },
-  { id: "deploy", label: "Deploy", hard: true }
+  { id: "intake", label: "Intake", hard: true, block: "richten" },
+  { id: "outline", label: "Outline", hard: true, block: "richten" },
+  { id: "draft", label: "Draft", hard: false, block: "bouwen" },
+  { id: "style", label: "Stijl", hard: false, block: "bouwen" },
+  { id: "series", label: "Reeks", hard: false, block: "bouwen" },
+  { id: "critique", label: "Critique", hard: false, block: "bouwen" },
+  { id: "synthesis", label: "Synthese", hard: true, block: "bouwen" },
+  { id: "visuals", label: "Visuals", hard: false, block: "bouwen" },
+  { id: "factcheck", label: "Factcheck", hard: false, block: "bouwen" },
+  { id: "alignment", label: "Alignment", hard: false, block: "bouwen" },
+  { id: "deploy", label: "Deploy", hard: true, block: "oordelen" }
+];
+
+// De drie blokken uit ADR-010 §3.1, met wat er aan het eind te beslissen valt.
+const BLOCKS = [
+  { id: "richten", label: "Richten", gate: "onderwerp, invalshoek en bronnen" },
+  { id: "bouwen", label: "Bouwen", gate: "stopt alleen bij een blokkerende bevinding" },
+  { id: "oordelen", label: "Oordelen", gate: "lezen in WordPress, dan beslissen" }
 ];
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -374,7 +384,24 @@ function renderStepper(detail) {
     }
   });
 
-  container.innerHTML = html;
+  container.innerHTML = renderBlockBar(currentIdx) + `<div class="stepper-phases">${html}</div>`;
+}
+
+// De drie blokken boven de fases (ADR-010 §3.1). Elf bolletjes zeggen niet waar een
+// beslissing valt; drie blokken wel.
+function renderBlockBar(currentIdx) {
+  const huidigBlok = currentIdx < PHASES.length ? PHASES[currentIdx].block : 'oordelen';
+  const balken = BLOCKS.map(b => {
+    const fases = PHASES.filter(p => p.block === b.id);
+    const gereed = fases.filter(p => PHASES.indexOf(p) < currentIdx).length;
+    const staat = b.id === huidigBlok ? 'active' : (gereed === fases.length ? 'completed' : 'pending');
+    return `
+      <div class="block-node ${staat}" style="flex: ${fases.length}" title="${escapeHTML(b.gate)}">
+        <div class="block-label">${escapeHTML(b.label)}</div>
+        <div class="block-meta">${gereed}/${fases.length}</div>
+      </div>`;
+  }).join('');
+  return `<div class="block-bar">${balken}</div>`;
 }
 
 function renderControls(nextAction, statusInfo) {
@@ -515,7 +542,11 @@ function showTab(tab) {
   }
 
   if (tab === 'status') {
-    contentEl.innerHTML = renderStatusMarkdown(currentPostDetail);
+    // De orkestrator levert de tabel; die is gegroepeerd per blok (ADR-010 §3.1).
+    // renderStatusMarkdown blijft als terugval voor een oude server zonder dat veld.
+    contentEl.innerHTML = currentPostDetail.markdown_table
+      ? `<pre style="white-space: pre-wrap; font-family: inherit;">${escapeHTML(currentPostDetail.markdown_table)}</pre>`
+      : renderStatusMarkdown(currentPostDetail);
   } else if (tab === 'bevindingen') {
     loadBevindingenTab(contentEl);
   } else if (tab === 'archief') {
@@ -537,9 +568,17 @@ async function loadBevindingenTab(container) {
   container.innerHTML = '<em>Bevindingen ophalen...</em>';
   try {
     const data = await fetchJSON(`/api/posts/${activeSlug}/findings`);
-    const kop = data.blocking
-      ? `<span class="badge badge-blocked">${data.blocking} blokkerend</span>`
-      : `<span class="badge badge-done">geen blokkerende bevinding</span>`;
+    // Een rapport dat niet te lezen is telt nul bevindingen. Zonder deze waarschuwing
+    // leest groen als "alles in orde", terwijl er niets is gecontroleerd.
+    const onbetrouwbaar = data.phases.filter(f => f.staat === 'onleesbaar' || f.staat === 'verouderd');
+    let kop;
+    if (data.blocking) {
+      kop = `<span class="badge badge-blocked">${data.blocking} blokkerend</span>`;
+    } else if (onbetrouwbaar.length) {
+      kop = `<span class="badge badge-waiting">${onbetrouwbaar.length} rapport(en) niet bruikbaar</span>`;
+    } else {
+      kop = `<span class="badge badge-done">geen blokkerende bevinding</span>`;
+    }
     const rijen = data.phases.map(f => `
       <tr>
         <td>${escapeHTML(f.phase)}</td>

@@ -470,6 +470,46 @@ class TestServiceAlignmentGate(ServiceTestBase):
         self.assertIsNone(state["blocked_reason"], "status ready mag geen blocked_reason houden")
 
 
+class TestBlokindeling(ServiceTestBase):
+    """Drie blokken over dezelfde fasevolgorde (ADR-010 §3.1)."""
+
+    def test_elke_fase_hoort_bij_precies_een_blok(self) -> None:
+        from scripts.orchestrator.constants import BLOCK_FOR_PHASE, PHASES
+
+        self.assertEqual(set(BLOCK_FOR_PHASE) , set(PHASES))
+
+    def test_blokken_zijn_aaneengesloten_in_de_fasevolgorde(self) -> None:
+        """Anders springt de stepper heen en weer tussen blokken."""
+        from scripts.orchestrator.constants import BLOCK_FOR_PHASE, PHASES
+
+        volgorde = [BLOCK_FOR_PHASE[p] for p in PHASES]
+        gezien: list[str] = []
+        for blok in volgorde:
+            if not gezien or gezien[-1] != blok:
+                self.assertNotIn(blok, gezien, f"blok '{blok}' komt in twee stukken voor")
+                gezien.append(blok)
+
+    def test_tabel_groepeert_per_blok(self) -> None:
+        slug = "blokken"
+        pdir = os.path.join(self.tmp_dir, slug)
+        self.service.init_post(slug=slug, titel="Blokken", post_dir=pdir)
+
+        res = self.service.get_table(post_dir=pdir)
+        labels = [b["label"] for b in res["blocks"]]
+        self.assertEqual(labels, ["Richten", "Bouwen", "Oordelen"])
+        for kop in ("### Richten", "### Bouwen", "### Oordelen"):
+            self.assertIn(kop, res["markdown"])
+
+    def test_status_noemt_het_actieve_blok(self) -> None:
+        slug = "blok-actief"
+        pdir = os.path.join(self.tmp_dir, slug)
+        self.service.init_post(slug=slug, titel="Blok actief", post_dir=pdir)
+
+        status = self.service.get_status(post_dir=pdir)
+        self.assertEqual(status["block"], "richten")
+        self.assertEqual(status["block_label"], "Richten")
+
+
 class TestVoorwaardelijkeGates(ServiceTestBase):
     """Een controle die niets vond, heeft niets voor te leggen (ADR-010 §3.1)."""
 

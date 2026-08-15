@@ -91,6 +91,29 @@ PHASE_REPORTS = {
 # is de Oordelen-gate, en synthesis is het beslismoment over de kritiekpunten.
 CONDITIONAL_GATES = ("style", "series", "factcheck", "alignment")
 
+# De drie blokken uit ADR-010 §3.1, als groepering over de bestaande fasevolgorde. Het
+# blok zegt wat voor soort beslissing er aan het eind valt:
+#
+#   Richten  — jouw beslissing over onderwerp, invalshoek en bronnen. Goedkoop te
+#              corrigeren; na de draft kost dezelfde correctie uren.
+#   Bouwen   — produceren en controleren. De gates hier stoppen alleen bij een
+#              blokkerende bevinding (CONDITIONAL_GATES).
+#   Oordelen — lezen in WordPress en beslissen. Live zetten valt buiten het systeem.
+#
+# `synthesis` hoort volgens ADR-010 in Oordelen, maar staat in de fasevolgorde nog vóór
+# visuals. Verplaatsen is stap 5 uit §6; tot die tijd valt hij hier onder Bouwen, zodat de
+# blokken aaneengesloten blijven en de stepper niet heen en weer springt.
+BLOCKS = (
+    ("richten", "Richten", ("intake", "outline")),
+    ("bouwen", "Bouwen", ("draft", "style", "series", "critique", "synthesis",
+                          "visuals", "factcheck", "alignment")),
+    ("oordelen", "Oordelen", ("deploy", "done")),
+)
+
+BLOCK_FOR_PHASE = {phase: key for key, _label, phases in BLOCKS for phase in phases}
+BLOCK_LABELS = {key: label for key, label, _phases in BLOCKS}
+
+
 # Welke artefact-sleutel (uit ARTEFACT_FILES / probe_artefacts) hoort bij welke
 # fase, voor de statustabel. None = geen eigen artefact (rapport-only fases).
 PHASE_ARTEFACT_KEY = {

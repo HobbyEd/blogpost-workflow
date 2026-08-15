@@ -307,11 +307,11 @@ header {
   width: 100%;
 }
 
+/* Kolom sinds ADR-010: de blokkenbalk staat boven de fasebolletjes. */
 .stepper {
   display: flex;
-  align-items: center;
+  flex-direction: column;
   width: 100%;
-  justify-content: space-between;
   position: relative;
 }
 
@@ -698,4 +698,40 @@ header {
   color: var(--text-muted);
   font-weight: 600;
   letter-spacing: 0.02em;
+}
+
+/* Blokkenbalk boven de stepper (ADR-010 §3.1) */
+.block-bar {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+.block-node {
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  background: rgba(255, 255, 255, 0.02);
+}
+.block-node.completed {
+  border-color: #27ae60;
+  background: rgba(39, 174, 96, 0.12);
+}
+.block-node.active {
+  border-color: #f5a623;
+  background: rgba(245, 166, 35, 0.12);
+}
+.block-label {
+  font-weight: 700;
+  font-size: 0.85rem;
+  letter-spacing: 0.02em;
+}
+.block-meta {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+.stepper-phases {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  justify-content: space-between;
 }

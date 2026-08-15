@@ -187,7 +187,12 @@ def get_post_detail(slug: str) -> dict[str, Any]:
         res["slug"] = slug
         res["status_info"] = status_info
         res["doctor_info"] = doctor_info
-        res["markdown_table"] = status_info.get("markdown")
+        # De statustabel komt uit de orkestrator, niet uit een tweede implementatie in
+        # de frontend. status_info bevat geen markdown; dit veld was daardoor altijd leeg
+        # en de UI viel terug op een eigen renderer die inmiddels was afgedreven.
+        tabel = service.get_table(post=slug)
+        res["markdown_table"] = tabel["markdown"]
+        res["blocks"] = tabel["blocks"]
 
         # Inlezen van artefact bestandsinhoud (draft.md, outline.md, etc.)
         pdir = os.path.join(service.posts_root(), slug)

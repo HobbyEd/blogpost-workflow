@@ -274,7 +274,21 @@ met de hand opnieuw moesten en waar het misgaan het duurst is.
    onleesbaar. Dat laatste bleek meteen nodig: bij deel 2 tellen drie rapporten nul
    bevindingen omdat ze van vóór het verdictformaat dateren. Zonder die kolom leest dat
    als "niets gevonden".
-4. De fases hergroeperen tot de drie blokken, met de stepper mee.
+4. ~~De fases hergroeperen tot de drie blokken, met de stepper mee.~~ **Uitgevoerd
+   2026-08-15.** `BLOCKS` in `constants.py` groepeert de bestaande fasevolgorde; de
+   statustabel is per blok verdeeld met de gate erboven, en de stepper toont een
+   blokkenbalk boven de elf bolletjes.
+
+   De fasevolgorde zelf is **niet** gewijzigd. `synthesis` hoort volgens 3.1 in Oordelen
+   maar staat nog vóór visuals; verplaatsen is stap 5. Tot die tijd valt hij onder Bouwen,
+   zodat de blokken aaneengesloten blijven. Een test bewaakt dat: een blok mag niet in
+   twee stukken in de fasevolgorde voorkomen, anders springt de stepper heen en weer.
+
+   Twee dingen die hierbij aan het licht kwamen. De sterretjes in de stepper markeerden
+   `factcheck` en `alignment` nog als harde gate, terwijl die sinds stap 2 voorwaardelijk
+   zijn. En `markdown_table` in de detail-respons was altijd leeg, waardoor de web-UI een
+   eigen statustabel rendert die inmiddels van de orkestrator was afgedreven. Beide
+   rechtgezet; de UI toont nu de tabel van de orkestrator.
 5. De synthese omzetten naar een beslismoment per punt, met vastlegging van de keuze en de
    motivering (3.3).
 6. `revisie.md` invoeren als artefact voor de opmerkingen na het lezen.

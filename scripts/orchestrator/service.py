@@ -15,6 +15,8 @@ from typing import Any
 
 from .briefs import agent_brief
 from .constants import (
+    BLOCK_FOR_PHASE,
+    BLOCK_LABELS,
     CONDITIONAL_GATES,
     FLAG_NAMES,
     PHASE_LABELS,
@@ -29,6 +31,7 @@ from .engine import (
     postcheck_complete,
 )
 from .formatters import (
+    build_block_summary,
     build_phase_table,
     parse_state_md,
     render_phase_table_md,
@@ -132,6 +135,8 @@ class WorkflowService:
             "titel": state["titel"],
             "phase": state["phase"],
             "phase_label": PHASE_LABELS.get(state["phase"], state["phase"]),
+            "block": BLOCK_FOR_PHASE.get(state["phase"], "bouwen"),
+            "block_label": BLOCK_LABELS.get(BLOCK_FOR_PHASE.get(state["phase"], "bouwen")),
             "status": state["status"],
             "yolo_mode": state["yolo_mode"],
             "flags": state["flags"],
@@ -173,6 +178,7 @@ class WorkflowService:
             "slug": state["slug"],
             "titel": state["titel"],
             "rows": rows,
+            "blocks": build_block_summary(state, rows),
             "markdown": md,
         }
 

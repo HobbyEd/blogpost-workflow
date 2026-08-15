@@ -7,6 +7,8 @@ from typing import Any
 
 from .constants import (
     ARTEFACT_FILES,
+    BLOCK_FOR_PHASE,
+    BLOCKS,
     PHASE_ARTEFACT_KEY,
     PHASE_LABELS,
     PHASES,
@@ -44,12 +46,40 @@ def build_phase_table(state: dict[str, Any], post_dir: str) -> list[dict[str, st
             {
                 "phase": phase,
                 "label": label,
+                "block": BLOCK_FOR_PHASE.get(phase, "bouwen"),
                 "status": status_label,
                 "artefact": _artefact_cell(phase, state, probed),
                 "note": note,
             }
         )
     return rows
+
+
+def build_block_summary(state: dict[str, Any], rows: list[dict[str, str]]) -> list[dict[str, Any]]:
+    """Vat de fases samen per blok (ADR-010 §3.1).
+
+    Drie blokken met drie gates, in plaats van elf fases met elf stempels. Het blok is een
+    groepering over dezelfde fasevolgorde; de state machine loopt onveranderd door de
+    fases heen.
+    """
+    huidig = BLOCK_FOR_PHASE.get(state["phase"], "bouwen")
+    per_blok = {key: [] for key, _label, _phases in BLOCKS}
+    for row in rows:
+        per_blok[row["block"]].append(row)
+
+    samenvatting = []
+    for key, label, _phases in BLOCKS:
+        fases = per_blok[key]
+        gereed = sum(1 for r in fases if r["status"] == "gereed")
+        samenvatting.append({
+            "block": key,
+            "label": label,
+            "phases": [r["phase"] for r in fases],
+            "gereed": gereed,
+            "totaal": len(fases),
+            "actief": key == huidig,
+        })
+    return samenvatting
 
 
 def _determine_phase_row_status(
@@ -94,18 +124,37 @@ def _determine_current_phase_status(state: dict[str, Any]) -> tuple[str, str]:
     return status_text, ""
 
 
+#: Wat er aan het eind van elk blok te beslissen valt (ADR-010 §3.1).
+BLOCK_GATE_NOTE = {
+    "richten": "gate: onderwerp, invalshoek en bronnen",
+    "bouwen": "gates stoppen alleen bij een blokkerende bevinding",
+    "oordelen": "gate: lezen in WordPress, dan beslissen",
+}
+
+
 def render_phase_table_md(state: dict[str, Any], rows: list[dict[str, str]]) -> str:
-    """Render de statustabel als Markdown string."""
+    """Render de statustabel als Markdown string, gegroepeerd per blok (ADR-010 §3.1)."""
     lines = [
         f"**{state['titel']}** (`{state['slug']}`) — yolo: {'aan' if state['yolo_mode'] else 'uit'}",
-        "",
-        "| Fase | Status | Artefact | Opmerking |",
-        "|---|---|---|---|",
     ]
-    for r in rows:
-        if r["phase"] == "done":
+    huidig = BLOCK_FOR_PHASE.get(state["phase"], "bouwen")
+
+    for key, label, _phases in BLOCKS:
+        blok_rijen = [r for r in rows if r["block"] == key and r["phase"] != "done"]
+        if not blok_rijen:
             continue
-        lines.append(f"| {r['label']} | {r['status']} | {r['artefact']} | {r['note']} |")
+        merk = " ←" if key == huidig else ""
+        lines += [
+            "",
+            f"### {label}{merk}",
+            f"*{BLOCK_GATE_NOTE.get(key, '')}*",
+            "",
+            "| Fase | Status | Artefact | Opmerking |",
+            "|---|---|---|---|",
+        ]
+        for r in blok_rijen:
+            lines.append(f"| {r['label']} | {r['status']} | {r['artefact']} | {r['note']} |")
+
     if state["phase"] == "done":
         lines.append("")
         lines.append("Pipeline: **klaar** (concept staat op WordPress).")
