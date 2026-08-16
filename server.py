@@ -218,6 +218,58 @@ def get_post_detail(slug: str) -> dict[str, Any]:
         raise HTTPException(status_code=404, detail=str(e))
 
 
+class RevisionRequest(BaseModel):
+    opmerking: str = Field(..., description="Opmerking van de auteur na het lezen")
+    waar: str = Field("", description="Waar in de post, bv. 'sectie 6'")
+
+
+class CloseRevisionRequest(BaseModel):
+    punt: str = Field(..., description="Punt-id uit revisie.md")
+    hoe: str = Field(..., description="Hoe de opmerking is verwerkt")
+
+
+@app.get("/api/posts/{slug}/revisions")
+def get_revisions(slug: str) -> dict[str, Any]:
+    """Opmerkingen van de auteur na het lezen in WordPress (ADR-010 §3.4)."""
+    try:
+        return service.get_revisions(post=slug)
+    except (FileNotFoundError, ValueError) as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@app.post("/api/posts/{slug}/revisions")
+def add_revision(slug: str, req: RevisionRequest) -> dict[str, Any]:
+    """Leg een opmerking vast; ze houdt de volgende deploy tegen tot ze is verwerkt."""
+    try:
+        return service.add_revision(opmerking=req.opmerking, waar=req.waar, post=slug)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@app.post("/api/posts/{slug}/revisions/close")
+def close_revision(slug: str, req: CloseRevisionRequest) -> dict[str, Any]:
+    """Markeer een opmerking als verwerkt, met hoe."""
+    try:
+        return service.close_revision(punt_id=req.punt, hoe=req.hoe, post=slug)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@app.post("/api/posts/{slug}/revisions/start-round")
+def start_revision_round(slug: str) -> dict[str, Any]:
+    """Open een herzieningsronde: terug naar de draft met de opmerkingen als opdracht."""
+    try:
+        return service.start_revision_round(post=slug)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
 class DecidePointRequest(BaseModel):
     punt: str = Field(..., description="Punt-id uit synthese.md")
     keuze: str = Field(..., description="Gekozen variant, bv. 'aannemen' of 'verwerpen'")

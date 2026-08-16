@@ -62,6 +62,7 @@ from .archival_validator import (
     resolve_alignment_discrepancy,
 )
 from .rag_archive import archive_vectorstore
+from . import revision
 from .synthesis import read_points, record_decision
 from .synthesis import summarize as synthesis_summary
 from .verdicts import (
@@ -206,6 +207,79 @@ class WorkflowService:
         )
         save_state(pdir, state)
         return {"ok": True, "punt": punt_id, "keuze": keuze, **synthesis_summary(state, punten)}
+
+    def get_revisions(
+        self, post: str | None = None, post_dir: str | None = None
+    ) -> dict[str, Any]:
+        """Toon de opmerkingen van de auteur na het lezen (ADR-010 §3.4)."""
+        pdir = self.resolve_dir(post, post_dir)
+        state = load_state(pdir)
+        return {"slug": state["slug"], **revision.summarize(pdir)}
+
+    def add_revision(
+        self,
+        opmerking: str,
+        waar: str = "",
+        post: str | None = None,
+        post_dir: str | None = None,
+    ) -> dict[str, Any]:
+        """Leg een opmerking van de auteur vast als artefact.
+
+        Bij deel 2 kwamen de drie inhoudelijke opmerkingen na het lezen in WordPress en
+        stonden ze nergens; ze bestonden alleen in een gesprek.
+        """
+        pdir = self.resolve_dir(post, post_dir)
+        state = load_state(pdir)
+        punt = revision.add(pdir, opmerking, waar, state["titel"], now_iso())
+        append_log(state, "revisiepunt_toegevoegd", note=f"{punt['id']}: {punt['opmerking']}")
+        save_state(pdir, state)
+        return {"ok": True, "punt": punt, **revision.summarize(pdir)}
+
+    def close_revision(
+        self,
+        punt_id: str,
+        hoe: str,
+        post: str | None = None,
+        post_dir: str | None = None,
+    ) -> dict[str, Any]:
+        """Markeer een opmerking als verwerkt, met hoe."""
+        pdir = self.resolve_dir(post, post_dir)
+        state = load_state(pdir)
+        punt = revision.close(pdir, punt_id, hoe, state["titel"])
+        append_log(state, "revisiepunt_afgehandeld", note=f"{punt['id']}: {punt['afgehandeld']}")
+        save_state(pdir, state)
+        return {"ok": True, "punt": punt, **revision.summarize(pdir)}
+
+    def start_revision_round(
+        self, post: str | None = None, post_dir: str | None = None
+    ) -> dict[str, Any]:
+        """Open een herzieningsronde: terug naar de draft met de opmerkingen als opdracht.
+
+        Dit is de lus uit ADR-010 §3.1: na het lezen in WordPress gaat de post terug het
+        Bouwen-blok in. De vingerafdrukken uit stap 1 markeren daarna vanzelf welke
+        controles opnieuw moeten.
+        """
+        pdir = self.resolve_dir(post, post_dir)
+        state = load_state(pdir)
+        openstaand = revision.open_points(revision.read_points(pdir))
+        if not openstaand:
+            raise ValueError(
+                "Geen openstaande revisiepunten. Voeg eerst je opmerkingen toe met "
+                "`revisie --opmerking \"...\"`."
+            )
+
+        state["phase"] = "draft"
+        state["status"] = "ready"
+        state["gate"]["pending"] = None
+        state["blocked_reason"] = None
+        append_log(
+            state,
+            "herzieningsronde_gestart",
+            note=f"{len(openstaand)} punt(en): {', '.join(p['id'] for p in openstaand)}",
+            phase="draft",
+        )
+        save_state(pdir, state)
+        return {"ok": True, "phase": state["phase"], "open": len(openstaand), "punten": openstaand}
 
     def get_table(
         self, post: str | None = None, post_dir: str | None = None

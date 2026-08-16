@@ -133,6 +133,14 @@ Gebruik de **agent_brief** uit `run` / `next`. Korte mapping:
   index niet, de inventaris wel. `reeks-consistentie-check` heeft geen Bash: draai de
   zoekopdracht zelf en geef de treffers mee.
 - **Schrijver:** leest outline + `reference/huisstijl.md`; verzint geen feiten buiten de outline.
+- **Opmerkingen na het lezen worden een artefact.** Leest Edwin het concept in WordPress en
+  heeft hij opmerkingen, leg ze dan vast voordat je iets anders doet:
+  `python3 scripts/orchestrate.py revisie --post <slug> --waar "sectie 6" --opmerking "…"`.
+  Ze verschijnen in het bevindingenoverzicht en **houden de volgende deploy tegen** tot ze
+  zijn afgesloten met `revisie --afgehandeld r1 --hoe "…"`. Met
+  `orchestrate.py herzien --post <slug>` gaat de post terug naar de draft met die punten
+  als opdracht. Bij deel 2 bestonden die drie opmerkingen alleen in een gesprek; dat is
+  precies wat dit voorkomt (ADR-010 §3.4).
 - **De synthese is een beslismoment, geen weegstap.** `synthese.md` legt per kritiekpunt
   minstens twee varianten voor met hun gevolg in woorden, zonder advies. `verwerpen` staat
   er bij elk punt bij; raakt het punt de hele sectie, dan ook `schrappen` met het aantal

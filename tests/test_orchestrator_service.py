@@ -494,6 +494,91 @@ class TestServiceAlignmentGate(ServiceTestBase):
         self.assertIsNone(state["blocked_reason"], "status ready mag geen blocked_reason houden")
 
 
+class TestRevisiepunten(ServiceTestBase):
+    """Opmerkingen na het lezen in WordPress (ADR-010 §3.4)."""
+
+    def _klaar_voor_deploy(self, slug: str) -> str:
+        from scripts.orchestrator.repository import load_state, save_state
+
+        pdir = os.path.join(self.tmp_dir, slug)
+        self.service.init_post(slug=slug, titel="Revisie", post_dir=pdir)
+        self.create_post_file(slug, "draft.md", "# Draft\n")
+        self.create_post_file(slug, "feitencheck.md")
+        self.create_post_file(slug, "archief-consistentie.md", ALIGNMENT_OK_REPORT)
+        for fase in ("factcheck", "alignment"):
+            s = load_state(pdir)
+            s["phase"], s["status"] = fase, "ready"
+            save_state(pdir, s)
+            self.service.run_phase(phase=fase, post_dir=pdir)
+            self.service.complete_phase(phase=fase, post_dir=pdir)
+        s = load_state(pdir)
+        s["phase"], s["status"] = "deploy", "ready"
+        save_state(pdir, s)
+        self.service.approve_gate(post_dir=pdir, deploy=True)
+        return pdir
+
+    def test_zonder_opmerkingen_mag_de_deploy_door(self) -> None:
+        pdir = self._klaar_voor_deploy("rev-geen")
+        res = self.service.run_phase(phase="deploy", post_dir=pdir)
+        self.assertTrue(res["ok"], res.get("errors"))
+
+    def test_open_opmerking_houdt_de_deploy_tegen(self) -> None:
+        pdir = self._klaar_voor_deploy("rev-open")
+        self.service.add_revision(
+            opmerking="De Sinek-behandeling voegt niets toe en moet eruit.",
+            waar="sectie 6", post_dir=pdir,
+        )
+        res = self.service.run_phase(phase="deploy", post_dir=pdir)
+        self.assertFalse(res["ok"])
+        self.assertIn("r1", " ".join(res["errors"]))
+
+    def test_afgehandelde_opmerking_geeft_de_deploy_vrij(self) -> None:
+        pdir = self._klaar_voor_deploy("rev-dicht")
+        self.service.add_revision(opmerking="Het slot mist een conclusie.", post_dir=pdir)
+        self.service.close_revision(
+            punt_id="r1", hoe="Slotsectie 'Wat een intentie dus is' toegevoegd.", post_dir=pdir
+        )
+        res = self.service.run_phase(phase="deploy", post_dir=pdir)
+        self.assertTrue(res["ok"], res.get("errors"))
+
+    def test_afhandelen_zonder_hoe_wordt_geweigerd(self) -> None:
+        pdir = self._klaar_voor_deploy("rev-hoe")
+        self.service.add_revision(opmerking="De visuals tekenen lagen als zuilen.", post_dir=pdir)
+        with self.assertRaises(ValueError):
+            self.service.close_revision(punt_id="r1", hoe="  ", post_dir=pdir)
+
+    def test_herzieningsronde_zet_de_post_terug_naar_draft(self) -> None:
+        pdir = self._klaar_voor_deploy("rev-ronde")
+        self.service.add_revision(opmerking="Sinek eruit.", waar="sectie 6", post_dir=pdir)
+
+        res = self.service.start_revision_round(post_dir=pdir)
+        self.assertEqual(res["phase"], "draft")
+        status = self.service.get_status(post_dir=pdir)
+        self.assertEqual(status["phase"], "draft")
+        self.assertEqual(status["status"], "ready")
+
+    def test_herzieningsronde_vraagt_om_een_opmerking(self) -> None:
+        pdir = self._klaar_voor_deploy("rev-leeg")
+        with self.assertRaises(ValueError):
+            self.service.start_revision_round(post_dir=pdir)
+
+    def test_punten_krijgen_oplopende_ids(self) -> None:
+        pdir = self._klaar_voor_deploy("rev-ids")
+        self.service.add_revision(opmerking="Eerste.", post_dir=pdir)
+        self.service.add_revision(opmerking="Tweede.", post_dir=pdir)
+        res = self.service.get_revisions(post_dir=pdir)
+        self.assertEqual([p["id"] for p in res["punten"]], ["r1", "r2"])
+        self.assertEqual(res["open"], 2)
+
+    def test_revisiebestand_is_leesbaar_voor_de_mens(self) -> None:
+        pdir = self._klaar_voor_deploy("rev-leesbaar")
+        self.service.add_revision(opmerking="Sinek eruit.", waar="sectie 6", post_dir=pdir)
+        tekst = open(os.path.join(pdir, "revisie.md"), encoding="utf-8").read()
+        self.assertIn("```json", tekst)
+        self.assertIn("Sinek eruit.", tekst)
+        self.assertIn("sectie 6", tekst)
+
+
 class TestSyntheseBeslismoment(ServiceTestBase):
     """Per punt beslissen met een motivering (ADR-010 §3.3)."""
 

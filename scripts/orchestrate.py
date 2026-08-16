@@ -62,6 +62,16 @@ def build_parser() -> argparse.ArgumentParser:
     add_post_args(sp)
     sp.add_argument("--json", action="store_true")
 
+    sp = sub.add_parser("revisie", help="Opmerkingen na het lezen: toevoegen, afhandelen of tonen")
+    add_post_args(sp)
+    sp.add_argument("--opmerking", help="Nieuwe opmerking van de auteur")
+    sp.add_argument("--waar", default="", help="Waar in de post, bv. 'sectie 6'")
+    sp.add_argument("--afgehandeld", help="Punt-id dat is verwerkt")
+    sp.add_argument("--hoe", default="", help="Hoe het punt is verwerkt")
+
+    sp = sub.add_parser("herzien", help="Open een herzieningsronde: terug naar de draft")
+    add_post_args(sp)
+
     sp = sub.add_parser("decide", help="Beslis over één kritiekpunt in de synthese")
     add_post_args(sp)
     sp.add_argument("--punt", required=True, help="Punt-id uit synthese.md")
@@ -171,6 +181,33 @@ def main(argv: list[str] | None = None) -> int:
                 )
             else:
                 print(res["markdown"])
+            return 0
+
+        if args.command == "revisie":
+            if args.opmerking and args.afgehandeld:
+                print("Kies één van beide: --opmerking of --afgehandeld.", file=sys.stderr)
+                return 1
+            if args.opmerking:
+                res = service.add_revision(
+                    opmerking=args.opmerking, waar=args.waar,
+                    post=args.post, post_dir=args.post_dir,
+                )
+                print(f"{res['punt']['id']} vastgelegd. Open: {res['open']} van {res['totaal']}.")
+            elif args.afgehandeld:
+                res = service.close_revision(
+                    punt_id=args.afgehandeld, hoe=args.hoe,
+                    post=args.post, post_dir=args.post_dir,
+                )
+                print(f"{res['punt']['id']} afgehandeld. Open: {res['open']} van {res['totaal']}.")
+            else:
+                res = service.get_revisions(post=args.post, post_dir=args.post_dir)
+                print(json.dumps(res, ensure_ascii=False, indent=2))
+            return 0
+
+        if args.command == "herzien":
+            res = service.start_revision_round(post=args.post, post_dir=args.post_dir)
+            ids = ", ".join(p["id"] for p in res["punten"])
+            print(f"Herzieningsronde gestart: terug naar {res['phase']}. Open punten: {ids}.")
             return 0
 
         if args.command == "decide":

@@ -18,6 +18,8 @@ from .constants import (
 )
 from .probes import count_visuals, probe_artefacts
 from .repository import append_log, draft_fingerprint, now_iso, stale_phases
+from .revision import open_points as revision_open
+from .revision import read_points as revision_points
 from .synthesis import open_points, read_points
 from .verdicts import has_blocking, read_phase_findings
 
@@ -239,6 +241,7 @@ def _check_run_phase_artefact_requirements(
                 "gewijzigde tekst hebt gezien."
             )
         errors.extend(_check_report_freshness(state, post_dir))
+        errors.extend(_check_open_revisions(post_dir))
         if probed["factcheck"] != "present" and not state["flags"].get("skip_factcheck"):
             errors.append(
                 "feitencheck.md ontbreekt. Publiceren zonder broncontrole is hoe een "
@@ -287,6 +290,26 @@ def postcheck_complete(
         errors.extend(validator())
 
     return errors
+
+
+def _check_open_revisions(post_dir: str) -> list[str]:
+    """Weiger een deploy zolang een opmerking van de auteur openstaat (ADR-010 §3.4).
+
+    De opmerkingen op deel 2 kwamen na het lezen in WordPress en bestonden alleen in een
+    gesprek. Een opmerking heeft dezelfde status als de bevinding van een check: ze houdt
+    de volgende deploy tegen tot ze is verwerkt.
+    """
+    try:
+        openstaand = revision_open(revision_points(post_dir))
+    except ValueError as e:
+        return [str(e)]
+    if not openstaand:
+        return []
+    ids = ", ".join(p["id"] for p in openstaand)
+    return [
+        f"{len(openstaand)} revisiepunt(en) staan nog open: {ids}. Verwerk ze en sluit ze "
+        "af met `revisie --afgehandeld <id> --hoe \"...\"`, of deploy pas daarna."
+    ]
 
 
 def _check_report_freshness(state: dict[str, Any], post_dir: str) -> list[str]:

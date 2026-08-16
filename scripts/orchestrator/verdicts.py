@@ -185,8 +185,35 @@ def collect_findings(post_dir: str, state: dict[str, Any]) -> dict[str, Any]:
         for b in bevindingen:
             alle.append({**b, "phase": phase})
 
+    # De opmerkingen van de auteur horen in hetzelfde overzicht: ze hebben dezelfde
+    # status als een bevinding en houden de deploy net zo goed tegen (ADR-010 §3.4).
+    from .revision import open_points as revisie_open
+    from .revision import read_points as revisie_punten
+
+    try:
+        openstaand = revisie_open(revisie_punten(post_dir))
+    except ValueError as e:
+        fases.append({"phase": "revisie", "staat": "onleesbaar", "fout": str(e), "blocking": 0, "advisory": 0})
+        openstaand = []
+    else:
+        if openstaand:
+            fases.append({
+                "phase": "revisie", "staat": "actueel",
+                "blocking": len(openstaand), "advisory": 0,
+            })
+        for p in openstaand:
+            alle.append({
+                "severity": BLOCKING,
+                "categorie": "opmerking van de auteur",
+                "waar": p["waar"],
+                "wat": p["opmerking"],
+                "suggestie": None,
+                "phase": "revisie",
+            })
+
     # Blokkerend eerst; daarbinnen op fasevolgorde zoals de keten ze aflegt.
     volgorde = {p: i for i, p in enumerate(CONDITIONAL_GATES)}
+    volgorde["revisie"] = -1  # jouw eigen opmerkingen bovenaan
     alle.sort(key=lambda b: (b["severity"] != BLOCKING, volgorde.get(b["phase"], 99)))
 
     return {

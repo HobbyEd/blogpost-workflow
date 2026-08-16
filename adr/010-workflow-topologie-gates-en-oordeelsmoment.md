@@ -305,7 +305,26 @@ met de hand opnieuw moesten en waar het misgaan het duurst is.
    Die vraagt de lus uit stap 6 (opmerkingen na het lezen voeden een nieuwe synthese-ronde),
    en is niet uit te drukken als een verschuiving in een lineaire fasevolgorde. `synthesis`
    blijft tot dan onder Bouwen staan.
-6. `revisie.md` invoeren als artefact voor de opmerkingen na het lezen.
+6. ~~`revisie.md` invoeren als artefact voor de opmerkingen na het lezen.~~ **Uitgevoerd
+   2026-08-16.** `orchestrate.py revisie` legt een opmerking vast, `--afgehandeld` sluit
+   hem met de vraag hoe hij is verwerkt, en `herzien` opent de lus door de post terug naar
+   de draft te zetten. De punten staan bovenaan in het bevindingenoverzicht en **houden
+   `run deploy` tegen** zolang ze openstaan: dezelfde status als de bevinding van een check.
 
-Stap 1 tot en met 3 zijn losstaand bruikbaar; vanaf stap 4 verandert de zichtbare vorm van
-de workflow.
+   Getoetst op de drie echte opmerkingen bij deel 2 (Sinek eruit, visuals tekenen zuilen,
+   slot mist een conclusie). Die bestonden destijds alleen in een gesprek.
+
+Alle zes de stappen zijn uitgevoerd. Stap 1 tot en met 3 waren losstaand bruikbaar; vanaf
+stap 4 is de vorm van de workflow zichtbaar veranderd.
+
+## 7. Wat hierna nog open staat
+
+- **De lus is nog niet volledig.** `herzien` zet de post terug naar `draft`, waarna de
+  keten opnieuw langs alle fases loopt. De vingerafdrukken uit stap 1 maken zichtbaar wat
+  echt opnieuw moet, maar de volgorde dwingt nog steeds een wandeling af. Dat is
+  alternatief C uit §2, de afhankelijkheidsgraaf.
+- **`synthesis` staat nog onder Bouwen** in plaats van Oordelen (zie stap 5).
+- **ADR-004 en ADR-003 vragen een bijwerking** op de gate-indeling en de stepper.
+- **De metingen uit §4 moeten gaan lopen:** hoe vaak leidt Oordelen tot een revisieronde,
+  en hoe vaak wordt een Grok-punt verworpen. Zonder die twee getallen is niet vast te
+  stellen of deze ADR heeft gewerkt.
