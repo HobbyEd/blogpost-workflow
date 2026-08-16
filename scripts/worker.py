@@ -173,16 +173,16 @@ def extract_deploy_ids(text: str) -> tuple[int | None, str | None]:
     return post_id, edit_url
 
 
-def find_running_jobs(
+def iter_post_statuses(
     service: WorkflowService,
     slug: str | None = None,
 ) -> list[dict[str, Any]]:
-    """Posts met status=running, oudste eerst. Alleen die pakt de worker op."""
+    """Status van elke post met een state.json, of alleen `slug`."""
     root = service.posts_root()
     if not os.path.isdir(root):
         return []
 
-    jobs: list[dict[str, Any]] = []
+    found: list[dict[str, Any]] = []
     names = [slug] if slug else sorted(os.listdir(root))
     for name in names:
         if name.startswith("."):
@@ -192,19 +192,31 @@ def find_running_jobs(
             continue
         try:
             status = service.get_status(post_dir=pdir)
-        except (OSError, ValueError, json.JSONDecodeError, KeyError):
+        except (OSError, ValueError, json.JSONDecodeError, KeyError, FileNotFoundError):
             continue
+        found.append(status)
+    return found
+
+
+def find_running_jobs(
+    service: WorkflowService,
+    slug: str | None = None,
+) -> list[dict[str, Any]]:
+    """Posts met status=running, oudste eerst. Alleen die pakt de worker op."""
+    jobs: list[dict[str, Any]] = []
+    for status in iter_post_statuses(service, slug=slug):
         if status.get("status") != "running":
             continue
         nxt = status.get("next") or {}
         brief = nxt.get("agent_brief")
         if not isinstance(brief, dict):
             continue
+        pdir = status["post_dir"]
         jobs.append(
             {
                 "slug": status["slug"],
                 "phase": status["phase"],
-                "post_dir": status["post_dir"],
+                "post_dir": pdir,
                 "brief": brief,
                 "mtime": os.path.getmtime(os.path.join(pdir, "state.json")),
             }
@@ -212,6 +224,108 @@ def find_running_jobs(
 
     jobs.sort(key=lambda j: j["mtime"])
     return jobs
+
+
+def _ref(status: dict[str, Any]) -> dict[str, str]:
+    nxt = status.get("next") or {}
+    item = {
+        "slug": status["slug"],
+        "phase": status["phase"],
+        "status": status["status"],
+        "next": nxt.get("action") or "",
+    }
+    reden = status.get("blocked_reason")
+    if reden:
+        item["blocked_reason"] = reden
+    return item
+
+
+def format_idle_summary(
+    counts: dict[str, int],
+    waiting: list[dict[str, str]],
+    ready: list[dict[str, str]],
+    blocked: list[dict[str, str]],
+) -> str:
+    """Eén zin: waarom de worker stilstaat en wat er van de auteur wacht."""
+    if counts["posts"] == 0:
+        return "Geen posts in posts/."
+
+    delen = ["Niets running."]
+    if waiting:
+        delen.append(
+            "Wacht op jou: "
+            + ", ".join(f"{p['slug']} ({p['phase']})" for p in waiting)
+            + "."
+        )
+    if ready:
+        delen.append(
+            "Klaar om te starten: "
+            + ", ".join(f"{p['slug']} ({p['phase']})" for p in ready)
+            + "."
+        )
+    if blocked:
+        delen.append(
+            "Geblokkeerd: "
+            + ", ".join(f"{p['slug']} ({p['phase']})" for p in blocked)
+            + "."
+        )
+    if counts["done"]:
+        delen.append(f"{counts['done']} done.")
+    if len(delen) == 1:
+        delen.append(f"{counts['posts']} post(s) gezien.")
+    return " ".join(delen)
+
+
+def idle_snapshot(
+    service: WorkflowService,
+    slug: str | None = None,
+) -> dict[str, Any]:
+    """Waarom er niets te doen is, plus wat er wacht op een mens of een run."""
+    posts = iter_post_statuses(service, slug=slug)
+    waiting = [_ref(p) for p in posts if p.get("status") == "waiting_gate"]
+    ready = [_ref(p) for p in posts if p.get("status") == "ready"]
+    blocked = [_ref(p) for p in posts if p.get("status") == "blocked"]
+    counts = {
+        "posts": len(posts),
+        "running": sum(1 for p in posts if p.get("status") == "running"),
+        "waiting_gate": len(waiting),
+        "ready": len(ready),
+        "blocked": len(blocked),
+        "done": sum(1 for p in posts if p.get("status") == "done"),
+    }
+    summary = format_idle_summary(counts, waiting, ready, blocked)
+    if slug and posts:
+        p = posts[0]
+        summary = (
+            f"{p['slug']} is {p['phase']}/{p['status']}. {summary} "
+            "De worker pakt alleen een fase op die al op run staat."
+        )
+    return {
+        "ok": True,
+        "action": "idle",
+        "summary": summary,
+        "counts": counts,
+        "waiting_gate": waiting,
+        "ready": ready,
+        "blocked": blocked,
+    }
+
+
+def emit_result(
+    result: dict[str, Any],
+    *,
+    watch: bool,
+    last_idle: str | None,
+) -> str | None:
+    """Print een resultaat. In --watch geen herhaalde identieke idle-regels."""
+    if result.get("action") == "idle":
+        key = result.get("summary") or ""
+        if watch and key == last_idle:
+            return last_idle
+        print(json.dumps(result, ensure_ascii=False, indent=2), flush=True)
+        return key
+    print(json.dumps(result, ensure_ascii=False, indent=2), flush=True)
+    return None
 
 
 def claude_env(root: str) -> dict[str, str]:
@@ -296,24 +410,17 @@ def run_once(
     """Pak één running fase, voer de brief uit, roep complete aan. Nooit approve."""
     jobs = find_running_jobs(service, slug=slug)
     if slug and not jobs:
-        # Onderscheid: slug bestaat niet, of bestaat maar is niet running.
         try:
             status = service.get_status(post=slug)
         except (FileNotFoundError, ValueError, OSError) as exc:
             return {"ok": False, "action": "idle", "errors": [str(exc)]}
-        return {
-            "ok": True,
-            "action": "idle",
-            "slug": slug,
-            "phase": status["phase"],
-            "status": status["status"],
-            "summary": (
-                f"{slug} is {status['phase']}/{status['status']}, niet running. "
-                "De worker pakt alleen een fase op die al op run staat."
-            ),
-        }
+        snap = idle_snapshot(service, slug=slug)
+        snap["slug"] = slug
+        snap["phase"] = status["phase"]
+        snap["status"] = status["status"]
+        return snap
     if not jobs:
-        return {"ok": True, "action": "idle", "summary": "Geen fase met status running."}
+        return idle_snapshot(service, slug=slug)
 
     job = jobs[0]
     brief = job["brief"]
@@ -451,6 +558,7 @@ def main(argv: list[str] | None = None) -> int:
         heartbeat.update("busy", job)
 
     # --once is de default als geen van beide is gezet.
+    last_idle: str | None = None
     try:
         while True:
             heartbeat.update("idle")
@@ -463,7 +571,7 @@ def main(argv: list[str] | None = None) -> int:
                 permission_mode=args.permission_mode,
                 on_claim=claim,
             )
-            print(json.dumps(result, ensure_ascii=False, indent=2))
+            last_idle = emit_result(result, watch=watch, last_idle=last_idle)
             heartbeat.update("idle")
             if not watch:
                 return 0 if result.get("ok") else 2

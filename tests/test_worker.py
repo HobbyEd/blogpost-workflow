@@ -16,8 +16,10 @@ from unittest.mock import MagicMock
 from scripts.orchestrator.service import WorkflowService
 from scripts.worker import (
     WorkerError,
+    emit_result,
     extract_deploy_ids,
     find_running_jobs,
+    format_idle_summary,
     format_prompt,
     run_once,
 )
@@ -124,6 +126,28 @@ class TestRunOnce(WorkerTestBase):
         res = run_once(self.service)
         self.assertTrue(res["ok"])
         self.assertEqual(res["action"], "idle")
+        self.assertIn("Geen posts", res["summary"])
+
+    def test_idle_noemt_wachtende_en_klare_posts(self) -> None:
+        ready = os.path.join(self.tmp_dir, "klaar")
+        self.service.init_post(slug="klaar", titel="Klaar", post_dir=ready)
+        waiting = os.path.join(self.tmp_dir, "wacht")
+        self.service.init_post(
+            slug="wacht", titel="Wacht", post_dir=waiting, wait_intake_gate=True
+        )
+        blocked = os.path.join(self.tmp_dir, "stuk")
+        self.service.init_post(slug="stuk", titel="Stuk", post_dir=blocked)
+        self.service.mark_blocked("boom", post_dir=blocked)
+
+        res = run_once(self.service)
+        self.assertEqual(res["action"], "idle")
+        self.assertIn("Wacht op jou: wacht (intake)", res["summary"])
+        self.assertIn("Klaar om te starten: klaar (outline)", res["summary"])
+        self.assertIn("Geblokkeerd: stuk (outline)", res["summary"])
+        self.assertEqual(res["counts"]["ready"], 1)
+        self.assertEqual(res["counts"]["waiting_gate"], 1)
+        self.assertEqual(res["counts"]["blocked"], 1)
+        self.assertEqual([p["slug"] for p in res["waiting_gate"]], ["wacht"])
 
     def test_dry_run_roept_runner_niet(self) -> None:
         self.init_running("droog")
@@ -198,6 +222,8 @@ class TestRunOnce(WorkerTestBase):
         self.assertTrue(res["ok"])
         self.assertEqual(res["action"], "idle")
         self.assertEqual(res["status"], "ready")
+        self.assertIn("wacht is outline/ready", res["summary"])
+        self.assertIn("Klaar om te starten: wacht (outline)", res["summary"])
 
     def test_on_claim_alleen_bij_echte_uitvoering(self) -> None:
         self.init_running("claim")
@@ -217,6 +243,46 @@ class TestRunOnce(WorkerTestBase):
         res = run_once(self.service, runner=runner, on_claim=claim)
         self.assertTrue(res["ok"], res)
         self.assertEqual(gezien, ["claim"])
+
+
+class TestIdleSummary(unittest.TestCase):
+    def test_leeg_posts(self) -> None:
+        self.assertEqual(
+            format_idle_summary(
+                {"posts": 0, "done": 0}, [], [], []
+            ),
+            "Geen posts in posts/.",
+        )
+
+    def test_alleen_done(self) -> None:
+        tekst = format_idle_summary({"posts": 3, "done": 3}, [], [], [])
+        self.assertEqual(tekst, "Niets running. 3 done.")
+
+
+class TestEmitResult(unittest.TestCase):
+    def test_watch_slaat_identieke_idle_over(self) -> None:
+        idle = {"ok": True, "action": "idle", "summary": "Niets running. 2 done."}
+        from io import StringIO
+        from contextlib import redirect_stdout
+
+        buf = StringIO()
+        with redirect_stdout(buf):
+            eerste = emit_result(idle, watch=True, last_idle=None)
+            tweede = emit_result(idle, watch=True, last_idle=eerste)
+        out = buf.getvalue()
+        self.assertEqual(eerste, idle["summary"])
+        self.assertEqual(tweede, idle["summary"])
+        self.assertEqual(out.count("Niets running"), 1)
+
+    def test_once_print_altijd(self) -> None:
+        idle = {"ok": True, "action": "idle", "summary": "Niets running. 2 done."}
+        from io import StringIO
+        from contextlib import redirect_stdout
+
+        buf = StringIO()
+        with redirect_stdout(buf):
+            emit_result(idle, watch=False, last_idle=idle["summary"])
+        self.assertIn("Niets running", buf.getvalue())
 
 
 if __name__ == "__main__":
