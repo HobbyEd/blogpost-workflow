@@ -933,5 +933,24 @@ class TestRapportActualiteit(ServiceTestBase):
         self.assertIn("oudere draft", meldingen)
 
 
+class TestServiceMarkBlocked(ServiceTestBase):
+    def test_mark_blocked_zet_reden_en_raakt_approve_niet(self) -> None:
+        slug = "block-me"
+        pdir = os.path.join(self.tmp_dir, slug)
+        self.service.init_post(slug=slug, titel="Block", post_dir=pdir)
+        self.service.run_phase(phase="outline", post_dir=pdir)
+
+        res = self.service.mark_blocked("claude -p timeout", post_dir=pdir)
+        self.assertTrue(res["ok"])
+        self.assertEqual(res["status"], "blocked")
+        self.assertEqual(res["phase"], "outline")
+        self.assertIn("timeout", res["blocked_reason"])
+
+        status = self.service.get_status(post_dir=pdir)
+        self.assertEqual(status["status"], "blocked")
+        self.assertEqual(status["next"]["action"], "unblock")
+        self.assertIsNone(status["gate"].get("pending"))
+
+
 if __name__ == "__main__":
     unittest.main()

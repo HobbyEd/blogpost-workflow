@@ -63,6 +63,7 @@ from .archival_validator import (
 )
 from .rag_archive import archive_vectorstore
 from . import revision
+from . import worker_status
 from .synthesis import read_points, record_decision
 from .synthesis import summarize as synthesis_summary
 from .verdicts import (
@@ -91,6 +92,10 @@ class WorkflowService:
     def posts_root(self) -> str:
         """Geef het absolute pad naar de posts root map terug."""
         return posts_root()
+
+    def get_worker_status(self) -> dict[str, Any]:
+        """Lees of de execution-plane worker leeft, en zo ja welke job hij draait."""
+        return worker_status.read_status()
 
     def resolve_dir(self, post: str | None = None, post_dir: str | None = None) -> str:
         return resolve_post_dir(post, post_dir)
@@ -518,6 +523,32 @@ class WorkflowService:
             "phase": state["phase"],
             "status": "ready",
             "next": compute_next(state, pdir),
+        }
+
+    def mark_blocked(
+        self,
+        reason: str,
+        post: str | None = None,
+        post_dir: str | None = None,
+    ) -> dict[str, Any]:
+        """Zet de huidige fase op blocked. Alleen voor uitvoeringsfouten.
+
+        De worker roept dit aan als `claude -p` faalt of een timeout raakt,
+        zodat de post niet stilletjes op `running` blijft staan. Dit is geen
+        gate-beslissing: approve blijft bij de auteur (ADR-010).
+        """
+        pdir = self.resolve_dir(post, post_dir)
+        state = load_state(pdir)
+        text = (reason or "").strip() or "uitvoering gefaald, geen reden gegeven"
+        state["status"] = "blocked"
+        state["blocked_reason"] = text
+        append_log(state, "execution_failed", note=text, phase=state["phase"])
+        save_state(pdir, state)
+        return {
+            "ok": True,
+            "phase": state["phase"],
+            "status": "blocked",
+            "blocked_reason": text,
         }
 
     def set_flag(

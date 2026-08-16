@@ -123,6 +123,15 @@ def read_root():
     }
 
 
+@app.get("/api/worker")
+def get_worker() -> dict[str, Any]:
+    """Lees of de execution-plane worker leeft, en welke fase hij draait.
+
+    De worker is een apart proces. Dit endpoint leest alleen het heartbeat-bestand.
+    """
+    return service.get_worker_status()
+
+
 @app.get("/api/posts")
 def list_posts() -> dict[str, Any]:
     """Haal de lijst op van alle actieve blogposts in de posts/ map, gesorteerd op meest recent gewijzigd (aflopend)."""

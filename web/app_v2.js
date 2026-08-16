@@ -8,6 +8,8 @@ let chatStarted = false;
 let ragPollInterval = null;
 let isActivelyIndexingUI = false;
 let confirmResolver = null;
+let workerStatus = { alive: false, state: 'down', job: null, hint: '' };
+let lastKnownPostStatus = null;
 
 function showNotification(message, type = 'info', duration = 4000) {
   let container = document.getElementById('toast-container');
@@ -221,9 +223,11 @@ const BLOCKS = [
 document.addEventListener('DOMContentLoaded', () => {
   loadPostsList();
   loadRagStatus();
-  setInterval(() => {
+  refreshWorkerStatus();
+  setInterval(async () => {
+    await refreshWorkerStatus();
     if (activeSlug && currentMode === 2) {
-      loadPostDetail(activeSlug, false);
+      await loadPostDetail(activeSlug, false);
     } else if (currentMode === 2) {
       loadPostsList();
     }
@@ -281,6 +285,7 @@ async function loadPostsList() {
 
 async function selectPost(slug) {
   activeSlug = slug;
+  lastKnownPostStatus = null;
   loadPostsList();
   await loadPostDetail(slug, true);
 }
@@ -288,11 +293,58 @@ async function selectPost(slug) {
 async function loadPostDetail(slug, resetTab = false) {
   try {
     const detail = await fetchJSON(`/api/posts/${slug}`);
+    const prev = lastKnownPostStatus;
     currentPostDetail = detail;
+    if (slug === activeSlug) {
+      if (prev === 'running' && detail.status && detail.status !== 'running') {
+        if (detail.status === 'blocked') {
+          showNotification(`Fase ${detail.phase} geblokkeerd.`, 'warning');
+        } else if (detail.status === 'waiting_gate') {
+          showNotification(`Fase ${detail.phase} wacht op jouw oordeel.`, 'success');
+        } else {
+          showNotification(`Fase ${detail.phase} is nu ${detail.status}.`, 'info');
+        }
+        loadPostsList();
+      }
+      lastKnownPostStatus = detail.status;
+    }
     renderPostDetail(detail, resetTab);
   } catch (err) {
     console.error(`Fout bij laden post ${slug}:`, err);
   }
+}
+
+async function refreshWorkerStatus() {
+  try {
+    workerStatus = await fetchJSON('/api/worker');
+  } catch (err) {
+    workerStatus = { alive: false, state: 'down', job: null, hint: 'Worker-status onbereikbaar.' };
+  }
+  renderWorkerBanner();
+  if (currentPostDetail) {
+    renderControls(currentPostDetail.next, currentPostDetail);
+  }
+}
+
+function renderWorkerBanner() {
+  const el = document.getElementById('worker-banner');
+  const text = document.getElementById('worker-banner-text');
+  if (!el || !text) return;
+
+  if (workerStatus.alive && workerStatus.state === 'busy' && workerStatus.job) {
+    el.style.display = 'flex';
+    el.className = 'worker-banner busy';
+    text.innerHTML = `Worker voert <strong>${escapeHTML(workerStatus.job.phase)}</strong> uit op <code>${escapeHTML(workerStatus.job.slug)}</code>.`;
+    return;
+  }
+  if (!workerStatus.alive) {
+    el.style.display = 'flex';
+    el.className = 'worker-banner down';
+    const hint = workerStatus.hint || 'Start in een tweede terminal: .venv/bin/python scripts/worker.py --watch';
+    text.innerHTML = `Worker draait niet. ${escapeHTML(hint)}`;
+    return;
+  }
+  el.style.display = 'none';
 }
 
 function renderPostDetail(detail, resetTab) {
@@ -430,6 +482,15 @@ function renderControls(nextAction, statusInfo) {
     return;
   }
 
+  if (statusInfo.status === 'blocked' || act === 'unblock') {
+    const reden = statusInfo.blocked_reason || nextAction.summary || 'geen reden';
+    bar.innerHTML = `
+      <span class="blocked-reason">Geblokkeerd: ${escapeHTML(reden)}</span>
+      <button class="btn" onclick="executeRetry('${phase}')">↺ Opnieuw</button>
+    `;
+    return;
+  }
+
   if (act === 'run') {
     bar.innerHTML = `
       <button class="btn" onclick="executeRun('${phase}')">▶ Voer uit: run ${phase}</button>
@@ -444,12 +505,26 @@ function renderControls(nextAction, statusInfo) {
       <button class="btn btn-success" onclick="openDeployModal()">★ Goedgekeurd voor Deploy</button>
     `;
   } else if (act === 'complete') {
-    bar.innerHTML = `
-      <button class="btn btn-secondary" onclick="executeComplete('${phase}')">✔ Rond af: complete ${phase}</button>
-    `;
+    bar.innerHTML = renderRunningControls(phase, statusInfo);
   } else {
     bar.innerHTML = `<span style="font-size: 0.85rem; color: var(--text-secondary);">${escapeHTML(nextAction.summary || '')}</span>`;
   }
+}
+
+function renderRunningControls(phase, statusInfo) {
+  const job = workerStatus.job || {};
+  const thisJob = workerStatus.alive && job.slug === statusInfo.slug && job.phase === phase;
+  if (thisJob) {
+    return `<span style="font-size: 0.9rem;">Worker voert <strong>${escapeHTML(phase)}</strong> uit. Even wachten.</span>`;
+  }
+  if (workerStatus.alive) {
+    return `<span style="font-size: 0.9rem;">Fase staat op running. De worker pakt hem bij de volgende ronde op.</span>`;
+  }
+  const hint = workerStatus.hint || '.venv/bin/python scripts/worker.py --watch';
+  return `
+    <span class="blocked-reason">Worker draait niet. ${escapeHTML(hint)}</span>
+    <button class="btn btn-secondary" onclick="executeComplete('${phase}')">Handmatig afronden</button>
+  `;
 }
 
 async function executeRun(phase) {
@@ -457,9 +532,34 @@ async function executeRun(phase) {
   try {
     await fetchJSON(`/api/posts/${activeSlug}/run/${phase}`, { method: 'POST' });
     showNotification(`Fase '${phase}' gestart.`, 'info');
+    lastKnownPostStatus = 'running';
     loadPostDetail(activeSlug);
+    if (!workerStatus.alive) {
+      showNotification('Worker draait niet. Start scripts/worker.py --watch.', 'warning', 8000);
+    }
   } catch (err) {
     showNotification(`Fout bij run ${phase}: ${err.message}`, 'error');
+  }
+}
+
+async function executeRetry(phase) {
+  if (!activeSlug) return;
+  try {
+    await fetchJSON(`/api/posts/${activeSlug}/reject`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ note: 'Opnieuw vanuit de UI' }),
+    });
+    await fetchJSON(`/api/posts/${activeSlug}/run/${phase}`, { method: 'POST' });
+    lastKnownPostStatus = 'running';
+    showNotification(`Fase '${phase}' opnieuw gestart.`, 'info');
+    loadPostDetail(activeSlug);
+    if (!workerStatus.alive) {
+      showNotification('Worker draait niet. Start scripts/worker.py --watch.', 'warning', 8000);
+    }
+  } catch (err) {
+    showNotification(`Opnieuw starten mislukt: ${err.message}`, 'error');
+    loadPostDetail(activeSlug);
   }
 }
 

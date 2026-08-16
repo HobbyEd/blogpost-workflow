@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Blogpost Command Center UI</title>
-  <link rel="stylesheet" href="/static/styles.css?v=1.7.0">
+  <link rel="stylesheet" href="/static/styles.css?v=1.8.0">
 </head>
 <body>
 
@@ -14,12 +14,17 @@
     <span id="global-banner-text">⚠️ <strong>RAG-indexering actief op de achtergrond...</strong> (Gegevens worden bijgewerkt. Je kunt gewoon doorwerken.)</span>
   </div>
 
+  <div id="worker-banner" class="worker-banner" style="display: none;">
+    <span class="banner-pulse"></span>
+    <span id="worker-banner-text"></span>
+  </div>
+
   <!-- Header -->
   <header>
     <div class="brand">
       <div class="brand-icon">B</div>
       <h1>Blogpost Command Center</h1>
-      <span style="background: var(--accent-primary); color: white; font-weight: bold;">v1.7</span>
+      <span style="background: var(--accent-primary); color: white; font-weight: bold;">v1.8</span>
     </div>
 
     <!-- Mode Switcher -->
@@ -348,6 +353,6 @@
       }
     }
   </script>
-  <script src="/static/app_v2.js?v=1.7.0"></script>
+  <script src="/static/app_v2.js?v=1.8.0"></script>
 </body>
 </html>
