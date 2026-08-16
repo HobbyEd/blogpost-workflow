@@ -30,6 +30,7 @@ from .engine import (
     compute_next,
     maybe_auto_approve,
     postcheck_complete,
+    returnable_phases,
 )
 from .formatters import (
     build_block_summary,
@@ -155,6 +156,7 @@ class WorkflowService:
             "archival_alignment": state.get("archival_alignment"),
             "verdicts": state.get("verdicts") or {},
             "next": action,
+            "returnable_phases": returnable_phases(state, pdir),
         }
 
     def get_findings(
@@ -529,15 +531,15 @@ class WorkflowService:
     def return_with_note(
         self,
         note: str,
+        phase: str | None = None,
         post: str | None = None,
         post_dir: str | None = None,
     ) -> dict[str, Any]:
-        """Stuur de huidige gate terug naar de agent: reject + run dezelfde fase.
+        """Spring terug naar een eerdere fase en start die opnieuw met een opmerking.
 
-        Alleen op waiting_gate, alleen op fases in RETURN_ALLOWED_PHASES
-        (nu: outline), en alleen met een niet-lege opmerking. De opmerking
-        landt in gate.last_decision en daarmee in de volgende agent_brief.
-        Geen revisie.md.
+        Bedoeld voor het klikken op een afgeronde stap (nu: outline), niet alleen
+        voor de gate waarop de keten toevallig stilstaat. De opmerking landt in
+        gate.last_decision en in de volgende agent_brief. Geen revisie.md.
         """
         text = (note or "").strip()
         if not text:
@@ -545,31 +547,70 @@ class WorkflowService:
 
         pdir = self.resolve_dir(post, post_dir)
         state = load_state(pdir)
-        if state["status"] != "waiting_gate":
+        status = state["status"]
+        if status in {"running", "done"} or state["phase"] == "done":
             return {
                 "ok": False,
-                "errors": [f"Terugsturen alleen bij waiting_gate (nu: {state['status']})."],
+                "errors": [f"Terugsturen niet mogelijk bij status {status}."],
+            }
+        if status not in {"ready", "waiting_gate", "blocked"}:
+            return {
+                "ok": False,
+                "errors": [f"Terugsturen niet mogelijk bij status {status}."],
             }
 
-        phase = state["gate"].get("pending") or state["phase"]
-        if phase not in RETURN_ALLOWED_PHASES:
+        pending = state["gate"].get("pending") or state["phase"]
+        target = (phase or "").strip() or (
+            pending if status == "waiting_gate" and pending in RETURN_ALLOWED_PHASES else ""
+        )
+        if not target:
+            return {
+                "ok": False,
+                "errors": ["Geef de fase op. Terugsturen kan nu naar: outline."],
+            }
+        if target not in RETURN_ALLOWED_PHASES:
             return {
                 "ok": False,
                 "errors": [
-                    f"Terugsturen met opmerking is nu alleen bij de outline-gate, niet bij {phase}."
+                    f"Terugsturen met opmerking is nu alleen naar outline, niet naar {target}."
                 ],
             }
 
-        rejected = self.reject_gate(post=post, post_dir=post_dir, note=text)
-        if not rejected.get("ok"):
-            return rejected
+        try:
+            huidig = PHASES.index(state["phase"])
+            doel = PHASES.index(target)
+        except ValueError:
+            return {"ok": False, "errors": [f"Onbekende fase: {target}."]}
+        if doel > huidig:
+            return {
+                "ok": False,
+                "errors": [
+                    f"Kan niet vooruit springen naar {target}; de post is nog bij {state['phase']}."
+                ],
+            }
 
-        ran = self.run_phase(phase=phase, post=post, post_dir=post_dir)
+        state["phase"] = target
+        state["status"] = "ready"
+        state["gate"]["pending"] = None
+        state["gate"]["last_decision"] = {
+            "at": now_iso(),
+            "decision": "reject",
+            "phase": target,
+            "note": text,
+        }
+        state["blocked_reason"] = None
+        if target != "deploy":
+            state["flags"]["deploy_approved"] = False
+            state["deploy_approval"] = None
+        append_log(state, "gate_returned", note=text, phase=target)
+        save_state(pdir, state)
+
+        ran = self.run_phase(phase=target, post=post, post_dir=post_dir)
         if not ran.get("ok"):
             return ran
-
         ran["returned"] = True
         ran["return_note"] = text
+        ran["returned_to"] = target
         return ran
 
     def mark_blocked(

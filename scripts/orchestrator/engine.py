@@ -12,6 +12,7 @@ from .constants import (
     DEPLOY_REQUIRES_FRESH,
     HARD_GATES,
     MIN_VISUALS,
+    PHASE_ARTEFACT_KEY,
     PHASES,
     RETURN_ALLOWED_PHASES,
     RUNNABLE,
@@ -182,6 +183,33 @@ def _compute_next_for_ready_status(state: dict[str, Any], phase: str, post_dir: 
         "summary": f"Voer uit: run {phase}",
         "agent_brief": agent_brief(phase, post_dir, state),
     }
+
+
+def returnable_phases(state: dict[str, Any], post_dir: str) -> list[str]:
+    """Fases waar de auteur naartoe mag terugspringen met een opmerking.
+
+    Alleen fases in RETURN_ALLOWED_PHASES, en alleen als de keten die stap al
+    bereikt heeft. Een toekomstige stap is geen terug-pad.
+    """
+    if state["status"] in {"running", "done"} or state["phase"] == "done":
+        return []
+    try:
+        huidig = PHASES.index(state["phase"])
+    except ValueError:
+        return []
+
+    probed = probe_artefacts(post_dir)
+    gekozen: list[str] = []
+    for phase in PHASES:
+        if phase not in RETURN_ALLOWED_PHASES:
+            continue
+        idx = PHASES.index(phase)
+        if idx > huidig:
+            continue
+        key = PHASE_ARTEFACT_KEY.get(phase)
+        if bool(key) and probed.get(key) == "present":
+            gekozen.append(phase)
+    return gekozen
 
 
 def _precheck_run_clean(phase: str, state: dict[str, Any], post_dir: str) -> list[str]:

@@ -360,6 +360,19 @@ header {
   flex: 0 0 auto;
 }
 
+.step-node.reachable {
+  cursor: pointer;
+}
+
+.step-node.reachable:hover .dot {
+  transform: scale(1.08);
+}
+
+.step-node.selected .dot {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 3px;
+}
+
 .dot {
   width: 32px;
   height: 32px;
@@ -485,6 +498,12 @@ header {
   width: 100%;
   resize: vertical;
   min-height: 4.5rem;
+}
+
+.return-hint {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
 }
 
 .btn:disabled {

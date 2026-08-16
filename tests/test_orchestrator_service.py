@@ -334,32 +334,72 @@ class TestReturnWithNote(ServiceTestBase):
         self.assertTrue(res["ok"])
         self.assertEqual(res["agent_brief"]["author_note"], "Bron-URL's ontbreken.")
 
-    def test_andere_fase_weigert(self) -> None:
-        slug = "return-draft"
+    def test_draft_als_doel_weigert(self) -> None:
+        slug = "return-draft-doel"
         pdir = os.path.join(self.tmp_dir, slug)
-        self.service.init_post(slug=slug, titel="Draft gate", post_dir=pdir)
+        self.service.init_post(slug=slug, titel="Draft is geen terug-doel", post_dir=pdir)
         self.service.run_phase(phase="outline", post_dir=pdir)
         self.create_post_file(slug, "outline.md", "Outline")
         self.service.complete_phase(phase="outline", post_dir=pdir)
         self.service.approve_gate(post_dir=pdir, note="outline ok")
-        self.service.run_phase(phase="draft", post_dir=pdir)
-        self.create_post_file(slug, "draft.md", "Draft")
-        self.service.complete_phase(phase="draft", post_dir=pdir)
 
-        res = self.service.return_with_note(note="Herschrijf sectie 2.", post_dir=pdir)
+        res = self.service.return_with_note(
+            note="Herschrijf sectie 2.", phase="draft", post_dir=pdir
+        )
         self.assertFalse(res["ok"])
-        self.assertIn("outline-gate", " ".join(res["errors"]))
+        self.assertIn("alleen naar outline", " ".join(res["errors"]))
         status = self.service.get_status(post_dir=pdir)
-        self.assertEqual(status["status"], "waiting_gate")
         self.assertEqual(status["phase"], "draft")
+        self.assertEqual(status["status"], "ready")
 
-    def test_niet_waiting_gate_weigert(self) -> None:
-        slug = "return-ready"
+    def test_terug_vanuit_draft_ready(self) -> None:
+        slug = "return-vanuit-draft"
         pdir = os.path.join(self.tmp_dir, slug)
-        self.service.init_post(slug=slug, titel="Nog geen gate", post_dir=pdir)
-        res = self.service.return_with_note(note="te vroeg", post_dir=pdir)
+        self.service.init_post(slug=slug, titel="Terug vanuit draft", post_dir=pdir)
+        self.service.run_phase(phase="outline", post_dir=pdir)
+        self.create_post_file(slug, "outline.md", "Eerste outline")
+        self.service.complete_phase(phase="outline", post_dir=pdir)
+        self.service.approve_gate(post_dir=pdir, note="outline ok")
+
+        status = self.service.get_status(post_dir=pdir)
+        self.assertEqual(status["phase"], "draft")
+        self.assertEqual(status["status"], "ready")
+        self.assertIn("outline", status["returnable_phases"])
+
+        res = self.service.return_with_note(
+            note="Geen Sinek-sectie.",
+            phase="outline",
+            post_dir=pdir,
+        )
+        self.assertTrue(res["ok"], res.get("errors"))
+        self.assertTrue(res["returned"])
+        self.assertEqual(res["returned_to"], "outline")
+        self.assertEqual(res["phase"], "outline")
+        self.assertEqual(res["status"], "running")
+        self.assertEqual(res["agent_brief"]["author_note"], "Geen Sinek-sectie.")
+
+    def test_vooruit_springen_weigert(self) -> None:
+        slug = "return-vooruit"
+        pdir = os.path.join(self.tmp_dir, slug)
+        self.service.init_post(
+            slug=slug, titel="Nog bij intake", wait_intake_gate=True, post_dir=pdir
+        )
+        res = self.service.return_with_note(
+            note="te vroeg", phase="outline", post_dir=pdir
+        )
         self.assertFalse(res["ok"])
-        self.assertIn("waiting_gate", " ".join(res["errors"]))
+        self.assertIn("vooruit", " ".join(res["errors"]))
+
+    def test_running_weigert(self) -> None:
+        slug = "return-running"
+        pdir = os.path.join(self.tmp_dir, slug)
+        self.service.init_post(slug=slug, titel="Bezig", post_dir=pdir)
+        self.service.run_phase(phase="outline", post_dir=pdir)
+        res = self.service.return_with_note(
+            note="wacht", phase="outline", post_dir=pdir
+        )
+        self.assertFalse(res["ok"])
+        self.assertIn("running", " ".join(res["errors"]))
 
 
 class TestServiceYoloAndHardGates(ServiceTestBase):

@@ -114,10 +114,15 @@ def build_parser() -> argparse.ArgumentParser:
 
     sp = sub.add_parser(
         "terug",
-        help="Outline-gate terug naar de agent met een verplichte opmerking",
+        help="Spring terug naar een eerdere fase (nu: outline) met een verplichte opmerking",
     )
     add_post_args(sp)
     sp.add_argument("--note", required=True, help="Wat de agent moet aanpassen")
+    sp.add_argument(
+        "--phase",
+        default="outline",
+        help="Fase om naar terug te gaan (standaard: outline)",
+    )
 
     sp = sub.add_parser("set-flag", help="Zet yolo_mode of named exception")
     add_post_args(sp)
@@ -297,6 +302,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "terug":
             res = service.return_with_note(
                 note=args.note,
+                phase=args.phase,
                 post=args.post,
                 post_dir=args.post_dir,
             )

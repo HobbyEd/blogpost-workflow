@@ -180,6 +180,33 @@ class TestServerAPI(unittest.TestCase):
         )
         self.assertEqual(te_vroeg.status_code, 400)
 
+    def test_return_vanuit_draft_ready(self) -> None:
+        slug = "api-return-vanuit-draft"
+        self.client.post(
+            "/api/posts/init",
+            json={"slug": slug, "titel": "Terug vanuit draft", "yolo": False},
+        )
+        self.client.post(f"/api/posts/{slug}/run/outline")
+        with open(os.path.join(self.tmp_dir, slug, "outline.md"), "w", encoding="utf-8") as f:
+            f.write("Eerste outline\n")
+        self.client.post(f"/api/posts/{slug}/complete/outline")
+        self.client.post(f"/api/posts/{slug}/approve", json={"note": "ok"})
+
+        detail = self.client.get(f"/api/posts/{slug}")
+        self.assertEqual(detail.status_code, 200)
+        self.assertIn("outline", detail.json()["returnable_phases"])
+
+        ok = self.client.post(
+            f"/api/posts/{slug}/return",
+            json={"note": "Geen Sinek-sectie.", "phase": "outline"},
+        )
+        self.assertEqual(ok.status_code, 200, ok.text)
+        data = ok.json()
+        self.assertTrue(data["returned"])
+        self.assertEqual(data["returned_to"], "outline")
+        self.assertEqual(data["status"], "running")
+        self.assertEqual(data["agent_brief"]["author_note"], "Geen Sinek-sectie.")
+
 
 if __name__ == "__main__":
     unittest.main()

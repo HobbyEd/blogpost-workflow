@@ -1,6 +1,7 @@
 let activeSlug = null;
 let currentPostDetail = null;
 let activeTab = 'status';
+let selectedPhase = null;
 let currentMode = 2; // Default Modus 2 (Stepper)
 let chatSessionId = 'session_' + Date.now();
 let chatStarted = false;
@@ -220,6 +221,14 @@ const BLOCKS = [
   { id: "oordelen", label: "Oordelen", gate: "lezen in WordPress, dan beslissen" }
 ];
 
+const TAB_FOR_PHASE = {
+  outline: 'outline',
+  draft: 'draft',
+  critique: 'grok',
+  factcheck: 'factcheck',
+  alignment: 'archief',
+};
+
 document.addEventListener('DOMContentLoaded', () => {
   loadPostsList();
   loadRagStatus();
@@ -286,6 +295,7 @@ async function loadPostsList() {
 async function selectPost(slug) {
   activeSlug = slug;
   lastKnownPostStatus = null;
+  selectedPhase = null;
   loadPostsList();
   await loadPostDetail(slug, true);
 }
@@ -295,6 +305,9 @@ async function loadPostDetail(slug, resetTab = false) {
     const detail = await fetchJSON(`/api/posts/${slug}`);
     const prev = lastKnownPostStatus;
     currentPostDetail = detail;
+    if (!selectedPhase || resetTab) {
+      selectedPhase = detail.phase;
+    }
     if (slug === activeSlug) {
       if (prev === 'running' && detail.status && detail.status !== 'running') {
         if (detail.status === 'blocked') {
@@ -422,9 +435,15 @@ function renderStepper(detail) {
 
     const isHardGate = p.hard ? ' hard-gate' : '';
     const isActive = idx === currentIdx ? ' active' : '';
+    const isSelected = selectedPhase === p.id ? ' selected' : '';
+    const reachable = currentIdx >= PHASES.length || idx <= currentIdx;
+    const reachClass = reachable ? ' reachable' : '';
+    const titel = reachable
+      ? `Ga naar ${p.label}`
+      : `${p.label} is nog niet aan de beurt`;
 
     html += `
-      <div class="step-node ${nodeState}${isActive}${isHardGate}" title="Fase ${p.label}">
+      <div class="step-node ${nodeState}${isActive}${isSelected}${isHardGate}${reachClass}" title="${escapeHTML(titel)}" onclick="selectPhase('${p.id}')">
         <div class="dot">${dotIcon}</div>
         <div class="step-label">${escapeHTML(p.label)}</div>
       </div>
@@ -456,9 +475,39 @@ function renderBlockBar(currentIdx) {
   return `<div class="block-bar">${balken}</div>`;
 }
 
+function selectPhase(phaseId) {
+  if (!currentPostDetail) return;
+  const currentIdx = PHASES.findIndex(p => p.id === currentPostDetail.phase);
+  const idx = PHASES.findIndex(p => p.id === phaseId);
+  if (idx < 0) return;
+  if (currentPostDetail.phase !== 'done' && idx > currentIdx) {
+    showNotification(`${PHASES[idx].label} is nog niet aan de beurt.`, 'info');
+    return;
+  }
+  selectedPhase = phaseId;
+  const tab = TAB_FOR_PHASE[phaseId];
+  if (tab) showTab(tab);
+  renderStepper(currentPostDetail);
+  renderControls(currentPostDetail.next, currentPostDetail);
+}
+
+function takeReturnDraft() {
+  const field = document.getElementById('return-note');
+  return field ? field.value : null;
+}
+
+function restoreReturnDraft(value) {
+  if (value == null) return;
+  const field = document.getElementById('return-note');
+  if (!field) return;
+  field.value = value;
+  syncReturnButton();
+}
+
 function renderControls(nextAction, statusInfo) {
   const bar = document.getElementById('action-buttons');
   if (!bar) return;
+  const draft = takeReturnDraft();
   if (!nextAction) {
     bar.innerHTML = '<span>Geen acties.</span>';
     return;
@@ -491,28 +540,23 @@ function renderControls(nextAction, statusInfo) {
     return;
   }
 
+  const returnable = statusInfo.returnable_phases || [];
+  const gekozen = selectedPhase || statusInfo.phase;
+  if (returnable.includes(gekozen)) {
+    bar.innerHTML = renderReturnControls(gekozen, nextAction, statusInfo);
+    restoreReturnDraft(draft);
+    return;
+  }
+
   if (act === 'run') {
     bar.innerHTML = `
       <button class="btn" onclick="executeRun('${phase}')">▶ Voer uit: run ${phase}</button>
     `;
   } else if (act === 'approve_or_reject') {
-    if (nextAction.return_allowed) {
-      bar.innerHTML = `
-        <div class="gate-actions">
-          <button class="btn btn-success" onclick="executeApprove()">✓ Keur goed</button>
-          <div class="return-note">
-            <label for="return-note">Terug naar de agent</label>
-            <textarea id="return-note" class="form-control" rows="3" placeholder="Wat moet anders in de outline?" oninput="syncReturnButton()"></textarea>
-            <button id="return-note-btn" class="btn btn-warning" onclick="executeReturn()" disabled>↺ Terug met opmerking</button>
-          </div>
-        </div>
-      `;
-    } else {
-      bar.innerHTML = `
-        <button class="btn btn-success" onclick="executeApprove()">✓ Keur goed (Approve)</button>
-        <button class="btn btn-danger" onclick="executeReject()">✗ Wijs af (Reject)</button>
-      `;
-    }
+    bar.innerHTML = `
+      <button class="btn btn-success" onclick="executeApprove()">✓ Keur goed (Approve)</button>
+      <button class="btn btn-danger" onclick="executeReject()">✗ Wijs af (Reject)</button>
+    `;
   } else if (act === 'approve_deploy_first') {
     bar.innerHTML = `
       <button class="btn btn-success" onclick="openDeployModal()">★ Goedgekeurd voor Deploy</button>
@@ -522,6 +566,33 @@ function renderControls(nextAction, statusInfo) {
   } else {
     bar.innerHTML = `<span style="font-size: 0.85rem; color: var(--text-secondary);">${escapeHTML(nextAction.summary || '')}</span>`;
   }
+}
+
+function renderReturnControls(targetPhase, nextAction, statusInfo) {
+  const label = (PHASES.find(p => p.id === targetPhase) || {}).label || targetPhase;
+  const opDezeGate = statusInfo.status === 'waiting_gate'
+    && (nextAction.phase || statusInfo.phase) === targetPhase;
+  const yoloHint = statusInfo.yolo_mode
+    ? '<p class="return-hint">YOLO staat aan: na de nieuwe outline gaat de keten vanzelf verder.</p>'
+    : '';
+  const goedkeuren = opDezeGate
+    ? '<button class="btn btn-success" onclick="executeApprove()">✓ Keur goed</button>'
+    : '';
+  const runHuidig = nextAction.action === 'run' && statusInfo.phase === targetPhase
+    ? `<button class="btn" onclick="executeRun('${targetPhase}')">▶ Voer uit: run ${targetPhase}</button>`
+    : '';
+  return `
+    <div class="gate-actions">
+      ${goedkeuren}
+      ${runHuidig}
+      <div class="return-note">
+        <label for="return-note">Terug naar ${escapeHTML(label)}</label>
+        <textarea id="return-note" class="form-control" rows="3" placeholder="Wat moet anders in de ${escapeHTML(label.toLowerCase())}?" oninput="syncReturnButton()"></textarea>
+        ${yoloHint}
+        <button id="return-note-btn" class="btn btn-warning" onclick="executeReturn('${targetPhase}')" disabled>↺ Terug naar ${escapeHTML(label)}</button>
+      </div>
+    </div>
+  `;
 }
 
 function renderRunningControls(phase, statusInfo) {
@@ -616,10 +687,11 @@ function syncReturnButton() {
   btn.disabled = !field.value.trim();
 }
 
-async function executeReturn() {
+async function executeReturn(phase) {
   if (!activeSlug) return;
   const field = document.getElementById('return-note');
   const note = field ? field.value.trim() : '';
+  const doel = phase || selectedPhase || 'outline';
   if (!note) {
     showNotification('Een opmerking is verplicht om terug te sturen.', 'warning');
     return;
@@ -628,10 +700,11 @@ async function executeReturn() {
     await fetchJSON(`/api/posts/${activeSlug}/return`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ note }),
+      body: JSON.stringify({ note, phase: doel }),
     });
     lastKnownPostStatus = 'running';
-    showNotification('Teruggestuurd naar de agent.', 'info');
+    selectedPhase = doel;
+    showNotification(`Terug naar ${doel}. De worker pakt de fase op.`, 'info');
     loadPostDetail(activeSlug);
     if (!workerStatus.alive) {
       showNotification('Worker draait niet. Start scripts/worker.py --watch.', 'warning', 8000);

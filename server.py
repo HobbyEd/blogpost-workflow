@@ -56,6 +56,7 @@ class ActionRequest(BaseModel):
 
 class ReturnRequest(BaseModel):
     note: str = Field(..., min_length=1, description="Verplichte opmerking voor de agent")
+    phase: str = Field("outline", description="Fase om naar terug te gaan (nu: outline)")
 
 
 class SetFlagRequest(BaseModel):
@@ -376,7 +377,7 @@ def reject_gate(slug: str, req: ActionRequest = ActionRequest()) -> dict[str, An
 def return_with_note(slug: str, req: ReturnRequest) -> dict[str, Any]:
     """Stuur de outline-gate terug naar de agent met een verplichte opmerking."""
     try:
-        res = service.return_with_note(post=slug, note=req.note)
+        res = service.return_with_note(post=slug, note=req.note, phase=req.phase)
     except (ValueError, RuntimeError) as e:
         raise HTTPException(status_code=400, detail=str(e))
     except FileNotFoundError as e:
