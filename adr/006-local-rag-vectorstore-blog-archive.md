@@ -59,7 +59,7 @@ De oorspronkelijke tekst sprak van "een lokale vector-database met embeddings" e
 "semantische doorzoekbaarheid". De implementatie was en is TF-IDF; embeddings zijn nooit
 gebouwd. Ontwerp en implementatie zijn nu gelijkgetrokken op wat er staat: lexicaal zoeken.
 
-Tegelijk is de retrieval gerepareerd (zie `plan-kwaliteitsverbetering-workflow.md`, blok A):
+Tegelijk is de retrieval gerepareerd (zie `docs/plan-kwaliteitsverbetering-workflow.md`, blok A):
 
 - IDF-weging toegevoegd; daarvoor woog elke term even zwaar, waardoor stopwoorden en
   algemene vaktermen de ranglijst bepaalden.

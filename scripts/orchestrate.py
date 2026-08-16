@@ -4,7 +4,7 @@
 Fasevolgorde, pre/postconditions, gates en named exceptions zitten in het
 `orchestrator` package. Dit script vormt de CLI wrapper om die functionaliteit.
 
-Zie ontwerp-strikte-orkestrator.md en ontwerp_blogpost_webui.md.
+Zie adr/ (geldend) en docs/README.md.
 
 Gebruik:
     python3 scripts/orchestrate.py init --slug S --titel T

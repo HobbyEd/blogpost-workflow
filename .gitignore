@@ -17,6 +17,7 @@ venv/
 # Scratch / systeem
 .DS_Store
 Thumbs.db
+.pytest_cache/
 
 # Graphify: kennisgraaf-output en caches (herbouwbaar met /graphify)
 graphify-out/

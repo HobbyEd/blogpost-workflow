@@ -13,7 +13,7 @@ gepubliceerd (live).
 **Belangrijk:** jij (de main-thread agent) bent de *host* die content-subagents
 aanroept. De *control plane* is code. Verzin geen fasevolgorde.
 
-Zie ook: `ontwerp-strikte-orkestrator.md`.
+Zie ook: `adr/` (geldend) en `docs/README.md`.
 
 ## Control plane — verplicht, bij elke aanroep
 

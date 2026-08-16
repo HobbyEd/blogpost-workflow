@@ -222,8 +222,8 @@ knop, determinisme/autonomie als ontwerpkeuze per context, de harness als contro
 ## Reeks: Intentie-gedreven engineering (volgende reeks, twaalf delen)
 
 **Status:** opzet gereed en herzien na Grok-review (2026-08-09). Volledige onderbouwing in
-`onderzoek-intentie-gedreven-engineering.md`; de weging van de kritiek in
-`grok-review-intentie-ontwerp.md`. Bij intake beide gebruiken, niet alleen deze samenvatting.
+`docs/reeks-intentie/onderzoek-intentie-gedreven-engineering.md`; de weging van de kritiek in
+`docs/reeks-intentie/grok-review-intentie-ontwerp.md`. Bij intake beide gebruiken, niet alleen deze samenvatting.
 
 **Start pas nadat de anatomie-reeks is afgerond met deel 10 (concept 489).**
 

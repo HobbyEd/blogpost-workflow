@@ -16,7 +16,7 @@ internettoegang nodig.
 Je bevraagt het corpus niet meer rechtstreeks per fetch, maar via de RAG-index:
 
 - **Zoeken:** `python3 scripts/rag_cli.py search "<onderwerp>" --top-k 12`. De index dekt
-  alle gepubliceerde posts plus de lokale artefacten in `posts/*/`. Retrieval is lexicaal
+  alleen live posts van edwinvandillen.nl (ADR-006). Retrieval is lexicaal
   (TF-IDF, geen embeddings): varieer je zoektermen, want een idee in andere woorden vindt
   hij niet.
 - **Vangnet:** `reference/corpus-inventaris.md` — alle 61 posts met id, datum, titel en
