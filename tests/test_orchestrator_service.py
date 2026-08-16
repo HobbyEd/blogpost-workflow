@@ -278,6 +278,90 @@ class TestServiceLinearPipeline(ServiceTestBase):
         self.assertEqual(res["status"], "ready")
 
 
+class TestReturnWithNote(ServiceTestBase):
+    """Outline-gate: terugsturen met verplichte opmerking, zelfde fase opnieuw."""
+
+    def _outline_waiting_gate(self, slug: str) -> str:
+        pdir = os.path.join(self.tmp_dir, slug)
+        self.service.init_post(slug=slug, titel="Return Test", post_dir=pdir)
+        self.service.run_phase(phase="outline", post_dir=pdir)
+        self.create_post_file(slug, "outline.md", "Eerste outline")
+        self.service.complete_phase(phase="outline", post_dir=pdir)
+        return pdir
+
+    def test_leeg_note_weigert(self) -> None:
+        pdir = self._outline_waiting_gate("return-leeg")
+        for note in ("", "   ", None):
+            res = self.service.return_with_note(note=note, post_dir=pdir)
+            self.assertFalse(res["ok"], note)
+            self.assertIn("opmerking", " ".join(res["errors"]).lower())
+        status = self.service.get_status(post_dir=pdir)
+        self.assertEqual(status["status"], "waiting_gate")
+        self.assertEqual(status["phase"], "outline")
+        self.assertTrue(status["next"]["return_allowed"])
+        self.assertEqual(status["next"]["action"], "approve_or_reject")
+
+    def test_outline_start_run_en_note_in_brief(self) -> None:
+        pdir = self._outline_waiting_gate("return-outline")
+        res = self.service.return_with_note(
+            note="Andere invalshoek: geen Sinek-sectie.",
+            post_dir=pdir,
+        )
+        self.assertTrue(res["ok"], res.get("errors"))
+        self.assertTrue(res["returned"])
+        self.assertEqual(res["phase"], "outline")
+        self.assertEqual(res["status"], "running")
+        self.assertEqual(res["return_note"], "Andere invalshoek: geen Sinek-sectie.")
+        brief = res["agent_brief"]
+        self.assertEqual(brief["author_note"], "Andere invalshoek: geen Sinek-sectie.")
+        self.assertIn("Sinek-sectie", brief["instruction"])
+        self.assertIn("stuurde de vorige versie terug", brief["instruction"])
+
+        status = self.service.get_status(post_dir=pdir)
+        self.assertEqual(status["status"], "running")
+        self.assertEqual(status["phase"], "outline")
+        self.assertEqual(status["next"]["action"], "complete")
+        self.assertEqual(status["gate"]["last_decision"]["decision"], "reject")
+        self.assertEqual(
+            status["gate"]["last_decision"]["note"],
+            "Andere invalshoek: geen Sinek-sectie.",
+        )
+
+    def test_reject_dan_run_zet_note_ook_in_brief(self) -> None:
+        pdir = self._outline_waiting_gate("return-los")
+        self.service.reject_gate(post_dir=pdir, note="Bron-URL's ontbreken.")
+        res = self.service.run_phase(phase="outline", post_dir=pdir)
+        self.assertTrue(res["ok"])
+        self.assertEqual(res["agent_brief"]["author_note"], "Bron-URL's ontbreken.")
+
+    def test_andere_fase_weigert(self) -> None:
+        slug = "return-draft"
+        pdir = os.path.join(self.tmp_dir, slug)
+        self.service.init_post(slug=slug, titel="Draft gate", post_dir=pdir)
+        self.service.run_phase(phase="outline", post_dir=pdir)
+        self.create_post_file(slug, "outline.md", "Outline")
+        self.service.complete_phase(phase="outline", post_dir=pdir)
+        self.service.approve_gate(post_dir=pdir, note="outline ok")
+        self.service.run_phase(phase="draft", post_dir=pdir)
+        self.create_post_file(slug, "draft.md", "Draft")
+        self.service.complete_phase(phase="draft", post_dir=pdir)
+
+        res = self.service.return_with_note(note="Herschrijf sectie 2.", post_dir=pdir)
+        self.assertFalse(res["ok"])
+        self.assertIn("outline-gate", " ".join(res["errors"]))
+        status = self.service.get_status(post_dir=pdir)
+        self.assertEqual(status["status"], "waiting_gate")
+        self.assertEqual(status["phase"], "draft")
+
+    def test_niet_waiting_gate_weigert(self) -> None:
+        slug = "return-ready"
+        pdir = os.path.join(self.tmp_dir, slug)
+        self.service.init_post(slug=slug, titel="Nog geen gate", post_dir=pdir)
+        res = self.service.return_with_note(note="te vroeg", post_dir=pdir)
+        self.assertFalse(res["ok"])
+        self.assertIn("waiting_gate", " ".join(res["errors"]))
+
+
 class TestServiceYoloAndHardGates(ServiceTestBase):
     def test_yolo_mode_auto_advances_soft_gates(self) -> None:
         slug = "yolo-test"

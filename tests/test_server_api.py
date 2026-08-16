@@ -148,6 +148,38 @@ class TestServerAPI(unittest.TestCase):
         self.assertEqual(async_reindex_res.status_code, 202)
         self.assertTrue(async_reindex_res.json()["ok"])
 
+    def test_return_outline_gate(self) -> None:
+        slug = "api-return-post"
+        self.client.post(
+            "/api/posts/init",
+            json={"slug": slug, "titel": "Return Test", "yolo": False},
+        )
+        self.client.post(f"/api/posts/{slug}/run/outline")
+        with open(os.path.join(self.tmp_dir, slug, "outline.md"), "w", encoding="utf-8") as f:
+            f.write("Eerste outline\n")
+        self.client.post(f"/api/posts/{slug}/complete/outline")
+
+        leeg = self.client.post(f"/api/posts/{slug}/return", json={"note": ""})
+        self.assertEqual(leeg.status_code, 422)
+
+        ok = self.client.post(
+            f"/api/posts/{slug}/return",
+            json={"note": "Geen Sinek-sectie."},
+        )
+        self.assertEqual(ok.status_code, 200, ok.text)
+        data = ok.json()
+        self.assertTrue(data["ok"])
+        self.assertTrue(data["returned"])
+        self.assertEqual(data["status"], "running")
+        self.assertEqual(data["phase"], "outline")
+        self.assertEqual(data["agent_brief"]["author_note"], "Geen Sinek-sectie.")
+
+        te_vroeg = self.client.post(
+            f"/api/posts/{slug}/return",
+            json={"note": "Nog een keer."},
+        )
+        self.assertEqual(te_vroeg.status_code, 400)
+
 
 if __name__ == "__main__":
     unittest.main()

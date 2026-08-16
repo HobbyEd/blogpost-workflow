@@ -92,6 +92,21 @@ class TestFormatPrompt(unittest.TestCase):
         self.assertIn("Geen run, complete, approve of reject", prompt)
         self.assertIn("Roep de skill blogpost-workflow niet aan", prompt)
 
+    def test_zet_author_note_apart_in_de_prompt(self) -> None:
+        prompt = format_prompt(
+            {
+                "phase": "outline",
+                "agent": "blogpost-onderzoeker",
+                "post_dir": "posts/x",
+                "outputs": ["posts/x/outline.md"],
+                "instruction": "Schrijf een outline.",
+                "author_note": "Geen Sinek-sectie.",
+            }
+        )
+        self.assertIn("Opmerking van de auteur", prompt)
+        self.assertIn("Geen Sinek-sectie.", prompt)
+        self.assertIn("Plak de opmerking niet als extra alinea", prompt)
+
 
 class TestExtractDeployIds(unittest.TestCase):
     def test_leest_json_velden(self) -> None:

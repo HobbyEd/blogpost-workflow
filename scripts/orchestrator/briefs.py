@@ -24,6 +24,38 @@ def rag_search_step(onderwerp: str, top_k: int = 12) -> str:
     )
 
 
+def author_return_note(state: dict[str, Any], phase: str | None = None) -> str | None:
+    """Opmerking van de auteur bij de laatste afwijzing van deze fase.
+
+    Dit is geen revisie.md: dat bestand is het oordeelsmoment na WordPress
+    (ADR-010 §3.4). Dit is de richting-correctie op dezelfde gate, één keer,
+    in de brief van de volgende run.
+    """
+    decision = (state.get("gate") or {}).get("last_decision") or {}
+    if decision.get("decision") != "reject":
+        return None
+    target = phase or state.get("phase")
+    if decision.get("phase") != target:
+        return None
+    note = (decision.get("note") or "").strip()
+    return note or None
+
+
+def _with_return_note(brief: dict[str, Any], state: dict[str, Any], phase: str) -> dict[str, Any]:
+    """Voeg de laatste terugstuur-opmerking toe aan de brief, als die er is."""
+    note = author_return_note(state, phase)
+    if not note:
+        return brief
+    brief["author_note"] = note
+    brief["instruction"] = (
+        f"{brief['instruction']} "
+        "Edwin stuurde de vorige versie terug. Werk zijn opmerking in; herschrijf "
+        "wat nodig is en plak de opmerking niet als extra alinea. Opmerking: "
+        f"{note}"
+    )
+    return brief
+
+
 def agent_brief(phase: str, post_dir: str, state: dict[str, Any]) -> dict[str, Any]:
     """Genereer de gestructureerde agent_brief instructie voor een specifieke fase."""
     slug = state.get("slug") or os.path.basename(post_dir.rstrip("/"))
@@ -178,4 +210,5 @@ def agent_brief(phase: str, post_dir: str, state: dict[str, Any]) -> dict[str, A
             ),
         },
     }
-    return briefs.get(phase, {**common, "instruction": f"Voer phase {phase} uit."})
+    brief = briefs.get(phase, {**common, "instruction": f"Voer phase {phase} uit."})
+    return _with_return_note(brief, state, phase)

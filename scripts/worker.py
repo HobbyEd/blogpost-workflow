@@ -131,6 +131,14 @@ def format_prompt(brief: dict[str, Any]) -> str:
     """
     outputs = brief.get("outputs") or []
     inputs = brief.get("inputs") or []
+    author_note = (brief.get("author_note") or "").strip()
+    note_block = ""
+    if author_note:
+        note_block = (
+            "\nOpmerking van de auteur (de vorige versie voldeed niet):\n"
+            f"{author_note}\n"
+            "Werk deze punten in. Plak de opmerking niet als extra alinea.\n"
+        )
     return (
         "Je voert precies één fase uit van de blogpost-workflow.\n"
         f"Fase: {brief.get('phase')}\n"
@@ -141,6 +149,7 @@ def format_prompt(brief: dict[str, Any]) -> str:
         "\n"
         "Opdracht:\n"
         f"{brief.get('instruction', '').strip()}\n"
+        f"{note_block}"
         "\n"
         "Regels:\n"
         "- Roep de genoemde subagent(s) aan. Die staan in .claude/agents/.\n"

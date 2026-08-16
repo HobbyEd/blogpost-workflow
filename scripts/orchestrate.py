@@ -13,6 +13,7 @@ Gebruik:
     python3 scripts/orchestrate.py run outline --post S
     python3 scripts/orchestrate.py complete outline --post S
     python3 scripts/orchestrate.py approve --post S --note "ok"
+    python3 scripts/orchestrate.py terug --post S --note "andere invalshoek"
     python3 scripts/orchestrate.py doctor --post S
     python3 scripts/orchestrate.py import-md --post S
 
@@ -110,6 +111,13 @@ def build_parser() -> argparse.ArgumentParser:
     sp = sub.add_parser("reject", help="Gate afgewezen → opnieuw ready")
     add_post_args(sp)
     sp.add_argument("--note", default=None)
+
+    sp = sub.add_parser(
+        "terug",
+        help="Outline-gate terug naar de agent met een verplichte opmerking",
+    )
+    add_post_args(sp)
+    sp.add_argument("--note", required=True, help="Wat de agent moet aanpassen")
 
     sp = sub.add_parser("set-flag", help="Zet yolo_mode of named exception")
     add_post_args(sp)
@@ -279,6 +287,18 @@ def main(argv: list[str] | None = None) -> int:
                 post=args.post,
                 post_dir=args.post_dir,
                 note=args.note,
+            )
+            if not res.get("ok"):
+                print(json.dumps(res, ensure_ascii=False, indent=2), file=sys.stderr)
+                return 2
+            print(json.dumps(res, ensure_ascii=False, indent=2))
+            return 0
+
+        if args.command == "terug":
+            res = service.return_with_note(
+                note=args.note,
+                post=args.post,
+                post_dir=args.post_dir,
             )
             if not res.get("ok"):
                 print(json.dumps(res, ensure_ascii=False, indent=2), file=sys.stderr)

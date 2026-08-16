@@ -456,6 +456,42 @@ header {
   border: 1px solid var(--border-color);
 }
 
+#action-buttons {
+  flex: 1;
+  min-width: 16rem;
+}
+
+.gate-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.return-note {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  flex: 1;
+  min-width: 16rem;
+}
+
+.return-note label {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.return-note .form-control {
+  width: 100%;
+  resize: vertical;
+  min-height: 4.5rem;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .toggles-group {
   display: flex;
   align-items: center;

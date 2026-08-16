@@ -42,6 +42,10 @@ SOFT_GATES = {
     "critique",
     "visuals",
 }
+
+# Gates waar de auteur dezelfde fase mag terugsturen met een verplichte opmerking.
+# Eerst alleen outline (Richten). Andere waiting_gates blijven approve/reject.
+RETURN_ALLOWED_PHASES = frozenset({"outline"})
 # Alleen de gates waar werkelijk iets te kiezen valt. De controlefases staan hier
 # bewust niet in: die zijn **voorwaardelijk** hard (CONDITIONAL_GATES, ADR-010 §3.1).
 # Zonder blokkerende bevinding schuiven ze door, met een bevinding stoppen ze ook in

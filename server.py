@@ -54,6 +54,10 @@ class ActionRequest(BaseModel):
     deploy: bool = Field(False, description="Deploy-specifieke goedkeuring (approve --deploy)")
 
 
+class ReturnRequest(BaseModel):
+    note: str = Field(..., min_length=1, description="Verplichte opmerking voor de agent")
+
+
 class SetFlagRequest(BaseModel):
     name: str = Field(..., description="Vlagnaam: yolo_mode, skip_synthesis, defer_critique, skip_factcheck, deploy_approved")
     value: bool = Field(..., description="Waarde van de vlag (True / False)")
@@ -366,6 +370,23 @@ def reject_gate(slug: str, req: ActionRequest = ActionRequest()) -> dict[str, An
         raise HTTPException(status_code=400, detail=str(e))
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+
+@app.post("/api/posts/{slug}/return")
+def return_with_note(slug: str, req: ReturnRequest) -> dict[str, Any]:
+    """Stuur de outline-gate terug naar de agent met een verplichte opmerking."""
+    try:
+        res = service.return_with_note(post=slug, note=req.note)
+    except (ValueError, RuntimeError) as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    if not res.get("ok"):
+        raise HTTPException(
+            status_code=400,
+            detail="; ".join(res.get("errors") or ["terugsturen geweigerd"]),
+        )
+    return res
 
 
 @app.post("/api/posts/{slug}/flags")

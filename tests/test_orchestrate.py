@@ -194,6 +194,29 @@ class TestLinearPipelineNoYolo(OrchestrateTestCase):
         self.assertEqual(payload["phase"], "outline")
         self.assertEqual(payload["status"], "ready")
 
+    def test_terug_outline_start_zelfde_fase(self) -> None:
+        self.init_state(yolo=False)
+        self.cli("run", "outline")
+        self.write("outline.md")
+        self.cli("complete", "outline")
+
+        code, payload, err = self.cli("terug", "--note", "Andere invalshoek.")
+        self.assertEqual(code, 0, err)
+        self.assertTrue(payload["returned"])
+        self.assertEqual(payload["phase"], "outline")
+        self.assertEqual(payload["status"], "running")
+        self.assertEqual(payload["agent_brief"]["author_note"], "Andere invalshoek.")
+
+    def test_terug_zonder_note_faalt(self) -> None:
+        self.init_state(yolo=False)
+        self.cli("run", "outline")
+        self.write("outline.md")
+        self.cli("complete", "outline")
+        code, payload, err = self.cli("terug")
+        self.assertEqual(code, 2)
+        self.assertIsNone(payload)
+        self.assertIn("--note", err)
+
     def test_illegal_phase_jump_rejected(self) -> None:
         self.init_state(yolo=False)
         # Fase is 'outline'; direct 'draft' runnen mag niet.

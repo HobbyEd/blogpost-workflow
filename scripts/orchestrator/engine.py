@@ -13,6 +13,7 @@ from .constants import (
     HARD_GATES,
     MIN_VISUALS,
     PHASES,
+    RETURN_ALLOWED_PHASES,
     RUNNABLE,
     SOFT_GATES,
 )
@@ -118,11 +119,20 @@ def _compute_next_for_waiting_gate(state: dict[str, Any], phase: str) -> dict[st
     pending = state["gate"].get("pending") or phase
     gtype = gate_type(pending, state)
     extra = " Voor deploy: approve --deploy zet deploy_approved." if pending == "deploy" or phase == "deploy" else ""
+    mag_terug = pending in RETURN_ALLOWED_PHASES
+    if mag_terug:
+        summary = (
+            f"Gate na {pending} ({gtype}). approve, of terug met verplichte "
+            f"opmerking (zelfde fase opnieuw)."
+        )
+    else:
+        summary = f"Gate na {pending} ({gtype}). approve of reject.{extra}"
     return {
         "action": "approve_or_reject",
         "phase": pending,
         "gate_type": gtype,
-        "summary": f"Gate na {pending} ({gtype}). approve of reject.{extra}",
+        "return_allowed": mag_terug,
+        "summary": summary,
         "agent_brief": None,
     }
 

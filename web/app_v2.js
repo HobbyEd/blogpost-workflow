@@ -496,10 +496,23 @@ function renderControls(nextAction, statusInfo) {
       <button class="btn" onclick="executeRun('${phase}')">▶ Voer uit: run ${phase}</button>
     `;
   } else if (act === 'approve_or_reject') {
-    bar.innerHTML = `
-      <button class="btn btn-success" onclick="executeApprove()">✓ Keur goed (Approve)</button>
-      <button class="btn btn-danger" onclick="executeReject()">✗ Wijs af (Reject)</button>
-    `;
+    if (nextAction.return_allowed) {
+      bar.innerHTML = `
+        <div class="gate-actions">
+          <button class="btn btn-success" onclick="executeApprove()">✓ Keur goed</button>
+          <div class="return-note">
+            <label for="return-note">Terug naar de agent</label>
+            <textarea id="return-note" class="form-control" rows="3" placeholder="Wat moet anders in de outline?" oninput="syncReturnButton()"></textarea>
+            <button id="return-note-btn" class="btn btn-warning" onclick="executeReturn()" disabled>↺ Terug met opmerking</button>
+          </div>
+        </div>
+      `;
+    } else {
+      bar.innerHTML = `
+        <button class="btn btn-success" onclick="executeApprove()">✓ Keur goed (Approve)</button>
+        <button class="btn btn-danger" onclick="executeReject()">✗ Wijs af (Reject)</button>
+      `;
+    }
   } else if (act === 'approve_deploy_first') {
     bar.innerHTML = `
       <button class="btn btn-success" onclick="openDeployModal()">★ Goedgekeurd voor Deploy</button>
@@ -593,6 +606,39 @@ async function executeReject() {
     loadPostDetail(activeSlug);
   } catch (err) {
     showNotification(`Fout bij reject: ${err.message}`, 'error');
+  }
+}
+
+function syncReturnButton() {
+  const field = document.getElementById('return-note');
+  const btn = document.getElementById('return-note-btn');
+  if (!field || !btn) return;
+  btn.disabled = !field.value.trim();
+}
+
+async function executeReturn() {
+  if (!activeSlug) return;
+  const field = document.getElementById('return-note');
+  const note = field ? field.value.trim() : '';
+  if (!note) {
+    showNotification('Een opmerking is verplicht om terug te sturen.', 'warning');
+    return;
+  }
+  try {
+    await fetchJSON(`/api/posts/${activeSlug}/return`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ note }),
+    });
+    lastKnownPostStatus = 'running';
+    showNotification('Teruggestuurd naar de agent.', 'info');
+    loadPostDetail(activeSlug);
+    if (!workerStatus.alive) {
+      showNotification('Worker draait niet. Start scripts/worker.py --watch.', 'warning', 8000);
+    }
+  } catch (err) {
+    showNotification(`Terugsturen mislukt: ${err.message}`, 'error');
+    loadPostDetail(activeSlug);
   }
 }
 

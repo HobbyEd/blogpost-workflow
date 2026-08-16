@@ -22,6 +22,7 @@ from .constants import (
     PHASE_LABELS,
     PHASES,
     PHASES_DERIVED_FROM_DRAFT,
+    RETURN_ALLOWED_PHASES,
 )
 from .engine import (
     _precheck_run_clean,
@@ -524,6 +525,52 @@ class WorkflowService:
             "status": "ready",
             "next": compute_next(state, pdir),
         }
+
+    def return_with_note(
+        self,
+        note: str,
+        post: str | None = None,
+        post_dir: str | None = None,
+    ) -> dict[str, Any]:
+        """Stuur de huidige gate terug naar de agent: reject + run dezelfde fase.
+
+        Alleen op waiting_gate, alleen op fases in RETURN_ALLOWED_PHASES
+        (nu: outline), en alleen met een niet-lege opmerking. De opmerking
+        landt in gate.last_decision en daarmee in de volgende agent_brief.
+        Geen revisie.md.
+        """
+        text = (note or "").strip()
+        if not text:
+            return {"ok": False, "errors": ["Terugsturen vereist een opmerking."]}
+
+        pdir = self.resolve_dir(post, post_dir)
+        state = load_state(pdir)
+        if state["status"] != "waiting_gate":
+            return {
+                "ok": False,
+                "errors": [f"Terugsturen alleen bij waiting_gate (nu: {state['status']})."],
+            }
+
+        phase = state["gate"].get("pending") or state["phase"]
+        if phase not in RETURN_ALLOWED_PHASES:
+            return {
+                "ok": False,
+                "errors": [
+                    f"Terugsturen met opmerking is nu alleen bij de outline-gate, niet bij {phase}."
+                ],
+            }
+
+        rejected = self.reject_gate(post=post, post_dir=post_dir, note=text)
+        if not rejected.get("ok"):
+            return rejected
+
+        ran = self.run_phase(phase=phase, post=post, post_dir=post_dir)
+        if not ran.get("ok"):
+            return ran
+
+        ran["returned"] = True
+        ran["return_note"] = text
+        return ran
 
     def mark_blocked(
         self,
