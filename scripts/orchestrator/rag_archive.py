@@ -16,7 +16,6 @@ import re
 import threading
 import time
 from collections import Counter
-from datetime import datetime
 from html import unescape
 from typing import Any
 import httpx
@@ -25,9 +24,7 @@ from .repository import now_iso, posts_root
 
 INDEX_FILE_NAME = ".archive_rag_index.json"
 INDEX_FORMAT_VERSION = 2
-
-#: Bestanden per postmap die geïndexeerd worden, in volgorde van belang.
-LOCAL_FILENAMES = ["draft.md", "synthese.md", "outline.md", "briefing.md"]
+WP_POSTS_URL = "https://edwinvandillen.nl/?rest_route=/wp/v2/posts"
 
 #: Hoe zwaar titelwoorden meetellen in een chunk. Een post met "intentie" in de titel
 #: gaat over intentie, ook in de alinea's die het woord zelf niet herhalen.
@@ -63,10 +60,11 @@ def _chunk_tf(text: str, title: str) -> dict[str, int]:
 class LocalRAGArchive:
     """Lokale TF-IDF vectorstore over het blogpost-archief.
 
-    De index is een lijst chunks. Elke chunk hoort bij precies één bron
-    (`source_id`): een lokaal bestand of een live WordPress-artikel. Een bron
-    wordt altijd in zijn geheel vervangen, nooit chunk voor chunk aangevuld,
-    zodat verouderde tekst niet blijft staan.
+    De index is een lijst chunks. Elke chunk hoort bij precies één live
+    WordPress-artikel (`source_id` = `wp:<slug>`). De site is de enige bron
+    van waarheid (ADR-006 §6). Lokale werkmappen worden niet geïndexeerd.
+    Een bron wordt altijd in zijn geheel vervangen, nooit chunk voor chunk
+    aangevuld, zodat verouderde tekst niet blijft staan.
     """
 
     def __init__(self, index_path: str | None = None):
@@ -209,7 +207,7 @@ class LocalRAGArchive:
                     "title": doc.get("title", slug),
                     "chunks_count": 0,
                     "last_modified": doc.get("mtime", "onbekend"),
-                    "origin": "wordpress" if doc.get("filename") == "wordpress_live" else "lokaal",
+                    "origin": "wordpress",
                 }
             articles_map[slug]["chunks_count"] += 1
 
@@ -239,13 +237,13 @@ class LocalRAGArchive:
         Die vlag bepaalt of tombstoning van WordPress-bronnen veilig is: bij een
         halve fetch zou anders het halve archief uit de index verdwijnen.
         """
-        base_url = "https://edwinvandillen.nl/?rest_route=/wp/v2/posts"
+        # status=publish is verplicht: concepten en privéberichten zijn geen archief.
         page = 1
         all_wp_docs: list[dict[str, Any]] = []
         complete = False
 
         while True:
-            url = f"{base_url}&per_page=10&page={page}"
+            url = f"{WP_POSTS_URL}&status=publish&per_page=10&page={page}"
             try:
                 r = httpx.get(url, timeout=15)
                 if r.status_code != 200:
@@ -261,21 +259,7 @@ class LocalRAGArchive:
                     modified = p.get("modified", now_iso())
                     raw_content = p.get("content", {}).get("rendered", "")
                     clean_text = unescape(re.sub(r"<[^>]+>", " ", raw_content))
-                    paragraphs = [para.strip() for para in re.split(r"\n\s*\n", clean_text) if len(para.strip()) > 40]
-
-                    for p_idx, para in enumerate(paragraphs):
-                        tokens = _tokenize(para)
-                        if tokens:
-                            all_wp_docs.append({
-                                "slug": slug,
-                                "title": title,
-                                "filename": "wordpress_live",
-                                "source_id": _wp_source_id(slug),
-                                "chunk_id": f"wp:{slug}:{p_idx}",
-                                "mtime": modified,
-                                "text": para,
-                                "tf": _chunk_tf(para, title),
-                            })
+                    all_wp_docs.extend(self.chunk_live_article(slug, title, clean_text, modified))
 
                 total_pages = int(r.headers.get("X-WP-TotalPages", 1))
                 if page >= total_pages:
@@ -299,22 +283,27 @@ class LocalRAGArchive:
         self.documents.extend(chunks)
 
     @staticmethod
-    def _chunk_local_file(slug: str, filename: str, content: str, mtime: str) -> list[dict[str, Any]]:
-        """Splits een lokaal artefact in geïndexeerde alinea-chunks."""
+    def chunk_live_article(
+        slug: str,
+        title: str,
+        text: str,
+        mtime: str,
+    ) -> list[dict[str, Any]]:
+        """Splits live artikeltekst in alinea-chunks. Alleen voor WordPress-bronnen."""
         chunks: list[dict[str, Any]] = []
-        paragraphs = [p.strip() for p in content.split("\n\n") if len(p.strip()) > 40]
+        paragraphs = [p.strip() for p in re.split(r"\n\s*\n", text) if len(p.strip()) > 40]
         for p_idx, para in enumerate(paragraphs):
             tokens = _tokenize(para)
             if tokens:
                 chunks.append({
                     "slug": slug,
-                    "title": slug,
-                    "filename": filename,
-                    "source_id": _local_source_id(slug, filename),
-                    "chunk_id": f"{slug}:{filename}:{p_idx}",
+                    "title": title,
+                    "filename": "wordpress_live",
+                    "source_id": _wp_source_id(slug),
+                    "chunk_id": f"wp:{slug}:{p_idx}",
                     "mtime": mtime,
                     "text": para,
-                    "tf": _chunk_tf(para, slug),
+                    "tf": _chunk_tf(para, title),
                 })
         return chunks
 
@@ -325,66 +314,30 @@ class LocalRAGArchive:
         purge: bool = False,
         include_wordpress: bool = True,
     ) -> int:
-        """Indexeer lokale Markdown-artefacten en live WordPress-artikelen (ADR-008).
+        """Indexeer uitsluitend live artikelen van edwinvandillen.nl (ADR-006 §6).
 
-        Bij `incremental` wordt per bestand op mtime vergeleken, niet per postmap:
-        een herschreven draft wordt dus wél opnieuw geïndexeerd. Bronnen die niet
-        meer bestaan worden verwijderd (tombstoning).
+        Lokale werkmappen worden niet gelezen. Bestaande `local:`-chunks verdwijnen
+        bij elke run. `include_wordpress=False` is alleen voor tests: geen netwerk,
+        wel opruimen van lokale resten.
         """
         with self._lock:
             self._ensure_loaded()
             self.is_indexing = True
             try:
-                pdir = root_dir or posts_root()
                 if purge:
                     self.documents = []
 
                 known_mtimes = self._source_mtimes() if incremental else {}
-                if not incremental:
-                    # Volledige herbouw: alleen lokale bronnen wissen, WordPress-chunks
-                    # blijven staan tot de fetch ze vervangt of tombstoned.
-                    self.documents = [
-                        d for d in self.documents if not str(d.get("source_id", "")).startswith("local:")
-                    ]
 
-                local_entries = [
-                    e for e in sorted(os.listdir(pdir))
-                    if os.path.isdir(os.path.join(pdir, e)) and not e.startswith(".")
-                ] if os.path.exists(pdir) else []
-                self.progress_total = len(local_entries) + 6
-                self.progress_current = 0
-
-                seen_local_sources: set[str] = set()
-
-                for idx, entry in enumerate(local_entries, 1):
-                    self.progress_current = idx
-                    self.current_item = entry
-                    self.status_message = f"Indexeren van lokale post '{entry}' ({idx}/{len(local_entries)})..."
-                    post_path = os.path.join(pdir, entry)
-
-                    for fname in LOCAL_FILENAMES:
-                        fpath = os.path.join(post_path, fname)
-                        if not os.path.isfile(fpath):
-                            continue
-                        source_id = _local_source_id(entry, fname)
-                        seen_local_sources.add(source_id)
-                        try:
-                            mtime = datetime.fromtimestamp(os.path.getmtime(fpath)).isoformat()
-                            if incremental and known_mtimes.get(source_id) == mtime:
-                                continue
-                            with open(fpath, "r", encoding="utf-8") as f:
-                                content = f.read()
-                            self._replace_source(source_id, self._chunk_local_file(entry, fname, content, mtime))
-                        except Exception as e:
-                            print(f"Fout bij indexeren {fpath}: {e}")
-                            seen_local_sources.discard(source_id)
-
-                # Tombstoning van lokale bronnen die van schijf verdwenen zijn.
+                # Werk in uitvoering hoort niet in het archief, ook niet als het
+                # in een oudere index is blijven staan.
                 self.documents = [
                     d for d in self.documents
                     if not str(d.get("source_id", "")).startswith("local:")
-                    or d["source_id"] in seen_local_sources
                 ]
+
+                self.progress_total = 6
+                self.progress_current = 0
 
                 if include_wordpress:
                     self.status_message = "Ophalen live artikelen van edwinvandillen.nl (WordPress REST API)..."

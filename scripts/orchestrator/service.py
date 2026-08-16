@@ -788,12 +788,11 @@ class WorkflowService:
         return out
 
     def search_archive(self, query: str, top_k: int = 5) -> list[dict[str, Any]]:
-        """Zoek lexicaal (TF-IDF) in het blogpost archief (RAG Vectorstore - ADR-006).
+        """Zoek lexicaal (TF-IDF) in het live archief (ADR-006 §6).
 
-        Ververst alleen de lokale artefacten. De WordPress-fetch duurt seconden en
-        hoort niet in een zoekopdracht; die loopt via /api/rag/reindex-async.
+        Herindexeert niet. De index is de laatste fetch van edwinvandillen.nl;
+        vernieuwen loopt via reindex_archive / de Settings-tab.
         """
-        archive_vectorstore.index_all_posts(posts_root(), incremental=True, include_wordpress=False)
         return archive_vectorstore.search(query=query, top_k=top_k)
 
     def get_rag_status(self) -> dict[str, Any]:
@@ -801,8 +800,10 @@ class WorkflowService:
         return archive_vectorstore.get_status()
 
     def reindex_archive(self, purge: bool = False, incremental: bool = False) -> dict[str, Any]:
-        """Herindexeer blogposts in posts/ naar de RAG Vectorstore (ADR-008)."""
-        count = archive_vectorstore.index_all_posts(posts_root(), incremental=incremental, purge=purge)
+        """Haal het live archief opnieuw op van edwinvandillen.nl (ADR-006 §6)."""
+        count = archive_vectorstore.index_all_posts(
+            posts_root(), incremental=incremental, purge=purge, include_wordpress=True
+        )
         return {"ok": True, "indexed_chunks": count}
 
     def validate_alignment(
