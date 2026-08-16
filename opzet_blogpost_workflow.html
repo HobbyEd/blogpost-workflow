@@ -505,6 +505,96 @@
             border: 1px solid var(--border-color);
         }
 
+        .gate-hard {
+            color: #ef4444;
+            background: rgba(239, 68, 68, 0.1);
+            border-color: rgba(239, 68, 68, 0.25);
+        }
+        .gate-hard .pulse {
+            background: #ef4444;
+            box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+        }
+        .gate-conditional {
+            color: #f59e0b;
+            background: rgba(245, 158, 11, 0.1);
+            border-color: rgba(245, 158, 11, 0.25);
+        }
+        .gate-conditional .pulse {
+            background: #f59e0b;
+            box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7);
+        }
+        .gate-soft {
+            color: #10b981;
+            background: rgba(16, 185, 129, 0.1);
+            border-color: rgba(16, 185, 129, 0.25);
+        }
+
+        .phase-block {
+            margin: 36px 0 12px;
+            padding: 14px 18px;
+            border-radius: 10px;
+            border: 1px solid var(--border-color);
+            background: rgba(255, 255, 255, 0.02);
+        }
+        .phase-block h3 {
+            margin: 0 0 4px;
+            font-size: 1.15rem;
+        }
+        .phase-block p {
+            margin: 0;
+            font-size: 0.95rem;
+        }
+
+        .cmd {
+            font-family: 'Courier New', Courier, monospace;
+            background-color: #080c14;
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 16px 20px;
+            color: #e5e7eb;
+            font-size: 0.88rem;
+            line-height: 1.55;
+            overflow-x: auto;
+            white-space: pre;
+            margin: 12px 0 20px;
+        }
+        .cmd .prompt { color: #6b7280; }
+        .cmd .cmt { color: #6b7280; font-style: italic; }
+
+        .tabs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin: 20px 0 16px;
+        }
+        .tab {
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.88rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 999px;
+            padding: 8px 16px;
+            cursor: pointer;
+        }
+        .tab:hover { color: var(--text-main); border-color: var(--border-hover); }
+        .tab.active {
+            color: var(--text-main);
+            border-color: var(--accent-secondary);
+            background: rgba(0, 210, 255, 0.08);
+        }
+        .tab-panel { display: none; }
+        .tab-panel.active { display: block; }
+
+        .note {
+            font-size: 0.95rem;
+            color: var(--text-muted);
+            border-left: 3px solid var(--accent-secondary);
+            padding: 8px 0 8px 14px;
+            margin: 12px 0 20px;
+        }
+
         @media (max-width: 600px) {
             .vertical-phase-item {
                 padding-left: 54px;
@@ -545,6 +635,7 @@
                     <li><a href="#fasen">De fasen</a></li>
                     <li><a href="#architectuur">Deterministisch vs Agentisch</a></li>
                     <li><a href="#implementatie">Staat, gates &amp; modus</a></li>
+                    <li><a href="#terminal">Keten testen</a></li>
                     <li><a href="#omgevingsvariabelen">Omgevingsvariabelen</a></li>
                     <li><a href="#mappenstructuur">Mappenstructuur</a></li>
                     <li><a href="#reflectie">Engine Reflectie</a></li>
@@ -556,23 +647,29 @@
         <main>
             <header>
                 <h1>Blogpost Agentic Workflow</h1>
-                <div class="subtitle">Architectuur, implementatierichtlijnen en engine-reflectie</div>
+                <div class="subtitle">Huidige keten (ADR-010): drie blokken, drie gate-typen, control plane in Python, uitvoering via Claude Code</div>
             </header>
 
             <!-- 1. Doelstelling -->
             <section id="doelstelling">
                 <h2>Doelstelling van de Workflow</h2>
                 <div class="card">
-                    <h3><span class="pulse"></span>Gedeeltelijke Automatisering met Menselijke Controle</h3>
-                    <p>Het doel van de <strong>blogpost-agentic-workflow</strong> is het structureren, versnellen en goedkoper maken van het schrijfproces voor <strong>edwinvandillen.nl</strong>. In plaats van een volledig autonome agent die zonder toezicht publiceert, fungeert het systeem als een betrouwbare <em>co-pilot</em>.</p>
-                    <p>De workflow elimineert mechanische taken (zoals SVG-rendering en HTML-conversie naar Gutenberg-blokken) en structureert creatieve fasen (onderzoek, stijlcontrole en reviews). Door strategische <strong>menselijke gates</strong> tussen elke stap te plaatsen, behoudt de auteur (Edwin) de volledige redactionele controle en de uiteindelijke stem in het betoog.</p>
+                    <h3><span class="pulse"></span>Gedeeltelijke automatisering, oordeel bij de auteur</h3>
+                    <p>Het doel is het structureren en versnellen van het schrijfproces voor <strong>edwinvandillen.nl</strong>, zonder dat een agent zelf publiceert. Mechanisch werk (SVG-render, Gutenberg-conversie, lexicale checks) zit in scripts. Schrijven, toetsen en kritiek zitten in subagents.</p>
+                    <p>De mens beslist alleen nog waar er iets te kiezen valt. Elf stempels per post bleken geen gate: 49 goedkeuringen, nul afwijzingen. Sindsdien (ADR-010) stoppen de controles alleen bij een blokkerende bevinding. Onderwerp, synthese en live-gaan blijven bij de auteur. Live zetten zelf blijft handwerk in wp-admin.</p>
                 </div>
             </section>
 
             <!-- 1b. De fasen: visuele tijdslijn -->
             <section id="fasen">
                 <h2>De fasen van de workflow</h2>
-                <p>Elke fase heeft één specifieke verantwoordelijkheid en levert precies één reviewbaar tussenartefact op. De output van fase N is de input van fase N+1. Tussen de fasen staan <strong>mens-gates</strong>: de orkestrator stopt, legt het tussenresultaat voor en wacht op een beslissing &mdash; doorgaan (approve), bijsturen (reject), of instellingen aanpassen.</p>
+                <p>Elf fases plus <code>done</code>, gegroepeerd in drie blokken. Elke fase levert een artefact op schijf. De lus is <code>run</code> &rarr; artefact schrijven &rarr; <code>complete</code> &rarr; daarna <code>approve</code> of <code>reject</code> alleen als de gate open moet. De worker roept nooit <code>approve</code> aan.</p>
+                <p>Drie gate-typen: <strong>hard</strong> (altijd de mens), <strong>voorwaardelijk</strong> (stopt alleen bij een <code>blocking</code>-bevinding, ook in yolo), <strong>zacht</strong> (mag in yolo automatisch door).</p>
+
+                <div class="phase-block">
+                    <h3>Richten</h3>
+                    <p>Onderwerp, invalshoek, bronnen. Goedkoop te corrigeren; na de draft kost dezelfde correctie uren.</p>
+                </div>
 
                 <div class="vertical-phase-list">
                     <div class="vertical-phase-item">
@@ -584,17 +681,16 @@
                                     <h4>Intake</h4>
                                 </div>
                                 <div class="vertical-phase-badges">
-                                    <span class="badge badge-det">CLI Orchestrator</span>
-                                    <span class="badge badge-model">Opus</span>
+                                    <span class="badge badge-det">CLI / Web UI</span>
                                 </div>
                             </div>
                             <div class="vertical-phase-intentie">
-                                <strong>Intentie &amp; Werking:</strong> Het initiëren van een nieuw blogpost-traject via <code>orchestrate.py init</code>: bepalen van het onderwerp, werktitel en slug uitvragen of opvragen via de backlog, en de werkmap met <code>state.json</code> klaarzettend voor de orkestratie.
+                                <strong>Intentie &amp; Werking:</strong> Onderwerp, werktitel en kebab-case slug vastleggen via <code>orchestrate.py init</code>. Optioneel <code>--wait-intake-gate</code> zodat de richting eerst wordt bevestigd. De werkmap en <code>state.json</code> zijn daarna de bron van waarheid.
                             </div>
                             <div class="vertical-phase-meta">
                                 <span><strong>Uitvoerder:</strong> <code>scripts/orchestrate.py init</code></span>
-                                <span><strong>Artefact:</strong> <code>posts/[slug]/state.json</code> + <code>state.md</code></span>
-                                <span class="vertical-phase-gate-badge"><span class="pulse"></span>Menselijke Gate</span>
+                                <span><strong>Artefact:</strong> <code>posts/[slug]/state.json</code></span>
+                                <span class="vertical-phase-gate-badge gate-hard"><span class="pulse"></span>Harde gate</span>
                             </div>
                         </div>
                     </div>
@@ -613,16 +709,23 @@
                                 </div>
                             </div>
                             <div class="vertical-phase-intentie">
-                                <strong>Intentie &amp; Werking:</strong> Het inhoudelijk verkennen en verrijken van het onderwerp door eerdere artikelen te analyseren, relevante bronnen, denkers en theorie te verzamelen en een gestructureerd raamwerk met bronverwijzingen op te stellen.
+                                <strong>Intentie &amp; Werking:</strong> Eerst het eigen archief bevragen (<code>rag_cli.py search</code> plus <code>reference/corpus-inventaris.md</code>), daarna bronnen en denkers verzamelen. Schrijft een compacte outline. Verzint geen fase.
                             </div>
                             <div class="vertical-phase-meta">
-                                <span><strong>Uitvoerder:</strong> <code>blogpost-onderzoeker</code> (subagent)</span>
+                                <span><strong>Uitvoerder:</strong> <code>blogpost-onderzoeker</code></span>
                                 <span><strong>Artefact:</strong> <code>outline.md</code></span>
-                                <span class="vertical-phase-gate-badge"><span class="pulse"></span>Menselijke Gate</span>
+                                <span class="vertical-phase-gate-badge gate-soft"><span class="pulse"></span>Zachte gate</span>
                             </div>
                         </div>
                     </div>
+                </div>
 
+                <div class="phase-block">
+                    <h3>Bouwen</h3>
+                    <p>Produceren en controleren. De gates hier stoppen alleen bij een blokkerende bevinding, behalve synthese (beslismoment) en de zachte stappen draft, critique en visuals.</p>
+                </div>
+
+                <div class="vertical-phase-list">
                     <div class="vertical-phase-item">
                         <div class="vertical-phase-marker">2</div>
                         <div class="vertical-phase-content">
@@ -640,9 +743,9 @@
                                 <strong>Intentie &amp; Werking:</strong> De goedgekeurde outline uitwerken tot een volledig conceptartikel in de authentieke huisstijl en auteurstem, met een scherpe thesis en kernquote. Verzint geen feiten buiten de outline.
                             </div>
                             <div class="vertical-phase-meta">
-                                <span><strong>Uitvoerder:</strong> <code>blogpost-schrijver</code> (subagent)</span>
+                                <span><strong>Uitvoerder:</strong> <code>blogpost-schrijver</code></span>
                                 <span><strong>Artefact:</strong> <code>draft.md</code></span>
-                                <span class="vertical-phase-gate-badge"><span class="pulse"></span>Menselijke Gate</span>
+                                <span class="vertical-phase-gate-badge gate-soft"><span class="pulse"></span>Zachte gate</span>
                             </div>
                         </div>
                     </div>
@@ -658,16 +761,16 @@
                                 <div class="vertical-phase-badges">
                                     <span class="badge badge-det">stijl-check</span>
                                     <span class="badge badge-agent">leesbaarheid-check</span>
-                                    <span class="badge badge-model">Haiku</span>
+                                    <span class="badge badge-model">Sonnet</span>
                                 </div>
                             </div>
                             <div class="vertical-phase-intentie">
-                                <strong>Intentie &amp; Werking:</strong> Geautomatiseerde dubbele toetsing van de draft: <code>stijl-check</code> voert Grep-lexicale checks uit (em-dash, emoji) plus modeloordelen op superlatieven; <code>leesbaarheid-check</code> toetst zinslengte, ritme en voorkomt houterige tekst. Rapporteert zonder tekst direct te wijzigen.
+                                <strong>Intentie &amp; Werking:</strong> Twee agents, altijd samen. <code>stijl-check</code> telt overtredingen (eerst <code>stijl_lexicaal.py</code>, daarna oordeel). <code>leesbaarheid-check</code> meet of het nog als betoog leest. Beide rapporteren alleen; de draft wordt hier niet aangepast. Elk rapport opent met een json-blok <code>{"findings": [...]}</code>. Zonder dat blok is de staat <code>onleesbaar</code>, niet "geen bevindingen".
                             </div>
                             <div class="vertical-phase-meta">
                                 <span><strong>Uitvoerder:</strong> <code>stijl-check</code> &amp; <code>leesbaarheid-check</code></span>
-                                <span><strong>Artefact:</strong> 2x rapport (in beslislog)</span>
-                                <span class="vertical-phase-gate-badge"><span class="pulse"></span>Menselijke Gate</span>
+                                <span><strong>Artefact:</strong> <code>stijlcheck.md</code> + <code>leesbaarheid.md</code></span>
+                                <span class="vertical-phase-gate-badge gate-conditional"><span class="pulse"></span>Voorwaardelijk</span>
                             </div>
                         </div>
                     </div>
@@ -682,16 +785,16 @@
                                 </div>
                                 <div class="vertical-phase-badges">
                                     <span class="badge badge-det">reeks-consistentie-check</span>
-                                    <span class="badge badge-model">Haiku</span>
+                                    <span class="badge badge-model">Sonnet</span>
                                 </div>
                             </div>
                             <div class="vertical-phase-intentie">
-                                <strong>Intentie &amp; Werking:</strong> Het borgen van redactionele samenhang met eerdere artikelen binnen dezelfde reeks door te toetsen op titel-overlap met de reeksnaam, terminologie-consistentie en feitelijke juistheid van "zie deel X"-verwijzingen.
+                                <strong>Intentie &amp; Werking:</strong> Samenhang met eerdere delen van dezelfde reeks: titel-overlap, terminologie, "zie deel X". Ook bij het eerste deel hoort een rapport: dan met de vaststelling dat er niets te vergelijken viel. Eerst RAG + corpus-inventaris; de agent heeft zelf geen Bash.
                             </div>
                             <div class="vertical-phase-meta">
                                 <span><strong>Uitvoerder:</strong> <code>reeks-consistentie-check</code></span>
-                                <span><strong>Artefact:</strong> rapport (in beslislog)</span>
-                                <span class="vertical-phase-gate-badge"><span class="pulse"></span>Menselijke Gate</span>
+                                <span><strong>Artefact:</strong> <code>reeks-check.md</code></span>
+                                <span class="vertical-phase-gate-badge gate-conditional"><span class="pulse"></span>Voorwaardelijk</span>
                             </div>
                         </div>
                     </div>
@@ -715,7 +818,7 @@
                             <div class="vertical-phase-meta">
                                 <span><strong>Uitvoerder:</strong> <code>grok-reviewer</code> + <code>grok_review_server.py</code></span>
                                 <span><strong>Artefact:</strong> <code>grok-feedback.md</code></span>
-                                <span class="vertical-phase-gate-badge"><span class="pulse"></span>Menselijke Gate (uitstelbaar via <code>defer_critique</code>)</span>
+                                <span class="vertical-phase-gate-badge gate-soft"><span class="pulse"></span>Zacht (uitstelbaar via <code>defer_critique</code>)</span>
                             </div>
                         </div>
                     </div>
@@ -734,12 +837,12 @@
                                 </div>
                             </div>
                             <div class="vertical-phase-intentie">
-                                <strong>Intentie &amp; Werking:</strong> De ontvangen Grok-kritiekpunten afwegen en vertalen naar een concreet tekstaanpassingsvoorstel. De auteur beslist per punt over overname, aanpassing of afwijzing.
+                                <strong>Intentie &amp; Werking:</strong> Beslismoment, geen weegstap. Per Grok-punt minstens twee varianten met hun gevolg in woorden, zonder advies. <code>verwerpen</code> is verplicht; raakt het punt de sectie, dan ook <code>schrappen</code>. Edwin beslist per punt met <code>orchestrate.py decide</code>. <code>complete synthesis</code> weigert zolang er punten openstaan. Conceptueel hoort deze fase bij Oordelen; in de fasevolgorde staat hij nog onder Bouwen.
                             </div>
                             <div class="vertical-phase-meta">
-                                <span><strong>Uitvoerder:</strong> <code>blogpost-onderzoeker</code> (hergebruik)</span>
-                                <span><strong>Artefact:</strong> <code>synthese.md</code></span>
-                                <span class="vertical-phase-gate-badge" style="color: #ef4444; background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.25);"><span class="pulse" style="background:#ef4444; box-shadow:0 0 0 0 rgba(239,68,68,0.7);"></span>Harde Gate (altijd stoppen, ook in Yolo)</span>
+                                <span><strong>Uitvoerder:</strong> <code>blogpost-onderzoeker</code></span>
+                                <span><strong>Artefact:</strong> <code>synthese.md</code> (json-blok <code>points</code>)</span>
+                                <span class="vertical-phase-gate-badge gate-hard"><span class="pulse"></span>Harde gate</span>
                             </div>
                         </div>
                     </div>
@@ -762,11 +865,13 @@
                             </div>
                             <div class="vertical-phase-meta">
                                 <span><strong>Uitvoerder:</strong> <code>blogpost-visuals</code> + <code>render_svg.py</code></span>
-                                <span><strong>Artefact:</strong> <code>visuals/*.svg</code> + <code>.png</code></span>
-                                <span class="vertical-phase-gate-badge"><span class="pulse"></span>Menselijke Gate</span>
+                                <span><strong>Artefact:</strong> minstens twee <code>visuals/*.png</code> + refs in <code>draft.md</code></span>
+                                <span class="vertical-phase-gate-badge gate-soft"><span class="pulse"></span>Zachte gate</span>
                             </div>
                         </div>
-                    </d                    <div class="vertical-phase-item">
+                    </div>
+
+                    <div class="vertical-phase-item">
                         <div class="vertical-phase-marker">5b</div>
                         <div class="vertical-phase-content">
                             <div class="vertical-phase-header">
@@ -776,16 +881,16 @@
                                 </div>
                                 <div class="vertical-phase-badges">
                                     <span class="badge badge-agent">bron-check</span>
-                                    <span class="badge badge-model">Haiku / Sonnet</span>
+                                    <span class="badge badge-model">Opus</span>
                                 </div>
                             </div>
                             <div class="vertical-phase-intentie">
-                                <strong>Intentie &amp; Werking:</strong> Alle citaten en scherpe claims in de draft verifiëren tegen de daadwerkelijke brondocumenten (web/PDF) via <code>scripts/haal_bron.py</code> om foute citaten en hallucinaties vóór publicatie uit te sluiten.
+                                <strong>Intentie &amp; Werking:</strong> Elk citaat en elke bron naast het origineel, via <code>haal_bron.py</code> (ook PDF). Niets aannemen op gezag van de outline. Het rapport moet bestaan, een leesbaar verdict hebben, en bij de huidige <code>draft.md</code> horen. Zonder blocking-bevinding schuift de fase door.
                             </div>
                             <div class="vertical-phase-meta">
                                 <span><strong>Uitvoerder:</strong> <code>bron-check</code> + <code>haal_bron.py</code></span>
                                 <span><strong>Artefact:</strong> <code>feitencheck.md</code></span>
-                                <span class="vertical-phase-gate-badge" style="color: #ef4444; background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.25);"><span class="pulse" style="background:#ef4444; box-shadow:0 0 0 0 rgba(239,68,68,0.7);"></span>Harde Gate (verplicht vóór deploy)</span>
+                                <span class="vertical-phase-gate-badge gate-conditional"><span class="pulse"></span>Voorwaardelijk</span>
                             </div>
                         </div>
                     </div>
@@ -796,20 +901,20 @@
                             <div class="vertical-phase-header">
                                 <div class="vertical-phase-title-group">
                                     <span class="vertical-phase-nr">Fase 5c</span>
-                                    <h4>Archief Alignment &amp; Discrepantie Check</h4>
+                                    <h4>Archief-consistentie</h4>
                                 </div>
                                 <div class="vertical-phase-badges">
-                                    <span class="badge badge-agent">archief-alignment-check</span>
-                                    <span class="badge badge-model">Sonnet 5</span>
+                                    <span class="badge badge-agent">archief-consistentie-check</span>
+                                    <span class="badge badge-model">Sonnet</span>
                                 </div>
                             </div>
                             <div class="vertical-phase-intentie">
-                                <strong>Intentie &amp; Werking:</strong> Het concept vergelijken met het gehele RAG-blogarchief (ADR-006 &amp; ADR-007). Detecteert of de blogpost in lijn is (<code>ALIGNMENT_OK</code>) of dat er een inhoudelijke afwijking is (<code>DISCREPANCY_DETECTED</code>). Bij afwijkingen kiest de auteur in de Web UI tussen <em>Voortschrijdend Inzicht</em> (met toelichting) of <em>Inhoudelijke Fout</em> (herstel).
+                                <strong>Intentie &amp; Werking:</strong> De definitieve draft naast het lexicale RAG-archief (TF-IDF, geen embeddings) plus <code>corpus-inventaris.md</code>. Een bevinding telt alleen met beide citaten. Zonder bevinding schuift de fase door. Met bevinding kiest de auteur: voortschrijdend inzicht (toelichting verplicht) of inhoudelijke fout (terug naar draft).
                             </div>
                             <div class="vertical-phase-meta">
-                                <span><strong>Uitvoerder:</strong> <code>archief-alignment-check</code> (Sonnet) + RAG Vectorstore</span>
+                                <span><strong>Uitvoerder:</strong> <code>archief-consistentie-check</code> + <code>rag_cli.py</code></span>
                                 <span><strong>Artefact:</strong> <code>archief-consistentie.md</code></span>
-                                <span class="vertical-phase-gate-badge" style="color: #ef4444; background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.25);"><span class="pulse" style="background:#ef4444; box-shadow:0 0 0 0 rgba(239,68,68,0.7);"></span>Harde Gate (ADR-007)</span>
+                                <span class="vertical-phase-gate-badge gate-conditional"><span class="pulse"></span>Voorwaardelijk</span>
                             </div>
                         </div>
                     </div>
@@ -828,16 +933,23 @@
                                 </div>
                             </div>
                             <div class="vertical-phase-intentie">
-                                <strong>Intentie &amp; Werking:</strong> Verplichte extra herkeuring van gewijzigde passages na de synthese en visuals-fase op de draft, om te garanderen dat ingevoegde tekst de stijl- en leesbaarheidsnormen niet alsnog schendt.
+                                <strong>Intentie &amp; Werking:</strong> Geen eigen CLI-fase. Na de synthese (en eventueel visuals) is de draft opnieuw gewijzigd. Die passages gaan opnieuw door stijl- en leesbaarheid-check, als extra aanroep binnen de bestaande keten, vóór deploy. De rapporten krijgen een gedateerde ronde erbij, ze worden niet overschreven.
                             </div>
                             <div class="vertical-phase-meta">
                                 <span><strong>Uitvoerder:</strong> <code>stijl-check</code> &amp; <code>leesbaarheid-check</code></span>
-                                <span><strong>Actie:</strong> Extra controleaanroepen op gewijzigde passages</span>
-                                <span class="vertical-phase-gate-badge"><span class="pulse"></span>Interne Hercontrole</span>
+                                <span><strong>Actie:</strong> extra aanroepen, geen <code>run</code></span>
+                                <span class="vertical-phase-gate-badge"><span class="pulse"></span>Geen aparte gate</span>
                             </div>
                         </div>
                     </div>
+                </div>
 
+                <div class="phase-block">
+                    <h3>Oordelen</h3>
+                    <p>Het WordPress-concept is de leesweergave. Na het lezen: klaar, of opmerkingen in <code>revisie.md</code> en terug naar Bouwen via <code>herzien</code>. Live zetten blijft handwerk in wp-admin.</p>
+                </div>
+
+                <div class="vertical-phase-list">
                     <div class="vertical-phase-item">
                         <div class="vertical-phase-marker">6</div>
                         <div class="vertical-phase-content">
@@ -852,12 +964,12 @@
                                 </div>
                             </div>
                             <div class="vertical-phase-intentie">
-                                <strong>Intentie &amp; Werking:</strong> De definitieve markdown-tekst en afbeeldingen via <code>scripts/deploy_post.py</code> omzetten naar WordPress Gutenberg-blokken en via de REST API uitsluitend als <strong>concept</strong> wegzetten. Nooit een automatische live publicatie.
+                                <strong>Intentie &amp; Werking:</strong> Markdown en visuals via <code>deploy_post.py</code> naar een WordPress-<strong>concept</strong> (<code>?rest_route=</code>, nooit <code>/wp-json/</code>). Vereist <code>approve --deploy</code> én actuele feitencheck en archiefcheck. Open revisiepunten houden de deploy tegen. Live publiceren doet het script niet.
                             </div>
                             <div class="vertical-phase-meta">
                                 <span><strong>Uitvoerder:</strong> <code>blogpost-deploy</code> + <code>deploy_post.py</code></span>
                                 <span><strong>Artefact:</strong> WP concept-ID + edit-URL</span>
-                                <span class="vertical-phase-gate-badge" style="color: #ef4444; background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.25);"><span class="pulse" style="background:#ef4444; box-shadow:0 0 0 0 rgba(239,68,68,0.7);"></span>Harde Gate (vereist `approve --deploy`)</span>
+                                <span class="vertical-phase-gate-badge gate-hard"><span class="pulse"></span>Harde gate (<code>approve --deploy</code>)</span>
                             </div>
                         </div>
                     </div>
@@ -867,7 +979,7 @@
             <!-- 2. Deterministisch vs Agentisch -->
             <section id="architectuur">
                 <h2>Deterministisch vs. Agentisch &amp; Control Plane vs. Content Plane</h2>
-                <p>De workflow scheidt strikt de <strong>Control Plane</strong> (strikte fasevolgorde, logica en status in code) van de <strong>Content Plane</strong> (creatieve tekstgeneratie, analyse en oordeelsvorming door LLM-agents).</p>
+                <p>De workflow scheidt de <strong>control plane</strong> (fasevolgorde, gates, artefactcontrole in Python) van de <strong>execution plane</strong> (Claude Code die de brief uitvoert). In de Python-code staat geen LLM-aanroep. <code>run</code> zet de status op <code>running</code> en geeft een brief terug; de worker of een host pakt die op.</p>
                 
                 <table>
                     <thead>
@@ -879,9 +991,9 @@
                     </thead>
                     <tbody>
                         <tr>
-                            <td><strong>Control Plane CLI Engine</strong> (`scripts/orchestrate.py`)</td>
-                            <td><span class="badge badge-det">Deterministisch (Code)</span></td>
-                            <td>Beheert de state machine, transitiegrafiek, pre-/postconditions en flags. Draait op Python stdlib en dwingt fasen strikt af.</td>
+                            <td><strong>Control plane</strong> (<code>orchestrator/</code> + <code>orchestrate.py</code> + <code>server.py</code>)</td>
+                            <td><span class="badge badge-det">Deterministisch</span></td>
+                            <td>State machine, gates, probes, findings. CLI en FastAPI zijn dunne schillen om <code>WorkflowService</code>. Geen LLM-aanroep.</td>
                         </tr>
                         <tr>
                             <td><strong>Gutenberg Blokken Compiler</strong> (`scripts/deploy_post.py`)</td>
@@ -909,6 +1021,16 @@
                             <td>Berekent zinslengte, lettergreep-gemiddelden en de Flesch-Douma leesbaarheidsindex tegen <code>reference/leesbaarheid-band.json</code>.</td>
                         </tr>
                         <tr>
+                            <td><strong>RAG-archief</strong> (<code>rag_archive.py</code> / <code>rag_cli.py</code>)</td>
+                            <td><span class="badge badge-det">Deterministisch</span></td>
+                            <td>Lokale TF-IDF-index over gepubliceerde posts en lokale artefacten. Geen embeddings. <code>corpus-inventaris.md</code> is het vangnet.</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Worker</strong> (<code>scripts/worker.py</code>)</td>
+                            <td><span class="badge badge-agent">Execution plane</span></td>
+                            <td>Pakt één post met <code>status: running</code>, draait <code>claude -p</code> op de brief, roept <code>complete</code> aan. Roept nooit <code>approve</code> aan.</td>
+                        </tr>
+                        <tr>
                             <td><strong>Onderzoek &amp; Outline</strong> (`blogpost-onderzoeker.md`)</td>
                             <td><span class="badge badge-agent">Agentisch</span></td>
                             <td>Gedreven door <strong>Opus</strong>. Analyseert eerdere blogs voor context, doet web-onderzoek en structureert de hoofdlijnen van de post.</td>
@@ -921,12 +1043,12 @@
                         <tr>
                             <td><strong>Stijloordeel</strong> (`stijl-check.md`)</td>
                             <td><span class="badge badge-agent">Agentisch</span></td>
-                            <td>Gedreven door <strong>Haiku</strong>. Evalueert superlatieven, negatief-eerst-zinnen en de onderbouwing van scherpe claims.</td>
+                            <td>Gedreven door <strong>Sonnet</strong>. Evalueert superlatieven, negatief-eerst-zinnen en de onderbouwing van scherpe claims. Schrijft <code>stijlcheck.md</code>.</td>
                         </tr>
                         <tr>
                             <td><strong>Leesbaarheidscontrole</strong> (`leesbaarheid-check.md`)</td>
                             <td><span class="badge badge-agent">Agentisch</span></td>
-                            <td>Gedreven door <strong>Haiku</strong>. Toetst zinslengte, ritme en leesbaarheid om te voorkomen dat stijl-correcties tot een houterige tekst leiden.</td>
+                            <td>Gedreven door <strong>Sonnet</strong>. Tegenwicht van de stijl-check: toetst of het nog als betoog leest. Schrijft <code>leesbaarheid.md</code>.</td>
                         </tr>
                         <tr>
                             <td><strong>Kritische Feedback</strong> (`grok-reviewer.md`)</td>
@@ -936,12 +1058,12 @@
                         <tr>
                             <td><strong>Reeks-consistentie</strong> (`reeks-consistentie-check.md`)</td>
                             <td><span class="badge badge-agent">Agentisch</span></td>
-                            <td>Gedreven door <strong>Haiku</strong>. Vergelijkt de draft met eerdere delen van dezelfde reeks: titel-overlap met de reeksnaam, terminologie-consistentie en verwijzingen.</td>
+                            <td>Gedreven door <strong>Sonnet</strong>. Vergelijkt de draft met eerdere delen van dezelfde reeks. Schrijft <code>reeks-check.md</code>.</td>
                         </tr>
                         <tr>
-                            <td><strong>Synthese &amp; Keuzes</strong> (`blogpost-onderzoeker.md`)</td>
+                            <td><strong>Synthese</strong> (`blogpost-onderzoeker.md`)</td>
                             <td><span class="badge badge-agent">Agentisch</span></td>
-                            <td>Gedreven door <strong>Opus</strong>. Weegt de Grok-feedback af en stelt concrete tekstaanpassingen voor ter beoordeling van de auteur.</td>
+                            <td>Gedreven door <strong>Opus</strong>. Legt per punt neutrale varianten voor. Geen advies. Edwin beslist met <code>decide</code>.</td>
                         </tr>
                         <tr>
                             <td><strong>Visuals</strong> (`blogpost-visuals.md`)</td>
@@ -951,7 +1073,12 @@
                         <tr>
                             <td><strong>Bron- &amp; Feitencheck</strong> (`bron-check.md`)</td>
                             <td><span class="badge badge-agent">Agentisch</span></td>
-                            <td>Gedreven door <strong>Haiku / Sonnet</strong>. Verifieert elk citaat en elke bewerende claim direct tegen de originele met <code>haal_bron.py</code> opgehaalde tekst.</td>
+                            <td>Gedreven door <strong>Opus</strong>. Verifieert elk citaat tegen de met <code>haal_bron.py</code> opgehaalde tekst. Schrijft <code>feitencheck.md</code>.</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Archief-consistentie</strong> (`archief-consistentie-check.md`)</td>
+                            <td><span class="badge badge-agent">Agentisch</span></td>
+                            <td>Gedreven door <strong>Sonnet</strong>. Zoekt inhoudelijke tegenspraak in het archief. Alleen een bevinding met beide citaten telt.</td>
                         </tr>
                         <tr>
                             <td><strong>Deploy als concept</strong> (`blogpost-deploy.md`)</td>
@@ -967,27 +1094,124 @@
                 <h2>Staat, gates &amp; modus</h2>
                 <div class="grid-2">
                     <div class="card">
-                        <h3>Control Plane in Code: `scripts/orchestrate.py`</h3>
-                        <p>De fasevolgorde en status worden niet langer door een LLM-prompt op de hoofdthread geïnterpreteerd. Een strikte Python CLI (<code>scripts/orchestrate.py</code>) fungeert als de <strong>Control Plane</strong>.</p>
-                        <p>De Host (Claude Code, AGY CLI of Grok) roept <code>python3 scripts/orchestrate.py next</code> aan om de eerstvolgende toegestane actie en `agent_brief` op te vragen. Illegale fasensprongen worden door de CLI met een exitcode 2 geblokkeerd.</p>
+                        <h3>Control plane: WorkflowService</h3>
+                        <p>Fasevolgorde en status zitten in <code>scripts/orchestrator/</code>. <code>orchestrate.py</code> en <code>server.py</code> zijn dunne schillen. Illegale stappen geven exitcode 2 of HTTP 4xx.</p>
+                        <p><code>next</code> levert de eerstvolgende actie plus <code>agent_brief</code>. De worker of een host voert die brief uit. De control plane zelf schrijft geen draft.</p>
                     </div>
                     <div class="card">
-                        <h3>Enige bron van waarheid: `state.json`</h3>
-                        <p>Elk artikel heeft een machine-leesbaar <code>posts/[slug]/state.json</code> manifest. Dit is de <strong>enige bron van waarheid</strong> over de actieve fase, status, artefacten en vlaggen.</p>
-                        <p>Het bestand <code>state.md</code> dient uitsluitend nog als menselijk beslislogboek en reeks-context. De statustabel wordt dynamisch gegenereerd via <code>python3 scripts/orchestrate.py table</code>.</p>
+                        <h3>Enige bron van waarheid: state.json</h3>
+                        <p>Elk artikel heeft <code>posts/[slug]/state.json</code>. Dat is de enige bron over fase, status, artefacten en vlaggen. <code>state.md</code> is logboek, geen waarheid.</p>
+                        <p>De statustabel komt uit <code>orchestrate.py table</code> (zelfde probe als de UI). Bevindingen uit <code>findings</code>, afgeleid bij het opvragen, niet opgeslagen.</p>
                     </div>
                     <div class="card">
-                        <h3>Drie Harde Gates (altijd menselijk akkoord)</h3>
-                        <p>De meeste fasen zijn omkeerbaar en safe-to-fail (soft gates). Drie fasen zijn echter <strong>harde gates</strong> die ook in <code>yolo_mode</code> de keten altijd stoppen:</p>
-                        <p><strong>1. Synthese (Fase 4):</strong> Redactionele keuzes raken de authentieke stem van de auteur.<br>
-                           <strong>2. Feitencheck (Fase 5b):</strong> Citaten en bronverwijzingen moeten feitelijk klopen vóór vrijgave.<br>
-                           <strong>3. Deploy (Fase 6):</strong> Externe upload vereist expliciete <code>approve --deploy</code>.</p>
+                        <h3>Drie gate-typen (ADR-010)</h3>
+                        <p><strong>Hard</strong> — altijd de mens: <code>intake</code>, <code>synthesis</code>, <code>deploy</code>.</p>
+                        <p><strong>Voorwaardelijk</strong> — stopt alleen bij <code>blocking</code>, ook in yolo: <code>style</code>, <code>series</code>, <code>factcheck</code>, <code>alignment</code>. <code>advisory</code> houdt de keten niet tegen. Ontbreekt het json-blok, dan is de staat <code>onleesbaar</code>.</p>
+                        <p><strong>Zacht</strong> — mag in yolo automatisch door: <code>outline</code>, <code>draft</code>, <code>critique</code>, <code>visuals</code>.</p>
                     </div>
                     <div class="card">
-                        <h3>yolo_mode &amp; Expliciete Vlaggen (Flags)</h3>
-                        <p>In <code>yolo_mode: true</code> doorloopt de CLI soft gates (outline, draft, stijl, reeks, critique, visuals) automatisch via <code>yolo_advanced</code>.</p>
-                        <p>Afwijkingen van de lineaire keten worden <strong>nooit stilzwijgend</strong> toegestaan, maar expliciet vastgelegd als CLI-vlaggen: <code>skip_synthesis</code>, <code>defer_critique</code>, <code>skip_factcheck</code>.</p>
+                        <h3>yolo, vlaggen, revisie</h3>
+                        <p>In <code>yolo_mode</code> schuiven zachte gates door via <code>yolo_advanced</code>. Voorwaardelijke gates zonder blocking schuiven ook zonder yolo door.</p>
+                        <p>Named exceptions, nooit stil: <code>skip_synthesis</code>, <code>defer_critique</code>, <code>skip_factcheck</code>. Na het lezen in WordPress: <code>revisie</code> legt opmerkingen vast; open punten houden de volgende deploy tegen. <code>herzien</code> zet de post terug naar draft.</p>
                     </div>
+                </div>
+            </section>
+
+            <!-- 3a. Keten testen vanuit de terminal -->
+            <section id="terminal">
+                <h2>Keten testen vanuit de terminal</h2>
+                <p>Alles vanuit de repo-root. De venv is alleen Python; Claude Code hangt aan je macOS-login, niet aan <code>.venv</code>. De worker roept nooit <code>approve</code> aan.</p>
+
+                <div class="tabs" role="tablist">
+                    <button type="button" class="tab active" data-tab="venv">1. Venv en tests</button>
+                    <button type="button" class="tab" data-tab="fase">2. Eén fase</button>
+                    <button type="button" class="tab" data-tab="gates">3. Gates en oordeel</button>
+                    <button type="button" class="tab" data-tab="web">4. Web UI</button>
+                </div>
+
+                <div id="tab-venv" class="tab-panel active">
+                    <h3>Eenmalig opzetten</h3>
+                    <pre class="cmd"><span class="prompt"># in de repo-root</span>
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+cp .env_template .env   <span class="cmt"># daarna GROK_API_KEY en WP_* invullen</span></pre>
+
+                    <h3>Control plane groen?</h3>
+                    <pre class="cmd">.venv/bin/python -m pytest -q
+<span class="cmt"># verwacht: alle tests groen (129 in augustus 2026)</span></pre>
+
+                    <h3>Claude-login (voor de worker)</h3>
+                    <pre class="cmd">claude auth status --text
+claude -p "Reply with exactly PONG." --output-format json --tools "" --safe-mode</pre>
+                    <p class="note">De rooktest mag <code>--safe-mode</code> en <code>--tools ""</code> hebben. Een echte fase niet: dan zijn de subagents in <code>.claude/agents/</code> nodig. Gebruik nooit <code>--bare</code>: die weigert de keychain en eist een API-key.</p>
+                </div>
+
+                <div id="tab-fase" class="tab-panel">
+                    <h3>Nieuwe oefenpost, of een bestaande</h3>
+                    <pre class="cmd"><span class="cmt"># nieuwe post (let op: --titel, niet --title)</span>
+.venv/bin/python scripts/orchestrate.py init --slug test-keten --titel "Test keten"
+
+.venv/bin/python scripts/orchestrate.py status --post test-keten
+.venv/bin/python scripts/orchestrate.py table --post test-keten
+.venv/bin/python scripts/orchestrate.py next --post test-keten</pre>
+
+                    <h3>Eén fase: run, worker, complete</h3>
+                    <p><code>run</code> zet alleen <code>running</code> en geeft de brief. Daarna voert de worker Claude uit en roept zelf <code>complete</code> aan.</p>
+                    <pre class="cmd">.venv/bin/python scripts/orchestrate.py run outline --post test-keten
+
+<span class="cmt"># eerst kijken, geen Claude</span>
+.venv/bin/python scripts/worker.py --once --dry-run --post test-keten
+
+<span class="cmt"># daarna echt: schrijft outline.md via het Pro-abonnement</span>
+.venv/bin/python scripts/worker.py --once --post test-keten</pre>
+                    <p class="note">Er staat al een post op <code>running</code>: <code>intentie-3-waarom-intentie-zich-verstopt</code> (outline). Zonder <code>--post</code> pakt <code>--once</code> die. Timeout standaard 30 minuten.</p>
+
+                    <h3>Als Claude faalt</h3>
+                    <pre class="cmd">.venv/bin/python scripts/orchestrate.py status --post test-keten
+<span class="cmt"># status=blocked, blocked_reason gevuld</span>
+.venv/bin/python scripts/orchestrate.py reject --post test-keten --note "opnieuw"
+.venv/bin/python scripts/orchestrate.py doctor --post test-keten</pre>
+                </div>
+
+                <div id="tab-gates" class="tab-panel">
+                    <h3>Na complete: gate of volgende fase</h3>
+                    <pre class="cmd"><span class="cmt"># zachte / harde gate die open staat</span>
+.venv/bin/python scripts/orchestrate.py approve --post test-keten --note "akkoord"
+.venv/bin/python scripts/orchestrate.py reject --post test-keten --note "opnieuw schrijven"
+
+<span class="cmt"># yolo: zachte gates schuiven zelf door</span>
+.venv/bin/python scripts/orchestrate.py set-flag yolo_mode true --post test-keten</pre>
+
+                    <h3>Synthese: per punt beslissen</h3>
+                    <pre class="cmd">.venv/bin/python scripts/orchestrate.py synthesis --post SLUG
+.venv/bin/python scripts/orchestrate.py decide --post SLUG --punt p1 --keuze verwerpen --motivering "raakt de these niet"
+.venv/bin/python scripts/orchestrate.py complete synthesis --post SLUG</pre>
+
+                    <h3>Bevindingen, revisie, deploy</h3>
+                    <pre class="cmd">.venv/bin/python scripts/orchestrate.py findings --post SLUG
+
+.venv/bin/python scripts/orchestrate.py revisie --post SLUG --waar "sectie 6" --opmerking "slot mist een conclusie"
+.venv/bin/python scripts/orchestrate.py revisie --post SLUG --afgehandeld r1 --hoe "slot herschreven"
+.venv/bin/python scripts/orchestrate.py herzien --post SLUG
+
+.venv/bin/python scripts/orchestrate.py approve --deploy --post SLUG
+.venv/bin/python scripts/orchestrate.py run deploy --post SLUG
+.venv/bin/python scripts/worker.py --once --post SLUG</pre>
+                    <p class="note">Open revisiepunten en een verouderde feitencheck of archiefcheck houden <code>run deploy</code> tegen. Dat is bedoeld.</p>
+                </div>
+
+                <div id="tab-web" class="tab-panel">
+                    <h3>Command Center in de browser</h3>
+                    <pre class="cmd">.venv/bin/python -m uvicorn server:app --reload --port 8000
+<span class="cmt"># daarna http://127.0.0.1:8000</span></pre>
+                    <p>In de UI: <code>run</code> klikken zet de fase op <code>running</code>. Zonder worker blijft het daar. In een tweede terminal:</p>
+                    <pre class="cmd">.venv/bin/python scripts/worker.py --once
+<span class="cmt"># of blijven luisteren (geen productie-daemon)</span>
+.venv/bin/python scripts/worker.py --watch --interval 30</pre>
+
+                    <h3>RAG los</h3>
+                    <pre class="cmd">.venv/bin/python scripts/rag_cli.py search "intentie" --top-k 12</pre>
+                    <p class="note">Herindexeren van het archief hoort in de Settings-tab van de UI (met <code>ADMIN_TOKEN</code>), of via de API. Niet synchroon in een zoekopdracht als je WordPress ook wilt meenemen.</p>
                 </div>
             </section>
 
@@ -1053,84 +1277,40 @@
                 
                 <pre class="dir-tree">
 <span class="folder">01. Blogpost agents/</span>
-├── <span class="folder">.claude/</span>                      <span class="comment"># AI-assistent configuratie &amp; agents (onder versiebeheer)</span>
-│   ├── <span class="folder">agents/</span>                   <span class="comment"># Definities van subagents</span>
-│   │   ├── <span class="file">blogpost-deploy.md</span>
-│   │   ├── <span class="file">blogpost-onderzoeker.md</span>
-│   │   ├── <span class="file">blogpost-schrijver.md</span>
-│   │   ├── <span class="file">blogpost-visuals.md</span>
-│   │   ├── <span class="file">bron-check.md</span>          <span class="comment"># Bron- en feitencheck (fase 5b)</span>
-│   │   ├── <span class="file">grok-reviewer.md</span>
-│   │   ├── <span class="file">leesbaarheid-check.md</span>  <span class="comment"># Leesbaarheids- en zinslengtecontrole (fase 2b)</span>
-│   │   ├── <span class="file">reeks-consistentie-check.md</span>
-│   │   └── <span class="file">stijl-check.md</span>
+├── <span class="folder">.claude/</span>
+│   ├── <span class="folder">agents/</span>                   <span class="comment"># 10 subagents, incl. archief-consistentie-check</span>
 │   ├── <span class="folder">mcp/</span>                      <span class="comment"># Grok MCP server &amp; persona</span>
-│   │   ├── <span class="file">grok-reviewer-persona.md</span>
-│   │   └── <span class="file">grok_review_server.py</span>
-│   └── <span class="folder">skills/</span>
-│       └── <span class="folder">blogpost-workflow/</span>   <span class="comment"># Hoofd-orkestrator skill</span>
-│           ├── <span class="file">SKILL.md</span>
-│           └── <span class="folder">templates/</span>
-│               └── <span class="file">state.template.json</span>
-├── <span class="folder">adr/</span>                           <span class="comment"># Architectural Decision Records (ADR's) &amp; Ontwerpdocumenten</span>
-│   ├── <span class="file">00-overall-design-blogpost-webui.md</span> <span class="comment"># Overkoepelend Architectuur &amp; Design Document</span>
-│   ├── <span class="file">001-strict-deterministic-control-plane.md</span>
-│   ├── <span class="file">002-modular-orchestrator-service-package.md</span>
-│   ├── <span class="file">003-two-phase-interactive-yolo-workflow.md</span>
-│   ├── <span class="file">004-hard-soft-quality-gates-strategy.md</span>
-│   ├── <span class="file">005-bulk-research-protocol-and-source-fetching.md</span>
-│   ├── <span class="file">006-local-rag-vectorstore-blog-archive.md</span>
-│   ├── <span class="file">007-archival-alignment-validation-agent.md</span>
-│   └── <span class="file">README.md</span>
-├── <span class="folder">posts/</span>                         <span class="comment"># Actieve werkmappen per post (genegeerd in Git)</span>
-│   └── <span class="folder">[slug]/</span>                  <span class="comment"># Bevat state.json (bron van waarheid), state.md, outline.md, draft.md, grok-feedback.md, synthese.md, feitencheck.md, visuals/</span>
-├── <span class="folder">reference/</span>                     <span class="comment"># Kennisbank voor stijlgids en handleidingen</span>
-│   ├── <span class="file">deploy.md</span>
-│   ├── <span class="file">externe-bronnen.md</span>
-│   ├── <span class="file">huisstijl.md</span>
-│   └── <span class="file">leesbaarheid-band.json</span>     <span class="comment"># Referentiewaarden leesbaarheidsindex</span>
-├── <span class="folder">scripts/</span>                       <span class="comment"># Deterministische scripts &amp; Control Plane Package</span>
-│   ├── <span class="folder">orchestrator/</span>             <span class="comment"># Modulair Python Package (Service API, Engine, Models, Probes)</span>
-│   │   ├── <span class="file">briefs.py</span>
-│   │   ├── <span class="file">constants.py</span>
-│   │   ├── <span class="file">engine.py</span>
-│   │   ├── <span class="file">formatters.py</span>
-│   │   ├── <span class="file">probes.py</span>
-│   │   ├── <span class="file">repository.py</span>
-│   │   └── <span class="file">service.py</span>            <span class="comment"># WorkflowService API (CLI &amp; Web UI)</span>
-│   ├── <span class="file">deploy_post.py</span>            <span class="comment"># Gutenberg compiler &amp; WP REST upload</span>
-│   ├── <span class="file">haal_bron.py</span>              <span class="comment"># Web &amp; PDF brontekst extractor</span>
-│   ├── <span class="file">leesbaarheid.py</span>           <span class="comment"># Zinslengte- &amp; leesbaarheidsberekening</span>
-│   ├── <span class="file">orchestrate.py</span>            <span class="comment"># Strikte CLI State Machine (Dunne CLI Wrapper)</span>
-│   ├── <span class="file">render_svg.py</span>             <span class="comment"># SVG naar PNG Headless Chrome renderer</span>
-│   └── <span class="file">stijl_lexicaal.py</span>         <span class="comment"># Lexicale Grep-stijlcontroles</span>
-├── <span class="folder">templates/</span>                     <span class="comment"># Generieke sjablonen voor nieuwe posts</span>
-│   └── <span class="file">state.template.json</span>
-├── <span class="folder">tests/</span>                         <span class="comment"># Test suite voor Control Plane &amp; Service API</span>
-│   ├── <span class="file">test_orchestrate.py</span>       <span class="comment"># Pytest / Unittest testsuite voor CLI</span>
-│   └── <span class="file">test_orchestrator_service.py</span> <span class="comment"># Unittest suite voor WorkflowService API</span>
-├── <span class="file">.env</span>                           <span class="comment"># Credentials &amp; Tokens (gitignored)</span>
-├── <span class="file">.env_template</span>                  <span class="comment"># Sjabloon omgevingsvariabelen (onder versiebeheer)</span>
-├── <span class="file">.gitignore</span>
-├── <span class="file">.mcp.json</span>                      <span class="comment"># MCP-serverconfig (Grok-review)</span>
-├── <span class="file">backlog-blogpost-onderwerpen.md</span> <span class="comment"># Reeks-backlog met intenties per deel</span>
-├── <span class="file">grok-review-intentie-ontwerp.md</span> <span class="comment"># Review en weging Grok feedback op intentie-ontwerp</span>
-├── <span class="file">onderzoek-intentie-gedreven-engineering.md</span> <span class="comment"># Onderzoeks- en achtergrondnotities</span>
-├── <span class="file">ontwerp_blogpost_webui.md</span>      <span class="comment"># Architectuur- &amp; uitgangspuntendocument Web UI</span>
-├── <span class="file">ontwerp-strikte-orkestrator.md</span>  <span class="comment"># Architectuurontwerp CLI Control Plane</span>
-├── <span class="file">ontwerp-uitgangspunten-blogpost-workflow.md</span> <span class="comment"># Oorspronkelijke briefing &amp; architectuur</span>
-└── <span class="file">opzet_blogpost_workflow.html</span>     <span class="comment"># Deze documentatie</span></pre>
+│   └── <span class="folder">skills/blogpost-workflow/</span> <span class="comment"># Host-skill; template is state.template.md</span>
+├── <span class="folder">adr/</span>                           <span class="comment"># 00–010; 009 samengevoegd in 007; 011 nog open</span>
+├── <span class="folder">posts/</span>                         <span class="comment"># gitignored; state.json, draft.md, rapporten, revisie.md</span>
+├── <span class="folder">reference/</span>                     <span class="comment"># huisstijl.md, deploy.md, corpus-inventaris.md</span>
+├── <span class="folder">scripts/</span>
+│   ├── <span class="folder">orchestrator/</span>             <span class="comment"># WorkflowService, engine, verdicts, revision, rag</span>
+│   ├── <span class="file">orchestrate.py</span>            <span class="comment"># dunne CLI</span>
+│   ├── <span class="file">worker.py</span>                 <span class="comment"># execution plane: claude -p, nooit approve</span>
+│   ├── <span class="file">rag_cli.py</span>
+│   ├── <span class="file">deploy_post.py</span>
+│   ├── <span class="file">haal_bron.py</span>
+│   ├── <span class="file">render_svg.py</span>
+│   ├── <span class="file">stijl_lexicaal.py</span>
+│   └── <span class="file">leesbaarheid.py</span>
+├── <span class="folder">web/</span>                           <span class="comment"># vanilla JS Command Center</span>
+├── <span class="folder">tests/</span>                         <span class="comment"># orchestrate, service, rag, server, worker</span>
+├── <span class="file">server.py</span>                      <span class="comment"># FastAPI over WorkflowService</span>
+├── <span class="file">requirements.txt</span>
+├── <span class="file">.env</span> / <span class="file">.env_template</span>
+└── <span class="file">opzet_blogpost_workflow.html</span>     <span class="comment"># deze pagina</span>
+</pre>
             </section>
 
             <!-- 5. Reflectie op de Executie-Engine -->
             <section id="reflectie">
                 <h2>Reflectie op de Executie-Engine</h2>
                 <div class="card">
-                    <h3>Host-Agnostische Control Plane (`orchestrate.py`)</h3>
-                    <p>Door de controlelaag (faseovergangen, staat en gates) los te koppelen van de LLM-prompt en onder te brengen in een deterministische Python CLI (<code>scripts/orchestrate.py</code>), is de workflow in v1 <strong>volledig onafhankelijk van het specifieke AI-platform</strong> geworden.</p>
-                    
-                    <p><strong>Compatibiliteit met Claude Code, <code>agy</code> (Antigravity CLI) en Grok-Builder:</strong><br>
-                    De Host-omgeving (of dat nu Claude Code, Google Antigravity/Gemini of Grok-Builder is) roept simpelweg <code>orchestrate.py next</code> en <code>orchestrate.py run &lt;phase&gt;</code> aan. De Python-code bepaalt strikt welke stap toegestaan is en print een gestructureerde <code>agent_brief</code>. De Host hoeft uitsluitend de aangegeven subagent of prompt uit te voeren. Hierdoor kunnen alle drie de engines (Claude, AGY, Grok) exact dezelfde robuuste keten aandrijven zonder risico op hallucineerde fase-overgangen of overgeslagen stappen.</p>
+                    <h3>Control plane is host-agnostisch, de worker niet</h3>
+                    <p>De control plane blijft platformonafhankelijk: CLI en FastAPI delen <code>WorkflowService</code>. Elke host mag <code>next</code> / <code>run</code> / <code>complete</code> aanroepen. De execution plane die er nu is, <code>scripts/worker.py</code>, is bewust Claude Code: die hergebruikt de tien agentdefinities en het Pro-abonnement.</p>
+                    <p>De skill <code>blogpost-workflow</code> is nog de host in een interactieve Claude-sessie. De worker doet hetzelfde pad zonder TTY, en zonder <code>approve</code>. ADR-011 moet die laag vastleggen; die is nog niet geschreven.</p>
+                    <p>Open: Claude-login op een headless server, daarna pas Docker. Eerst de keten lokaal in de venv, zie <a href="#terminal">Keten testen</a>.</p>
                 </div>
             </section>
         </main>
@@ -1155,6 +1335,17 @@
             // Track all sections
             document.querySelectorAll('section').forEach(section => {
                 observer.observe(section);
+            });
+
+            document.querySelectorAll('.tab').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const name = btn.getAttribute('data-tab');
+                    document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+                    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+                    btn.classList.add('active');
+                    const panel = document.getElementById('tab-' + name);
+                    if (panel) panel.classList.add('active');
+                });
             });
         });
     </script>
