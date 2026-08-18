@@ -757,6 +757,37 @@ header {
   margin-bottom: 0.6rem;
 }
 
+.synthesis-optie.is-voorstel {
+  padding: 0.45rem 0.55rem;
+  border-radius: var(--radius-sm);
+  background: rgba(16, 185, 129, 0.1);
+}
+
+.synthesis-voorstel-badge {
+  display: inline-block;
+  margin-left: 0.4rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  background: #059669;
+  color: white;
+  font-size: 0.7rem;
+  font-weight: 700;
+  vertical-align: middle;
+}
+
+.synthesis-voorstel-waarom {
+  display: block;
+  margin-top: 0.3rem;
+  color: var(--text-primary);
+  font-style: italic;
+}
+
+.synthesis-acties {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
 .tab-btn.active {
   color: var(--accent-primary);
   border-bottom-color: var(--accent-primary);

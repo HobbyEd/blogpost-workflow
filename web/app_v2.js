@@ -977,14 +977,22 @@ function renderSynthesisView(container, view) {
 
 function renderSynthesisPoint(punt) {
   const beslist = !!(punt.keuze);
+  const voorstel = punt.voorstel || {};
+  const voorstelKey = voorstel.key || '';
   const opties = (punt.opties || []).map(o => {
-    const checked = punt.keuze === o.key ? ' checked' : '';
+    const isVoorstel = !!(voorstelKey && o.key === voorstelKey);
+    const checked = punt.keuze === o.key || (!beslist && isVoorstel) ? ' checked' : '';
+    const badge = isVoorstel ? '<span class="synthesis-voorstel-badge">voorstel</span>' : '';
+    const waarom = isVoorstel && voorstel.waarom
+      ? `<span class="synthesis-voorstel-waarom">${escapeHTML(voorstel.waarom)}</span>`
+      : '';
     return `
-      <label class="synthesis-optie">
+      <label class="synthesis-optie ${isVoorstel ? 'is-voorstel' : ''}">
         <input type="radio" name="syn-${escapeHTML(punt.id)}" value="${escapeHTML(o.key)}"${checked}${beslist ? ' disabled' : ''}>
         <span>
-          <strong>${escapeHTML(o.key)}</strong>
+          <strong>${escapeHTML(o.key)}</strong>${badge}
           <span class="synthesis-gevolg">${escapeHTML(o.gevolg)}</span>
+          ${waarom}
         </span>
       </label>`;
   }).join('');
@@ -992,11 +1000,17 @@ function renderSynthesisPoint(punt) {
     punt.wat_de_draft_nu_zegt ? `<p><strong>Draft nu:</strong> ${escapeHTML(punt.wat_de_draft_nu_zegt)}</p>` : '',
     punt.wat_het_archief_zegt ? `<p><strong>Archief:</strong> ${escapeHTML(punt.wat_het_archief_zegt)}</p>` : '',
   ].join('');
+  const overnemen = (!beslist && voorstelKey)
+    ? `<button class="btn btn-success" type="button" onclick="executeSynthesisDecide('${escapeHTML(punt.id)}', '${escapeHTML(voorstelKey)}')">Neem voorstel over</button>`
+    : '';
   const actie = beslist
     ? `<p class="synthesis-besluit">Gekozen: <strong>${escapeHTML(punt.keuze)}</strong> — ${escapeHTML(punt.motivering || '')}</p>`
     : `
       <textarea id="syn-motief-${escapeHTML(punt.id)}" class="form-control" rows="2" placeholder="Toelichting (niet verplicht)"></textarea>
-      <button class="btn" type="button" onclick="executeSynthesisDecide('${escapeHTML(punt.id)}')">Leg vast</button>
+      <div class="synthesis-acties">
+        ${overnemen}
+        <button class="btn" type="button" onclick="executeSynthesisDecide('${escapeHTML(punt.id)}')">Leg vast</button>
+      </div>
     `;
   return `
     <article class="synthesis-card ${beslist ? 'is-done' : ''}" id="syn-${escapeHTML(punt.id)}">
@@ -1012,11 +1026,12 @@ function renderSynthesisPoint(punt) {
   `;
 }
 
-async function executeSynthesisDecide(puntId) {
+async function executeSynthesisDecide(puntId, forcedKey) {
   if (!activeSlug) return;
   const gekozen = document.querySelector(`input[name="syn-${puntId}"]:checked`);
   const veld = document.getElementById(`syn-motief-${puntId}`);
-  if (!gekozen) {
+  const keuze = forcedKey || (gekozen && gekozen.value);
+  if (!keuze) {
     showNotification('Kies eerst een variant.', 'warning');
     return;
   }
@@ -1025,9 +1040,9 @@ async function executeSynthesisDecide(puntId) {
     await fetchJSON(`/api/posts/${activeSlug}/synthesis/decide`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ punt: puntId, keuze: gekozen.value, motivering }),
+      body: JSON.stringify({ punt: puntId, keuze, motivering }),
     });
-    showNotification(`${puntId}: ${gekozen.value} vastgelegd.`, 'success');
+    showNotification(`${puntId}: ${keuze} vastgelegd.`, 'success');
     await loadPostDetail(activeSlug, false);
     showTab('synthesis');
   } catch (err) {

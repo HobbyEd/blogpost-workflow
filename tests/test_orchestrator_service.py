@@ -825,6 +825,43 @@ class TestSyntheseBeslismoment(ServiceTestBase):
         self.assertEqual(len(regels), 1)
         self.assertIn("verwerpen", regels[0]["note"])
 
+    def test_voorstel_wordt_meegelezen(self) -> None:
+        tekst = """# Synthese
+
+```json
+{"points": [
+  {"id": "p1", "punt": "Iets",
+   "opties": [
+     {"key": "aannemen", "gevolg": "meer tekst"},
+     {"key": "verwerpen", "gevolg": "blijft"}
+   ],
+   "voorstel": {"key": "verwerpen", "waarom": "Groeit anders zonder noodzaak."}}
+]}
+```
+"""
+        pdir = self._op_synthese("syn-voorstel", tekst)
+        res = self.service.get_synthesis(post_dir=pdir)
+        self.assertEqual(res["points"][0]["voorstel"]["key"], "verwerpen")
+        self.assertIn("Groeit", res["points"][0]["voorstel"]["waarom"])
+
+    def test_onbekend_voorstel_wordt_genegeerd(self) -> None:
+        tekst = """# Synthese
+
+```json
+{"points": [
+  {"id": "p1", "punt": "Iets",
+   "opties": [
+     {"key": "aannemen", "gevolg": "meer tekst"},
+     {"key": "verwerpen", "gevolg": "blijft"}
+   ],
+   "voorstel": {"key": "niet-bestaand", "waarom": "x"}}
+]}
+```
+"""
+        pdir = self._op_synthese("syn-voorstel-fout", tekst)
+        res = self.service.get_synthesis(post_dir=pdir)
+        self.assertNotIn("voorstel", res["points"][0])
+
     def test_overzicht_telt_verworpen_punten(self) -> None:
         pdir = self._op_synthese("syn-telling", SYNTHESE_MET_PUNT)
         self.service.decide_point(

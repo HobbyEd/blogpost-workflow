@@ -302,9 +302,13 @@ met de hand opnieuw moesten en waar het misgaan het duurst is.
    het beslismoment, geen uitvoeringsfout.
 
    Drie eisen uit 3.3 zijn daarmee mechanisch afgedwongen in plaats van opgeschreven:
-   varianten in plaats van een advies, verwerpen even zichtbaar als aannemen, en beslissen
-   per punt. Voor de vierde eis, dat de agent neutraal voorlegt, is er geen veld voor een
-   advies meer; de brief zegt het er expliciet bij.
+   varianten met gevolg, verwerpen even zichtbaar als aannemen, en beslissen per punt.
+
+   Bijwerking 18 augustus: elk punt mag een `voorstel` (key + waarom) hebben. Dat is
+   zichtbaar in de UI en voorgeselecteerd, maar het is geen besluit. *Neem voorstel over*
+   legt de keuze pas vast. De brief zegt: stel de variant voor die de tekst niet langer
+   maakt, tenzij het punt het bestaansrecht raakt of de outline een feitelijk gat dekt.
+   Zo blijft het advies een verificatie, geen automatische groei.
 
    **Wat hier niet in zit:** de fysieke verhuizing van `synthesis` naar het Oordelen-blok.
    Die vraagt de lus uit stap 6 (opmerkingen na het lezen voeden een nieuwe synthese-ronde),

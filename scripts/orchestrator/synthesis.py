@@ -9,11 +9,12 @@ Daar zit een systematische druk achter. Grok becommentarieert per sectie, dus zi
 gaan over hoe een sectie beter kan, niet over of ze moet bestaan. Een synthese die per punt
 een variant aanbeveelt, vertaalt dat in aanpassingen. Elke ronde maakt de tekst langer.
 
-Daarom drie dingen, mechanisch afgedwongen in plaats van opgeschreven als voornemen:
+Daarom vier dingen, mechanisch afgedwongen in plaats van opgeschreven als voornemen:
 
-1. De agent legt de varianten **neutraal** voor met hun gevolg. Geen aanbeveling.
+1. De agent legt de varianten voor met hun gevolg.
 2. **Verwerpen is bij elk punt een optie**, even zichtbaar als aannemen.
 3. De auteur beslist **per punt**. Een motivering mag, is niet verplicht.
+4. Een **voorstel** mag (key + waarom), maar is geen besluit. De auteur verifieert.
 """
 
 from __future__ import annotations
@@ -102,6 +103,9 @@ def _normalize(item: Any, idx: int) -> dict[str, Any]:
         tekst = str(item.get(veld) or "").strip()
         if tekst:
             extra[veld] = tekst
+    voorstel = _normalize_voorstel(item.get("voorstel"), genormaliseerd)
+    if voorstel:
+        extra["voorstel"] = voorstel
     return {
         "id": str(item["id"]).strip(),
         "bron": str(item.get("bron") or "grok").strip(),
@@ -110,6 +114,22 @@ def _normalize(item: Any, idx: int) -> dict[str, Any]:
         "opties": genormaliseerd,
         **extra,
     }
+
+
+def _normalize_voorstel(ruw: Any, opties: list[dict[str, str]]) -> dict[str, str] | None:
+    """Lees een optioneel voorstel. Onbekende key wordt genegeerd, geen fout."""
+    geldig = {o["key"] for o in opties}
+    if isinstance(ruw, str):
+        key = ruw.strip()
+        waarom = ""
+    elif isinstance(ruw, dict):
+        key = str(ruw.get("key") or "").strip()
+        waarom = str(ruw.get("waarom") or "").strip()
+    else:
+        return None
+    if key not in geldig:
+        return None
+    return {"key": key, "waarom": waarom}
 
 
 def read_points(post_dir: str) -> list[dict[str, Any]]:

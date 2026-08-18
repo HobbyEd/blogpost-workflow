@@ -73,6 +73,19 @@ Schrijf `posts/<slug>/outline.md` met:
 
 Houd het bondig. De outline stuurt de draft; hij is niet zelf de draft.
 
+## Wanneer je een synthese schrijft
+
+Je weegt dan Grok-kritiek, niet een nieuwe outline. Schrijf `posts/<slug>/synthese.md`
+met een json-blok `points`. Per punt: id, punt, raakt, opties (minstens twee, altijd
+inclusief `verwerpen`), en **voorstel** `{ "key": "<een van de opties>", "waarom": "…" }`.
+
+Het voorstel is geen besluit. Edwin verifieert het. Kies de variant die de tekst niet
+langer maakt, tenzij het punt het bestaansrecht van een sectie raakt (`schrappen`) of de
+draft een feitelijk gat heeft dat de outline al dekt. Grok-punten over hoe een sectie
+beter kan wijzen meestal naar verwerpen of inperken.
+
+Herschrijf `draft.md` niet.
+
 ## Afsluiting
 
 Meld kort (aan de orkestrator) welke eerdere posts je hebt gebruikt, welke bronnen
