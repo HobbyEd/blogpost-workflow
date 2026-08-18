@@ -217,8 +217,8 @@ met de hand opnieuw moesten en waar het misgaan het duurst is.
     daardoor vaker van inhoud, en de mediabibliotheek loopt vol met eerdere renders van
     dezelfde visual. Deel 2 heeft er nu twee paar staan.
   - Vier bestaande ADR's raken deels achterhaald op het punt van de gate-indeling. ADR-004
-    (harde en zachte gates) vraagt een bijwerking; ADR-003 beschrijft de stepper als een
-    lineaire bolletjesketen en moet de drie blokken gaan tonen.
+    en ADR-003 zijn op 2026-08-18 bijgewerkt op de voorwaardelijke gates, de klikbare
+    stepper en de rapporttabs.
 * **Risico's**
   - **Redigeren in wp-admin tijdens het lezen gaat verloren** bij de volgende deploy. Zie
     3.4; zolang dat niet is opgelost geldt de werkafspraak dat opmerkingen worden verzameld
@@ -290,11 +290,16 @@ met de hand opnieuw moesten en waar het misgaan het duurst is.
    eigen statustabel rendert die inmiddels van de orkestrator was afgedreven. Beide
    rechtgezet; de UI toont nu de tabel van de orkestrator.
 5. ~~De synthese omzetten naar een beslismoment per punt, met vastlegging van de keuze en
-   de motivering (3.3).~~ **Uitgevoerd 2026-08-15.** `synthese.md` opent met een json-blok
-   met `points`; elk punt heeft minstens twee varianten met hun gevolg, en `verwerpen` is
-   verplicht aanwezig. `complete synthesis` weigert zolang er punten open staan. Beslissen
-   gaat per punt met `orchestrate.py decide`, met een verplichte motivering, en komt in het
-   logboek.
+   de motivering (3.3).~~ **Uitgevoerd 2026-08-15, UI 2026-08-18.** `synthese.md` opent met
+   een json-blok met `points`; elk punt heeft minstens twee varianten met hun gevolg, en
+   `verwerpen` is verplicht aanwezig. Beslissen gaat per punt met `orchestrate.py decide`
+   of in de web-UI, met een verplichte motivering, en komt in het logboek.
+
+   Bijwerking 18 augustus: `complete synthesis` weigert **niet** meer op open punten. Een
+   geldig rapport met onbesliste punten is `waiting_gate`, geen `blocked`. `approve` weigert
+   zolang er punten open staan. Op 18 augustus zette de worker de post op `blocked` en bood
+   de UI alleen *Opnieuw* aan; die ronde leverde dezelfde vijf punten op. Open punten zijn
+   het beslismoment, geen uitvoeringsfout.
 
    Drie eisen uit 3.3 zijn daarmee mechanisch afgedwongen in plaats van opgeschreven:
    varianten in plaats van een advies, verwerpen even zichtbaar als aannemen, en beslissen
@@ -313,9 +318,40 @@ met de hand opnieuw moesten en waar het misgaan het duurst is.
 
    Getoetst op de drie echte opmerkingen bij deel 2 (Sinek eruit, visuals tekenen zuilen,
    slot mist een conclusie). Die bestonden destijds alleen in een gesprek.
+7. ~~De Richten-gate bruikbaar maken: terugsturen met een opmerking.~~ **Uitgevoerd
+   2026-08-16 / 2026-08-17.** Tot 16 augustus bestond reject in de CLI, maar de outline-gate
+   in de UI had alleen *Keur goed*. De auteur las `outline.md` terwijl de keten al op draft
+   stond, en had geen pad terug.
 
-Alle zes de stappen zijn uitgevoerd. Stap 1 tot en met 3 waren losstaand bruikbaar; vanaf
-stap 4 is de vorm van de workflow zichtbaar veranderd.
+   Drie afspraken, mechanisch:
+   - **Terug met opmerking** is reject plus `run` van dezelfde fase, met verplichte tekst.
+     De notitie landt in `gate.last_decision` en in de volgende `agent_brief` (`author_note`),
+     niet in `revisie.md`. Dat bestand blijft het oordeel na WordPress (stap 6).
+   - Eerst alleen `outline`. Andere fases blijven approve/reject. De stepper is klikbaar:
+     een afgeronde stap openen toont het artefact; op Outline verschijnt het terug-veld
+     ook als de keten al verder is.
+   - YOLO slaat deze terug-actie niet over. Hij slaat alleen het klikken over als er niets
+     te beslissen valt.
+
+   *Goedkeuren met een paar tweaks* op de draft is bewust nog geen derde knop. Dat is een
+   ander besluit dan terugsturen (herschrijf) en dan `revisie.md` (na WordPress).
+8. ~~Rapporten leesbaar maken in de detailweergave.~~ **Uitgevoerd 2026-08-17.** De tabs
+   waren hard gecodeerd (outline, draft, grok, feitencheck, archief). `stijlcheck.md`,
+   `leesbaarheid.md`, `reeks-check.md` en `synthese.md` lagen op schijf; de server las ze
+   in; de UI toonde ze niet. Wie YOLO aan had en op een blocking-gate stopte, zag alleen
+   *Keur goed* en concludeerde dat YOLO stuk was.
+
+   Eén inventaris, `PHASE_VIEW_FILES` / `build_artefact_views`: tabs volgen de bestanden
+   van de orkestrator. Een bolletje opent het rapport van die stap. Stijl toont beide
+   rapporten. Visuals is een galerij, geen broncode. Bij een voorwaardelijke gate met
+   blocking-bevinding staat boven de knoppen *waarom* hij stopt, inclusief dat YOLO deze
+   gate niet overslaat.
+
+   Het tabblad Bevindingen blijft het overzicht (telling). Vertrouwen komt van het rapport
+   zelf.
+
+Stap 1 tot en met 3 waren losstaand bruikbaar; vanaf stap 4 is de vorm van de workflow
+zichtbaar veranderd. Stap 7 en 8 maken de gates die er al waren ook bruikbaar in de UI.
 
 ## 7. Wat hierna nog open staat
 
@@ -324,7 +360,8 @@ stap 4 is de vorm van de workflow zichtbaar veranderd.
   echt opnieuw moet, maar de volgorde dwingt nog steeds een wandeling af. Dat is
   alternatief C uit §2, de afhankelijkheidsgraaf.
 - **`synthesis` staat nog onder Bouwen** in plaats van Oordelen (zie stap 5).
-- **ADR-004 en ADR-003 vragen een bijwerking** op de gate-indeling en de stepper.
+- **Draft-tweaks zijn er nog niet.** Goedkeuren mét gerichte aanpassingen is een derde
+  actie, geen hergebruik van het outline-terugpad.
 - **De metingen uit §4 moeten gaan lopen:** hoe vaak leidt Oordelen tot een revisieronde,
   en hoe vaak wordt een Grok-punt verworpen. Zonder die twee getallen is niet vast te
   stellen of deze ADR heeft gewerkt.

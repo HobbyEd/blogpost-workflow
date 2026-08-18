@@ -44,3 +44,28 @@ We hanteren een strikte classificatie van kwaliteits-poorten:
   - Hoge verwerkingssnelheid voor routinematige tussenstappen.
 * **Negatief (-)**:
   - Gebruiker moet bij de `factcheck` en `deploy` fasen altijd een actie uitvoeren of een vlag zetten.
+
+---
+
+## 5. Bijwerking 2026-08-18 (ADR-010)
+
+De tweedeling soft/hard hierboven is achterhaald. Sinds ADR-010 §3.1 en de uitvoering van
+18 augustus geldt:
+
+| Type | Fases | Wat YOLO doet |
+|---|---|---|
+| **Zacht** | outline, draft, critique, visuals | keurt goed als YOLO aanstaat |
+| **Voorwaardelijk** | style, series, factcheck, alignment | schuift door zonder blocking-bevinding, **ook zonder YOLO**; stopt bij blocking, **ook met YOLO** |
+| **Hard** | intake, synthesis, deploy | stopt altijd |
+
+`intake` is hard (Richten), niet zacht. `style` en `series` zijn geen zachte YOLO-gates
+meer: op 17 augustus stopte deel 3 bij stijl met twee blocking-bevindingen terwijl YOLO
+aanstond. Dat is de gate, geen defect.
+
+`synthesis` stopt niet meer als `blocked` omdat er punten openstaan. Een geldig
+`synthese.md` is `waiting_gate`; de auteur beslist per punt (ADR-010 §3.3). `approve`
+weigert zolang er punten open zijn.
+
+De UI toont bij een voorwaardelijke stop *waarom* (aantal blocking, de regels, dat YOLO
+deze gate niet overslaat) en opent het rapport van die stap. Zonder die zin leest *Keur
+goed* als een kapotte YOLO-schakelaar.

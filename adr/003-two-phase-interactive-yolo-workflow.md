@@ -44,3 +44,20 @@ We splitsen de gebruikerservaring op in twee duidelijke modi:
   - Maximale snelheid en automatisering tijdens de uitwerking (YOLO).
 * **Negatief (-)**:
   - De Web UI moet twee verschillende interactievormen ondersteunen (Chat UI + Stepper Dashboard).
+
+---
+
+## 5. Bijwerking 2026-08-18 (ADR-010)
+
+De stepper is geen lineaire voortgangsbalk meer.
+
+- Boven de elf bolletjes staan de drie blokken uit ADR-010 (Richten, Bouwen, Oordelen).
+- Een bolletje is klikbaar: het opent het artefact van die stap. Outline is de enige stap
+  waar je vanaf een latere fase naartoe terug kunt met een verplichte opmerking.
+- Tabs volgen de rapporten op schijf, niet een hard gecodeerde subset. Stijl, reeks,
+  synthese en visuals waren tot 17 augustus onzichtbaar terwijl de bestanden er lagen.
+- YOLO in modus 2 betekent: sla het klikken over als er niets te beslissen valt. Een
+  blocking-bevinding of een synthesepunt is wél iets te beslissen. De keten stopt dan,
+  met de reden in beeld.
+
+Modus 1 (brainstorm) is ongewijzigd.
