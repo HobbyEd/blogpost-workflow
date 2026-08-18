@@ -137,6 +137,14 @@ def get_worker() -> dict[str, Any]:
     return service.get_worker_status()
 
 
+@app.get("/api/usage")
+def get_usage(fresh: bool = False) -> dict[str, Any]:
+    """Claude-abonnementslimieten en optioneel Grok prepaid-saldo."""
+    from scripts.orchestrator.provider_usage import collect_usage
+
+    return collect_usage(use_cache=not fresh)
+
+
 @app.get("/api/posts")
 def list_posts() -> dict[str, Any]:
     """Haal de lijst op van alle actieve blogposts in de posts/ map, gesorteerd op meest recent gewijzigd (aflopend)."""

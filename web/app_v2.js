@@ -231,6 +231,7 @@ document.addEventListener('DOMContentLoaded', () => {
   loadPostsList();
   loadRagStatus();
   refreshWorkerStatus();
+  refreshUsage();
   setInterval(async () => {
     await refreshWorkerStatus();
     if (activeSlug && currentMode === 2) {
@@ -325,6 +326,7 @@ async function loadPostDetail(slug, resetTab = false) {
           showNotification(`Fase ${detail.phase} is nu ${detail.status}.`, 'info');
         }
         loadPostsList();
+        refreshUsage(true);
       }
       lastKnownPostStatus = detail.status;
     }
@@ -344,6 +346,80 @@ async function refreshWorkerStatus() {
   if (currentPostDetail) {
     renderControls(currentPostDetail.next, currentPostDetail);
   }
+}
+
+async function refreshUsage(fresh = false) {
+  const body = document.getElementById('usage-rail-body');
+  if (!body) return;
+  try {
+    const url = fresh ? '/api/usage?fresh=1' : '/api/usage';
+    const data = await fetchJSON(url);
+    body.innerHTML = renderUsageRail(data);
+  } catch (err) {
+    body.innerHTML = `<p class="usage-error">Verbruik niet geladen: ${escapeHTML(err.message)}</p>`;
+  }
+}
+
+function usageBarClass(available) {
+  if (available < 10) return 'low';
+  if (available < 30) return 'mid';
+  return '';
+}
+
+function renderUsageWindow(win) {
+  if (!win) return '<p class="usage-error">Geen cijfers.</p>';
+  const available = Number(win.available_pct);
+  const used = Number(win.used_pct);
+  const klass = usageBarClass(available);
+  const reset = win.resets_at_local
+    ? `Reset ${escapeHTML(win.resets_at_local)}`
+    : 'Reset onbekend';
+  return `
+    <div class="usage-metric">
+      <div class="usage-metric-head">
+        <span>${escapeHTML(win.label || '')}</span>
+        <strong>${Number.isFinite(available) ? available.toFixed(0) : '?'}% vrij</strong>
+      </div>
+      <div class="usage-bar ${klass}"><span style="width:${Math.max(0, Math.min(100, available))}%"></span></div>
+      <div class="usage-reset">${used.toFixed(0)}% gebruikt · ${reset}</div>
+    </div>
+  `;
+}
+
+function renderUsageRail(data) {
+  const claude = data.claude || {};
+  const grok = data.grok || {};
+  let claudeHtml;
+  if (claude.ok) {
+    claudeHtml = `${renderUsageWindow(claude.session)}${renderUsageWindow(claude.week)}`;
+    if (claude.subscription) {
+      claudeHtml += `<p class="usage-muted">Abonnement: ${escapeHTML(claude.subscription)}</p>`;
+    }
+  } else {
+    claudeHtml = `<p class="usage-error">${escapeHTML(claude.error || 'Claude-gebruik onbekend.')}</p>`;
+  }
+
+  let grokHtml;
+  if (grok.ok) {
+    const usd = Number(grok.remaining_usd);
+    grokHtml = `<div class="usage-metric-head"><span>Prepaid</span><strong>$${usd.toFixed(2)}</strong></div>`;
+  } else {
+    grokHtml = `<p class="usage-error">${escapeHTML(grok.error || 'Grok-saldo onbekend.')}</p>`;
+    if (grok.hint) {
+      grokHtml += `<p class="usage-muted">${escapeHTML(grok.hint)}</p>`;
+    }
+  }
+
+  return `
+    <div class="usage-block">
+      <h3>Claude</h3>
+      ${claudeHtml}
+    </div>
+    <div class="usage-block">
+      <h3>Grok</h3>
+      ${grokHtml}
+    </div>
+  `;
 }
 
 function renderWorkerBanner() {
@@ -760,6 +836,7 @@ async function executeContinueDespite() {
     assertActionOk(res, 'doorgaan geweigerd');
     showNotification('Akkoord: de punten blijven staan, de keten gaat verder.', 'success');
     loadPostDetail(activeSlug);
+    refreshUsage(true);
   } catch (err) {
     showNotification(`Doorgaan mislukt: ${err.message}`, 'error');
   }
@@ -867,6 +944,7 @@ async function executeComplete(phase) {
     assertActionOk(res, `complete ${phase} geweigerd`);
     showNotification(`Fase '${phase}' afgerond.`, 'success');
     loadPostDetail(activeSlug);
+    refreshUsage(true);
   } catch (err) {
     showNotification(`Fout bij complete ${phase}: ${err.message}`, 'error');
   }
@@ -879,6 +957,7 @@ async function executeApprove() {
     assertActionOk(res, 'approve geweigerd');
     showNotification(`Akkoord gegeven!`, 'success');
     loadPostDetail(activeSlug);
+    refreshUsage(true);
   } catch (err) {
     showNotification(`Fout bij approve: ${err.message}`, 'error');
   }
@@ -890,6 +969,7 @@ async function executeReject() {
     await fetchJSON(`/api/posts/${activeSlug}/reject`, { method: 'POST' });
     showNotification(`Fase afgekeurd, teruggezet naar ready.`, 'warning');
     loadPostDetail(activeSlug);
+    refreshUsage(true);
   } catch (err) {
     showNotification(`Fout bij reject: ${err.message}`, 'error');
   }

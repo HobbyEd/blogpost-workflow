@@ -144,6 +144,46 @@ TOOL_DEF = {
     },
 }
 
+CREDITS_TOOL_DEF = {
+    "name": "grok_credits",
+    "description": (
+        "Geef het resterende xAI prepaid-saldo terug. Vereist XAI_MANAGEMENT_KEY; "
+        "GROK_API_KEY alleen is niet genoeg. Gebruik dit niet voor een review."
+    ),
+    "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+    },
+}
+
+
+def _call_grok_credits(req_id):
+    """Lees prepaid-saldo. Zelfde bron als GET /api/usage in de web-UI."""
+    repo = find_up(".env")
+    root = os.path.dirname(repo) if repo else os.path.abspath(os.path.join(HERE, "..", ".."))
+    scripts = os.path.join(root, "scripts")
+    if scripts not in sys.path:
+        sys.path.insert(0, scripts)
+    try:
+        from orchestrator.provider_usage import fetch_grok_credits
+        info = fetch_grok_credits()
+    except Exception as exc:  # noqa: BLE001
+        return make_result(req_id, {
+            "content": [{"type": "text", "text": f"Fout bij grok_credits: {exc}"}],
+            "isError": True,
+        })
+    if info.get("ok"):
+        tekst = f"Resterend prepaid-saldo: ${info['remaining_usd']:.2f}."
+    else:
+        tekst = info.get("error") or "Saldo niet beschikbaar."
+        if info.get("hint"):
+            tekst = f"{tekst} {info['hint']}"
+    return make_result(req_id, {
+        "content": [{"type": "text", "text": tekst}],
+        "isError": not info.get("ok"),
+    })
+
 
 def send(msg):
     sys.stdout.write(json.dumps(msg) + "\n")
@@ -177,12 +217,15 @@ def handle(msg):
         return make_result(req_id, {})
 
     if method == "tools/list":
-        return make_result(req_id, {"tools": [TOOL_DEF]})
+        return make_result(req_id, {"tools": [TOOL_DEF, CREDITS_TOOL_DEF]})
 
     if method == "tools/call":
         params = msg.get("params", {}) or {}
-        if params.get("name") != "grok_review":
-            return make_error(req_id, -32601, f"Onbekende tool: {params.get('name')}")
+        name = params.get("name")
+        if name == "grok_credits":
+            return _call_grok_credits(req_id)
+        if name != "grok_review":
+            return make_error(req_id, -32601, f"Onbekende tool: {name}")
         args = params.get("arguments", {}) or {}
         text = args.get("text", "")
         focus = args.get("focus", "")

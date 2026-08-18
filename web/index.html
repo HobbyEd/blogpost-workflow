@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Blogpost Command Center UI</title>
-  <link rel="stylesheet" href="/static/styles.css?v=1.18.0">
+  <link rel="stylesheet" href="/static/styles.css?v=1.20.0">
 </head>
 <body>
 
@@ -24,7 +24,7 @@
     <div class="brand">
       <div class="brand-icon">B</div>
       <h1>Blogpost Command Center</h1>
-      <span style="background: var(--accent-primary); color: white; font-weight: bold;">v1.18</span>
+      <span style="background: var(--accent-primary); color: white; font-weight: bold;">v1.20</span>
     </div>
 
     <!-- Mode Switcher -->
@@ -40,6 +40,7 @@
   </header>
 
   <!-- Main Container -->
+  <div class="page-with-rail">
   <div class="container">
     
     <!-- MODUS 1: SOCRATISCHE CHAT VIEW -->
@@ -211,6 +212,15 @@
 
   </div>
 
+  <aside class="usage-rail" id="usage-rail">
+    <div class="section-title">
+      <span>Verbruik</span>
+      <button class="btn btn-secondary usage-refresh" type="button" onclick="refreshUsage(true)">↻</button>
+    </div>
+    <div id="usage-rail-body" class="usage-rail-body">Laden…</div>
+  </aside>
+  </div>
+
   <!-- Modal: Nieuwe Post Initialiseren -->
   <div class="modal-backdrop" id="init-modal" style="display: none;">
     <div class="modal">
@@ -347,6 +357,6 @@
       }
     }
   </script>
-  <script src="/static/app_v2.js?v=1.18.0"></script>
+  <script src="/static/app_v2.js?v=1.20.0"></script>
 </body>
 </html>
