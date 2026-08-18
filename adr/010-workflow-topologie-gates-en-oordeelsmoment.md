@@ -364,6 +364,12 @@ zichtbaar veranderd. Stap 7 en 8 maken de gates die er al waren ook bruikbaar in
   echt opnieuw moet, maar de volgorde dwingt nog steeds een wandeling af. Dat is
   alternatief C uit §2, de afhankelijkheidsgraaf.
 - **`synthesis` staat nog onder Bouwen** in plaats van Oordelen (zie stap 5).
+- **Twee feitenchecks.** Sinds 18 augustus staat de eerste direct na de draft
+  (`factcheck_draft` → `feitencheck-draft.md`) en blijft de tweede op de oude plek
+  (`factcheck` → `feitencheck.md`, herkeuring na visuals). Een blocking-bevinding in
+  een van beide is geen gewone voorwaardelijke gate: `approve` weigert, de enige actie
+  is terug naar de draft met de punten in de brief. De keten mag geen volgende fase
+  starten zolang die punten openstaan.
 - **Draft-tweaks zijn er nog niet.** Goedkeuren mét gerichte aanpassingen is een derde
   actie, geen hergebruik van het outline-terugpad.
 - **De metingen uit §4 moeten gaan lopen:** hoe vaak leidt Oordelen tot een revisieronde,

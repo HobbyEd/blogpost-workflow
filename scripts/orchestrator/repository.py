@@ -151,6 +151,7 @@ def empty_state(slug: str, titel: str, yolo: bool = False) -> dict[str, Any]:
             "grok_feedback": "missing",
             "synthese": "missing",
             "visuals": "missing",
+            "factcheck_draft": "missing",
             "factcheck": "missing",
             "alignment": "missing",
             "wp_post_id": None,

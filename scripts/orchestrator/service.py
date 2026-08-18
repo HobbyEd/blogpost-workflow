@@ -18,6 +18,7 @@ from .constants import (
     BLOCK_FOR_PHASE,
     BLOCK_LABELS,
     CONDITIONAL_GATES,
+    FACTCHECK_PHASES,
     FLAG_NAMES,
     PHASE_LABELS,
     PHASES,
@@ -71,6 +72,7 @@ from .synthesis import open_points, read_points, record_decision
 from .synthesis import summarize as synthesis_summary
 from .verdicts import (
     collect_findings,
+    has_blocking,
     read_phase_findings,
     render_findings_md,
     summarize,
@@ -87,6 +89,23 @@ def _record_deploy_approval(state: dict[str, Any], post_dir: str) -> None:
         "draft_sha": draft_fingerprint(post_dir),
         "at": now_iso(),
     }
+
+
+def _format_blocking_facts(state: dict[str, Any], phase: str) -> str:
+    """Maak van de blocking-bevindingen één opdracht voor de draft-brief."""
+    verdict = ((state.get("verdicts") or {}).get(phase) or {})
+    rijen = [
+        f"- [{b.get('categorie') or 'feit'}] ({b.get('waar') or '?'}): {b.get('wat') or ''}"
+        for b in (verdict.get("findings") or [])
+        if b.get("severity") == "blocking"
+    ]
+    if not rijen:
+        return ""
+    kop = (
+        f"De feitencheck ({phase}) vond {len(rijen)} blokkerende punt(en). "
+        "Werk alleen deze punten bij in draft.md. Verzin geen nieuwe claims."
+    )
+    return kop + "\n" + "\n".join(rijen)
 
 
 def _synthesis_status(state: dict[str, Any], post_dir: str) -> dict[str, Any] | None:
@@ -496,6 +515,15 @@ class WorkflowService:
                     "errors": [f"Approve alleen bij waiting_gate (nu: {state['status']})."],
                 }
 
+        if state["phase"] in FACTCHECK_PHASES and has_blocking(state, state["phase"]):
+            return {
+                "ok": False,
+                "errors": [
+                    "Blokkerende feitencheck kan niet worden goedgekeurd. "
+                    "Stuur de punten terug naar de draft."
+                ],
+            }
+
         if state["phase"] == "synthesis":
             try:
                 openstaand = open_points(state, read_points(pdir))
@@ -554,6 +582,67 @@ class WorkflowService:
         save_state(pdir, state)
         return fase
 
+    def return_facts_to_draft(
+        self,
+        post: str | None = None,
+        post_dir: str | None = None,
+        note: str | None = None,
+    ) -> dict[str, Any]:
+        """Stuur een blokkerende feitencheck terug naar de draft.
+
+        De keten mag een tekst met openstaande feitelijke fouten niet vooruit
+        schuiven. De bevindingen landen in de draft-brief, niet in revisie.md.
+        """
+        pdir = self.resolve_dir(post, post_dir)
+        state = load_state(pdir)
+        phase = state["gate"].get("pending") or state["phase"]
+        if phase not in FACTCHECK_PHASES:
+            return {
+                "ok": False,
+                "errors": [f"Terug naar draft is voor de feitencheck, niet voor {phase}."],
+            }
+        if state["status"] not in {"waiting_gate", "blocked", "ready"}:
+            return {
+                "ok": False,
+                "errors": [f"Terug naar draft niet mogelijk bij status {state['status']}."],
+            }
+
+        extra = (note or "").strip()
+        bevindingen = _format_blocking_facts(state, phase)
+        tekst = bevindingen
+        if extra:
+            tekst = f"{bevindingen}\n\nOpmerking van de auteur: {extra}" if bevindingen else extra
+        if not tekst:
+            tekst = "Blokkerende feitencheck: werk de genoemde feiten bij in draft.md."
+
+        state["phase"] = "draft"
+        state["status"] = "ready"
+        state["gate"]["pending"] = None
+        state["gate"]["last_decision"] = {
+            "at": now_iso(),
+            "decision": "reject",
+            "phase": "draft",
+            "note": tekst,
+        }
+        state["blocked_reason"] = None
+        state["flags"]["deploy_approved"] = False
+        state["deploy_approval"] = None
+        append_log(state, "facts_returned_to_draft", note=tekst, phase=phase)
+        save_state(pdir, state)
+
+        auto = self._maybe_auto_run(pdir)
+        state = load_state(pdir)
+        return {
+            "ok": True,
+            "returned": True,
+            "returned_to": "draft",
+            "phase": state["phase"],
+            "status": state["status"],
+            "auto_started": auto,
+            "return_note": tekst,
+            "next": compute_next(state, pdir),
+        }
+
     def reject_gate(
         self,
         post: str | None = None,
@@ -602,11 +691,16 @@ class WorkflowService:
         gate.last_decision en in de volgende agent_brief. Geen revisie.md.
         """
         text = (note or "").strip()
-        if not text:
-            return {"ok": False, "errors": ["Terugsturen vereist een opmerking."]}
-
         pdir = self.resolve_dir(post, post_dir)
         state = load_state(pdir)
+        huidige = state["gate"].get("pending") or state["phase"]
+        doel = (phase or "").strip()
+        if huidige in FACTCHECK_PHASES and doel in {"", "draft"}:
+            return self.return_facts_to_draft(post=post, post_dir=post_dir, note=note)
+
+        text = (note or "").strip()
+        if not text:
+            return {"ok": False, "errors": ["Terugsturen vereist een opmerking."]}
         status = state["status"]
         if status in {"running", "done"} or state["phase"] == "done":
             return {
@@ -1059,13 +1153,13 @@ def _check_phase_artefact_prerequisites(state: dict[str, Any], probed: dict[str,
     issues = []
     hard_errors = 0
     phase = state["phase"]
-    advanced_phases = {"draft", "style", "series", "critique", "synthesis", "visuals", "deploy", "done"}
+    advanced_phases = {"draft", "factcheck_draft", "style", "series", "critique", "synthesis", "visuals", "factcheck", "deploy", "done"}
 
     if phase in advanced_phases and probed["outline"] != "present":
         issues.append({"severity": "error", "msg": f"phase={phase} maar outline.md mist"})
         hard_errors += 1
 
-    post_draft_phases = {"style", "series", "critique", "synthesis", "visuals", "deploy", "done"}
+    post_draft_phases = {"factcheck_draft", "style", "series", "critique", "synthesis", "visuals", "factcheck", "deploy", "done"}
     if phase in post_draft_phases and probed["draft"] != "present":
         issues.append({"severity": "error", "msg": f"phase={phase} maar draft.md mist"})
         hard_errors += 1

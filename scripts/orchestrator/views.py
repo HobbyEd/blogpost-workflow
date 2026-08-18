@@ -10,6 +10,7 @@ from typing import Any
 
 from .constants import (
     CONDITIONAL_GATES,
+    FACTCHECK_PHASES,
     HARD_GATES,
     PHASE_LABELS,
     PHASE_VIEW_FILES,
@@ -116,6 +117,18 @@ def gate_reason(state: dict[str, Any]) -> dict[str, Any] | None:
         for f in (verdict.get("findings") or [])
         if f.get("severity") == "blocking"
     ]
+
+    if phase in FACTCHECK_PHASES and blocking:
+        woord = "bevinding" if blocking == 1 else "bevindingen"
+        return {
+            "phase": phase,
+            "kind": "blocking",
+            "blocking": blocking,
+            "advisory": advisory,
+            "headline": f"Gestopt: {blocking} blokkerende {woord} in de feitencheck.",
+            "detail": "De keten mag niet verder. Stuur de punten terug naar de draft.",
+            "findings": blocking_rows,
+        }
 
     if phase in CONDITIONAL_GATES and blocking:
         woord = "bevinding" if blocking == 1 else "bevindingen"

@@ -10,6 +10,7 @@ from .constants import (
     ARTEFACT_FILES,
     CONDITIONAL_GATES,
     DEPLOY_REQUIRES_FRESH,
+    FACTCHECK_PHASES,
     HARD_GATES,
     MIN_VISUALS,
     PHASE_ARTEFACT_KEY,
@@ -46,6 +47,10 @@ def next_phase_after(phase: str, flags: dict[str, Any]) -> str:
     """Bepaal de eerstvolgende logische fase in de pijplijn."""
     if phase == "critique" and flags.get("skip_synthesis"):
         return "visuals"
+    if phase == "draft" and flags.get("skip_factcheck"):
+        return "style"
+    if phase == "visuals" and flags.get("skip_factcheck"):
+        return "alignment"
     if phase in {"deploy", "done"}:
         return "done"
 
@@ -153,6 +158,18 @@ def _compute_next_for_synthesis(state: dict[str, Any], post_dir: str) -> dict[st
 def _compute_next_for_waiting_gate(state: dict[str, Any], phase: str) -> dict[str, Any]:
     """Helper voor 'waiting_gate' status acties."""
     pending = state["gate"].get("pending") or phase
+    if pending in FACTCHECK_PHASES and has_blocking(state, pending):
+        return {
+            "action": "return_facts_to_draft",
+            "phase": pending,
+            "gate_type": "hard",
+            "return_allowed": False,
+            "summary": (
+                "Blokkerende feitencheck. De keten mag niet verder. "
+                "Stuur de punten terug naar de draft."
+            ),
+            "agent_brief": None,
+        }
     gtype = gate_type(pending, state)
     extra = " Voor deploy: approve --deploy zet deploy_approved." if pending == "deploy" or phase == "deploy" else ""
     mag_terug = pending in RETURN_ALLOWED_PHASES
@@ -288,8 +305,24 @@ def _check_run_phase_artefact_requirements(
     if phase == "draft" and probed["outline"] != "present":
         errors.append("outline.md ontbreekt of is leeg.")
 
-    if phase in {"style", "series", "critique", "visuals", "deploy"} and probed["draft"] != "present":
+    if phase in {"factcheck_draft", "style", "series", "critique", "visuals", "factcheck", "deploy"} and probed["draft"] != "present":
         errors.append("draft.md ontbreekt of is leeg.")
+
+    if _heeft_blokkerende_feiten(state) and phase not in {"draft", "factcheck_draft", "factcheck"}:
+        errors.append(
+            "Blokkerende feitencheck. Werk de draft bij; de keten mag geen tekst "
+            "aanbieden met openstaande feitelijke fouten."
+        )
+
+    if (
+        phase in {"style", "series", "critique", "synthesis", "alignment", "deploy"}
+        and not state["flags"].get("skip_factcheck")
+        and probed.get("factcheck_draft") != "present"
+        and PHASES.index(state["phase"]) < PHASES.index("factcheck")
+    ):
+        errors.append(
+            "feitencheck-draft.md ontbreekt. Draai eerst de feitencheck na de draft."
+        )
 
     if phase == "synthesis":
         if state["flags"].get("skip_synthesis"):
@@ -344,7 +377,8 @@ def postcheck_complete(
         "series": lambda: _validate_series_completion(probed, post_dir),
         "critique": lambda: ["grok-feedback.md ontbreekt of is leeg."] if probed["grok_feedback"] != "present" else [],
         "synthesis": lambda: _validate_synthesis_completion(probed, state, post_dir),
-        "factcheck": lambda: _validate_factcheck_completion(probed, post_dir),
+        "factcheck_draft": lambda: _validate_named_factcheck(probed, "factcheck_draft", post_dir),
+        "factcheck": lambda: _validate_named_factcheck(probed, "factcheck", post_dir),
         "visuals": lambda: (
             [
                 f"minder dan {MIN_VISUALS} visuals gevonden "
@@ -395,7 +429,7 @@ def _check_report_freshness(state: dict[str, Any], post_dir: str) -> list[str]:
     """
     te_toetsen = [
         p for p in DEPLOY_REQUIRES_FRESH
-        if not (p == "factcheck" and state["flags"].get("skip_factcheck"))
+        if not (p in FACTCHECK_PHASES and state["flags"].get("skip_factcheck"))
     ]
     verouderd = stale_phases(state, post_dir, te_toetsen)
     if not verouderd:
@@ -430,15 +464,19 @@ def _validate_synthesis_completion(
     return []
 
 
-def _validate_factcheck_completion(probed: dict[str, str], post_dir: str) -> list[str]:
-    """Valideert fase 5b: het rapport van de bron-check plus zijn bevindingenblok."""
-    if probed["factcheck"] != "present":
+def _heeft_blokkerende_feiten(state: dict[str, Any]) -> bool:
+    """True als een van beide feitenchecks een blocking-bevinding heeft."""
+    return any(has_blocking(state, fase) for fase in FACTCHECK_PHASES)
+
+
+def _validate_named_factcheck(probed: dict[str, str], phase: str, post_dir: str) -> list[str]:
+    key = PHASE_ARTEFACT_KEY.get(phase, phase)
+    fname = ARTEFACT_FILES.get(key, f"{phase}.md")
+    if probed.get(key) != "present":
         return [
-            "feitencheck.md ontbreekt of is leeg. De bron-check legt elk citaat naast de "
-            "bron; zonder dat rapport gaat er niets naar publicatie. Wil je hem echt "
-            "overslaan, gebruik dan expliciet: set-flag skip_factcheck true."
+            f"{fname} ontbreekt of is leeg. De bron-check legt elk citaat naast de bron."
         ]
-    return _validate_verdicts("factcheck", post_dir)
+    return _validate_verdicts(phase, post_dir)
 
 
 def _validate_verdicts(phase: str, post_dir: str) -> list[str]:

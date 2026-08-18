@@ -89,7 +89,10 @@ class ServiceTestBase(unittest.TestCase):
         shutil.rmtree(self.tmp_dir, ignore_errors=True)
 
     #: Controlerapporten openen met een bevindingenblok (ADR-010 §6, stap 2).
-    CHECK_REPORTS = ("stijlcheck.md", "leesbaarheid.md", "reeks-check.md", "feitencheck.md")
+    CHECK_REPORTS = (
+        "stijlcheck.md", "leesbaarheid.md", "reeks-check.md",
+        "feitencheck.md", "feitencheck-draft.md",
+    )
 
     def create_post_file(self, slug: str, filename: str, content: str | None = None) -> str:
         if content is None:
@@ -179,6 +182,13 @@ class TestServiceLinearPipeline(ServiceTestBase):
         res = self.service.complete_phase(phase="draft", post_dir=pdir)
         self.assertTrue(res["ok"])
         res = self.service.approve_gate(post_dir=pdir, note="Draft akkoord")
+        self.assertEqual(res["phase"], "factcheck_draft")
+
+        res = self.service.run_phase(phase="factcheck_draft", post_dir=pdir)
+        self.assertTrue(res["ok"])
+        self.create_post_file(slug, "feitencheck-draft.md")
+        res = self.service.complete_phase(phase="factcheck_draft", post_dir=pdir)
+        self.assertTrue(res["ok"], res.get("errors"))
         self.assertEqual(res["phase"], "style")
 
         # 4. Style phase: beide rapporten zijn verplicht, en zonder blokkerende bevinding
@@ -1019,6 +1029,7 @@ class TestBevindingenBundel(ServiceTestBase):
         self.create_post_file(slug, "stijlcheck.md", ADVISORY_RAPPORT)
         self.create_post_file(slug, "leesbaarheid.md", LEEG_RAPPORT)
         self.create_post_file(slug, "reeks-check.md", BLOKKEREND_RAPPORT)
+        self.create_post_file(slug, "feitencheck-draft.md", LEEG_RAPPORT)
         self.create_post_file(slug, "feitencheck.md", LEEG_RAPPORT)
         self.create_post_file(slug, "archief-consistentie.md", ALIGNMENT_DISCREPANCY_REPORT)
         return pdir
@@ -1029,7 +1040,10 @@ class TestBevindingenBundel(ServiceTestBase):
 
         self.assertEqual(res["blocking"], 2, "reeks-check en alignment")
         self.assertEqual(res["advisory"], 1, "stijl-check")
-        self.assertEqual({f["phase"] for f in res["phases"]}, {"style", "series", "factcheck", "alignment"})
+        self.assertEqual(
+            {f["phase"] for f in res["phases"]},
+            {"factcheck_draft", "style", "series", "factcheck", "alignment"},
+        )
 
     def test_blokkerend_staat_bovenaan(self) -> None:
         pdir = self._post_met_rapporten("bundel-volgorde")
@@ -1062,6 +1076,68 @@ class TestBevindingenBundel(ServiceTestBase):
         self.assertIn("Niet te lezen", res["markdown"])
 
 
+class TestFactcheckNaDraft(ServiceTestBase):
+    """Eerste feitencheck direct na de draft; blocking gaat terug, nooit vooruit."""
+
+    def test_na_draft_komt_factcheck_draft(self) -> None:
+        slug = "fc-na-draft"
+        pdir = os.path.join(self.tmp_dir, slug)
+        self.service.init_post(slug=slug, titel="Feiten", post_dir=pdir)
+        self.service.run_phase(phase="outline", post_dir=pdir)
+        self.create_post_file(slug, "outline.md")
+        self.service.complete_phase(phase="outline", post_dir=pdir)
+        self.service.approve_gate(post_dir=pdir, note="ok")
+        self.service.run_phase(phase="draft", post_dir=pdir)
+        self.create_post_file(slug, "draft.md")
+        res = self.service.complete_phase(phase="draft", post_dir=pdir)
+        self.service.approve_gate(post_dir=pdir, note="ok")
+        status = self.service.get_status(post_dir=pdir)
+        self.assertEqual(status["phase"], "factcheck_draft")
+
+    def test_blocking_weigert_approve_en_stijl(self) -> None:
+        slug = "fc-block"
+        pdir = os.path.join(self.tmp_dir, slug)
+        self.service.init_post(slug=slug, titel="Blok", post_dir=pdir)
+        self.create_post_file(slug, "outline.md")
+        self.create_post_file(slug, "draft.md")
+        from scripts.orchestrator.repository import load_state, save_state
+        s = load_state(pdir)
+        s["phase"], s["status"] = "factcheck_draft", "running"
+        save_state(pdir, s)
+        self.create_post_file(slug, "feitencheck-draft.md", BLOKKEREND_RAPPORT)
+        res = self.service.complete_phase(phase="factcheck_draft", post_dir=pdir)
+        self.assertTrue(res["ok"], res.get("errors"))
+        self.assertEqual(res["status"], "waiting_gate")
+        self.assertEqual(res["next"]["action"], "return_facts_to_draft")
+
+        af = self.service.approve_gate(post_dir=pdir, note="toch door")
+        self.assertFalse(af["ok"])
+        self.assertIn("draft", " ".join(af["errors"]).lower())
+
+        stijl = self.service.run_phase(phase="style", post_dir=pdir)
+        self.assertFalse(stijl["ok"])
+
+    def test_terug_naar_draft_zet_punten_in_de_brief(self) -> None:
+        slug = "fc-terug"
+        pdir = os.path.join(self.tmp_dir, slug)
+        self.service.init_post(slug=slug, titel="Terug", post_dir=pdir)
+        self.create_post_file(slug, "outline.md")
+        self.create_post_file(slug, "draft.md")
+        from scripts.orchestrator.repository import load_state, save_state
+        s = load_state(pdir)
+        s["phase"], s["status"] = "factcheck_draft", "running"
+        save_state(pdir, s)
+        self.create_post_file(slug, "feitencheck-draft.md", BLOKKEREND_RAPPORT)
+        self.service.complete_phase(phase="factcheck_draft", post_dir=pdir)
+
+        res = self.service.return_facts_to_draft(post_dir=pdir)
+        self.assertTrue(res["ok"], res.get("errors"))
+        self.assertEqual(res["returned_to"], "draft")
+        self.assertIn("blokkerende", res["return_note"])
+        brief = self.service.run_phase(phase="draft", post_dir=pdir)["agent_brief"]
+        self.assertIn("blokkerende", brief["instruction"])
+
+
 class TestRapportActualiteit(ServiceTestBase):
     """Een controle op een tekst die niet meer bestaat, is geen controle (ADR-010 §3.5)."""
 
@@ -1071,11 +1147,12 @@ class TestRapportActualiteit(ServiceTestBase):
         pdir = os.path.join(self.tmp_dir, slug)
         self.service.init_post(slug=slug, titel="Actualiteit", post_dir=pdir)
         self.create_post_file(slug, "draft.md", "# Draft\n\nEerste versie.\n")
+        self.create_post_file(slug, "feitencheck-draft.md")
         self.create_post_file(slug, "feitencheck.md")
         self.create_post_file(slug, "archief-consistentie.md", ALIGNMENT_OK_REPORT)
 
-        # Beide controlefases netjes afronden, zodat hun vingerafdruk wordt vastgelegd.
-        for fase in ("factcheck", "alignment"):
+        # Controlefases afronden, zodat hun vingerafdruk wordt vastgelegd.
+        for fase in ("factcheck_draft", "factcheck", "alignment"):
             s = load_state(pdir)
             s["phase"], s["status"] = fase, "ready"
             save_state(pdir, s)

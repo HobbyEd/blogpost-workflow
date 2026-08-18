@@ -85,7 +85,10 @@ class OrchestrateTestCase(unittest.TestCase):
 
     #: Controlerapporten openen met een bevindingenblok (ADR-010 §6, stap 2); zonder dat
     #: blok weigert `complete`. Leeg betekent: niets gevonden.
-    CHECK_REPORTS = ("stijlcheck.md", "leesbaarheid.md", "reeks-check.md", "feitencheck.md")
+    CHECK_REPORTS = (
+        "stijlcheck.md", "leesbaarheid.md", "reeks-check.md",
+        "feitencheck.md", "feitencheck-draft.md",
+    )
     LEEG_RAPPORT = '# Rapport\n\n```json\n{"findings": []}\n```\n'
     LEGE_SYNTHESE = '# Synthese\n\n```json\n{"points": []}\n```\n'
 
@@ -259,8 +262,8 @@ class TestYoloMode(OrchestrateTestCase):
         code, payload, err = self.cli("complete", "draft")
         self.assertEqual(code, 0, err)
         self.assertTrue(payload["yolo_advanced"])
-        self.assertEqual(payload["auto_started"], "style")
-        self.assertEqual(payload["phase"], "style")
+        self.assertEqual(payload["auto_started"], "factcheck_draft")
+        self.assertEqual(payload["phase"], "factcheck_draft")
         self.assertEqual(payload["status"], "running")
 
     def test_hard_gate_synthesis_stops_even_in_yolo(self) -> None:
@@ -268,6 +271,7 @@ class TestYoloMode(OrchestrateTestCase):
         for phase, artefact in (
             ("outline", "outline.md"),
             ("draft", "draft.md"),
+            ("factcheck_draft", "feitencheck-draft.md"),
             ("style", ("stijlcheck.md", "leesbaarheid.md")),
             ("series", ("reeks-check.md",)),
             ("critique", "grok-feedback.md"),
@@ -420,6 +424,7 @@ class TestNamedExceptions(OrchestrateTestCase):
         for phase, artefact in (
             ("outline", "outline.md"),
             ("draft", "draft.md"),
+            ("factcheck_draft", "feitencheck-draft.md"),
             ("style", ("stijlcheck.md", "leesbaarheid.md")),
             ("series", ("reeks-check.md",)),
         ):
@@ -494,6 +499,7 @@ class TestDoctor(OrchestrateTestCase):
         for phase, artefact in (
             ("outline", "outline.md"),
             ("draft", "draft.md"),
+            ("factcheck_draft", "feitencheck-draft.md"),
             ("style", ("stijlcheck.md", "leesbaarheid.md")),
             ("series", ("reeks-check.md",)),
             ("critique", "grok-feedback.md"),

@@ -8,6 +8,7 @@ PHASES = [
     "intake",
     "outline",
     "draft",
+    "factcheck_draft",
     "style",
     "series",
     "critique",
@@ -23,6 +24,7 @@ PHASES = [
 RUNNABLE = {
     "outline",
     "draft",
+    "factcheck_draft",
     "style",
     "series",
     "critique",
@@ -32,6 +34,9 @@ RUNNABLE = {
     "alignment",
     "deploy",
 }
+
+# Twee feitenchecks: direct na de draft, en opnieuw vóór alignment/deploy.
+FACTCHECK_PHASES = frozenset({"factcheck_draft", "factcheck"})
 
 # Soft gates may auto-approve when yolo_mode is on.
 SOFT_GATES = {
@@ -62,6 +67,7 @@ ARTEFACT_FILES = {
     "reeks_check": "reeks-check.md",
     "grok_feedback": "grok-feedback.md",
     "synthese": "synthese.md",
+    "factcheck_draft": "feitencheck-draft.md",
     "factcheck": "feitencheck.md",
     "alignment": "archief-consistentie.md",
 }
@@ -71,12 +77,12 @@ FLAG_NAMES = ("skip_synthesis", "defer_critique", "skip_factcheck", "deploy_appr
 # Fases waarvan het resultaat uit draft.md is afgeleid: wijzigt de draft, dan is hun
 # rapport verouderd (ADR-010 §3.5). Bij het afronden van deze fases wordt de
 # vingerafdruk van de draft vastgelegd in state.derived_from.
-PHASES_DERIVED_FROM_DRAFT = ("style", "series", "factcheck", "alignment")
+PHASES_DERIVED_FROM_DRAFT = ("factcheck_draft", "style", "series", "factcheck", "alignment")
 
 # Welke daarvan een deploy tegenhouden zolang ze verouderd zijn. De stijl- en
 # reeksrapporten worden wel bijgehouden maar blokkeren nog niet; die stap komt bij het
 # bundelen van de bevindingen (ADR-010 §6, stap 2 en 3).
-DEPLOY_REQUIRES_FRESH = ("factcheck", "alignment")
+DEPLOY_REQUIRES_FRESH = ("factcheck_draft", "factcheck", "alignment")
 
 # grok-feedback.md staat hier bewust niet bij. Een tweede kritiekronde is een keuze van
 # de auteur, niet iets wat een tekstwijziging afdwingt (ADR-010 §3.2).
@@ -86,6 +92,7 @@ DEPLOY_REQUIRES_FRESH = ("factcheck", "alignment")
 PHASE_REPORTS = {
     "style": ("stijlcheck.md", "leesbaarheid.md"),
     "series": ("reeks-check.md",),
+    "factcheck_draft": ("feitencheck-draft.md",),
     "factcheck": ("feitencheck.md",),
     # alignment houdt het verdictformaat uit ADR-007 en staat hier niet bij.
 }
@@ -98,6 +105,7 @@ PHASE_VIEW_FILES = {
     "series": PHASE_REPORTS["series"],
     "critique": (ARTEFACT_FILES["grok_feedback"],),
     "synthesis": (ARTEFACT_FILES["synthese"],),
+    "factcheck_draft": PHASE_REPORTS["factcheck_draft"],
     "factcheck": PHASE_REPORTS["factcheck"],
     "alignment": (ARTEFACT_FILES["alignment"],),
 }
@@ -105,7 +113,7 @@ PHASE_VIEW_FILES = {
 # Fases waarvan de gate alleen stopt bij een blokkerende bevinding (ADR-010 §3.1). De
 # overige gates blijven onvoorwaardelijk: intake en outline zijn de Richten-gate, deploy
 # is de Oordelen-gate, en synthesis is het beslismoment over de kritiekpunten.
-CONDITIONAL_GATES = ("style", "series", "factcheck", "alignment")
+CONDITIONAL_GATES = ("factcheck_draft", "style", "series", "factcheck", "alignment")
 
 # De drie blokken uit ADR-010 §3.1, als groepering over de bestaande fasevolgorde. Het
 # blok zegt wat voor soort beslissing er aan het eind valt:
@@ -121,8 +129,8 @@ CONDITIONAL_GATES = ("style", "series", "factcheck", "alignment")
 # blokken aaneengesloten blijven en de stepper niet heen en weer springt.
 BLOCKS = (
     ("richten", "Richten", ("intake", "outline")),
-    ("bouwen", "Bouwen", ("draft", "style", "series", "critique", "synthesis",
-                          "visuals", "factcheck", "alignment")),
+    ("bouwen", "Bouwen", ("draft", "factcheck_draft", "style", "series", "critique",
+                          "synthesis", "visuals", "factcheck", "alignment")),
     ("oordelen", "Oordelen", ("deploy", "done")),
 )
 
@@ -136,6 +144,7 @@ PHASE_ARTEFACT_KEY = {
     "intake": None,
     "outline": "outline",
     "draft": "draft",
+    "factcheck_draft": "factcheck_draft",
     # style levert twee rapporten (stijlcheck.md en leesbaarheid.md); de tabel toont er
     # één, de postcheck eist ze allebei.
     "style": "stijlcheck",
@@ -152,6 +161,7 @@ PHASE_ARTEFACT_KEY = {
 AGENT_FOR_PHASE = {
     "outline": "blogpost-onderzoeker",
     "draft": "blogpost-schrijver",
+    "factcheck_draft": "bron-check",
     "style": "stijl-check",
     "series": "reeks-consistentie-check",
     "critique": "grok-reviewer",
@@ -166,12 +176,13 @@ PHASE_LABELS = {
     "intake": "0 Intake",
     "outline": "1 Outline en verrijking",
     "draft": "2 Draft schrijven",
+    "factcheck_draft": "2a Bron- en feitencontrole",
     "style": "2b Stijl-controle",
     "series": "2c Reeks-consistentie",
     "critique": "3 Kritiek (Grok)",
     "synthesis": "4 Synthese",
     "visuals": "5 Visuals",
-    "factcheck": "5b Bron- en feitencontrole",
+    "factcheck": "5b Feiten herkeuring",
     "alignment": "5c Archief-consistentie",
     "deploy": "6 Deploy (concept)",
     "done": "Klaar",

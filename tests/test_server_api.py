@@ -162,7 +162,7 @@ class TestServerAPI(unittest.TestCase):
         self.client.post(f"/api/posts/{slug}/complete/outline")
 
         leeg = self.client.post(f"/api/posts/{slug}/return", json={"note": ""})
-        self.assertEqual(leeg.status_code, 422)
+        self.assertEqual(leeg.status_code, 400)
 
         ok = self.client.post(
             f"/api/posts/{slug}/return",

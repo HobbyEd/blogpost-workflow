@@ -90,7 +90,20 @@ def agent_brief(phase: str, post_dir: str, state: dict[str, Any]) -> dict[str, A
             "outputs": [f"{rel}/draft.md"],
             "instruction": (
                 "Roep blogpost-schrijver aan. Schrijf draft.md in huisstijl op basis van outline.md. "
-                "Geen feiten buiten de outline."
+                "Geen feiten buiten de outline. Komt de opdracht van een feitencheck, werk "
+                "dan alleen de genoemde blokkerende punten bij; verzin geen nieuwe claims."
+            ),
+        },
+        "factcheck_draft": {
+            **common,
+            "inputs": [f"{rel}/draft.md"],
+            "outputs": [f"{rel}/feitencheck-draft.md"],
+            "instruction": (
+                "Roep bron-check aan. Elk citaat en elke bron in draft.md tegen de bron "
+                "leggen; niets aannemen op gezag van de outline. Rapport naar "
+                f"{rel}/feitencheck-draft.md. Dit is de eerste feitencontrole, direct na "
+                "de draft. Blokkerende bevindingen gaan terug naar de draft; de keten "
+                "mag niet verder zolang die openstaan."
             ),
         },
         "style": {
@@ -177,7 +190,9 @@ def agent_brief(phase: str, post_dir: str, state: dict[str, Any]) -> dict[str, A
             "instruction": (
                 "Roep bron-check aan. Elk citaat en elke bron in draft.md tegen de bron "
                 "leggen; niets aannemen op gezag van de outline. Rapport naar "
-                f"{rel}/feitencheck.md. Dit is de laatste controle voor publicatie."
+                f"{rel}/feitencheck.md. Dit is de tweede feitencontrole, na visuals, "
+                "vóór alignment en deploy. Blokkerende bevindingen gaan terug naar de "
+                "draft; er mag niets naar WordPress met openstaande feitelijke fouten."
             ),
         },
         "alignment": {

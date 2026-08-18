@@ -204,12 +204,13 @@ const PHASES = [
   { id: "intake", label: "Intake", hard: true, block: "richten" },
   { id: "outline", label: "Outline", hard: true, block: "richten" },
   { id: "draft", label: "Draft", hard: false, block: "bouwen" },
+  { id: "factcheck_draft", label: "Feiten", hard: false, block: "bouwen" },
   { id: "style", label: "Stijl", hard: false, block: "bouwen" },
   { id: "series", label: "Reeks", hard: false, block: "bouwen" },
   { id: "critique", label: "Critique", hard: false, block: "bouwen" },
   { id: "synthesis", label: "Synthese", hard: true, block: "bouwen" },
   { id: "visuals", label: "Visuals", hard: false, block: "bouwen" },
-  { id: "factcheck", label: "Factcheck", hard: false, block: "bouwen" },
+  { id: "factcheck", label: "Herkeuring", hard: false, block: "bouwen" },
   { id: "alignment", label: "Alignment", hard: false, block: "bouwen" },
   { id: "deploy", label: "Deploy", hard: true, block: "oordelen" }
 ];
@@ -546,6 +547,11 @@ function renderControls(nextAction, statusInfo) {
     return;
   }
 
+  if (act === 'return_facts_to_draft') {
+    bar.innerHTML = renderFactsReturnControls(statusInfo);
+    return;
+  }
+
   if (act === 'decide_synthesis' || (statusInfo.phase === 'synthesis' && (statusInfo.synthesis || {}).open > 0)) {
     bar.innerHTML = renderSynthesisControls(statusInfo);
     return;
@@ -653,6 +659,44 @@ function renderTabNav(detail) {
     );
   });
   nav.innerHTML = knoppen.join('');
+}
+
+function renderFactsReturnControls(statusInfo) {
+  const r = statusInfo.gate_reason || {};
+  const items = (r.findings || []).slice(0, 5).map(f => {
+    const waar = f.waar ? ` (${escapeHTML(f.waar)})` : '';
+    return `<li><strong>${escapeHTML(f.categorie || 'feit')}</strong>${waar} — ${escapeHTML(f.wat || '')}</li>`;
+  }).join('');
+  return `
+    <div class="gate-reason gate-reason-blocking">
+      <div class="gate-reason-text">
+        <strong>${escapeHTML(r.headline || 'Blokkerende feitencheck.')}</strong>
+        <p class="return-hint">Deze punten gaan terug naar de draft. Goedkeuren is niet mogelijk.</p>
+        ${items ? `<ul>${items}</ul>` : ''}
+      </div>
+      <button class="btn btn-warning" type="button" onclick="executeFactsToDraft()">↺ Terug naar draft</button>
+    </div>
+  `;
+}
+
+async function executeFactsToDraft() {
+  if (!activeSlug) return;
+  try {
+    await fetchJSON(`/api/posts/${activeSlug}/return`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phase: 'draft', note: '' }),
+    });
+    lastKnownPostStatus = 'running';
+    selectedPhase = 'draft';
+    showNotification('Terug naar de draft met de feitenpunten.', 'info');
+    loadPostDetail(activeSlug);
+    if (!workerStatus.alive) {
+      showNotification('Worker draait niet. Start scripts/worker.py --watch.', 'warning', 8000);
+    }
+  } catch (err) {
+    showNotification(`Terug naar draft mislukt: ${err.message}`, 'error');
+  }
 }
 
 function renderSynthesisControls(statusInfo) {

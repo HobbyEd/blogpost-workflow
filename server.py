@@ -55,8 +55,8 @@ class ActionRequest(BaseModel):
 
 
 class ReturnRequest(BaseModel):
-    note: str = Field(..., min_length=1, description="Verplichte opmerking voor de agent")
-    phase: str = Field("outline", description="Fase om naar terug te gaan (nu: outline)")
+    note: str = Field("", description="Opmerking voor de agent (verplicht bij outline)")
+    phase: str = Field("outline", description="Fase om naar terug te gaan")
 
 
 class SetFlagRequest(BaseModel):
@@ -214,7 +214,7 @@ def get_post_detail(slug: str) -> dict[str, Any]:
         for fname in [
             "draft.md", "synthese.md", "outline.md", "briefing.md", "grok-feedback.md",
             "stijlcheck.md", "leesbaarheid.md", "reeks-check.md",
-            "feitencheck.md", "archief-consistentie.md",
+            "feitencheck.md", "feitencheck-draft.md", "archief-consistentie.md",
         ]:
             fpath = os.path.join(pdir, fname)
             if os.path.isfile(fpath):
