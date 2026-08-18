@@ -16,6 +16,7 @@ vindplaats en de meting die eronder ligt, daarna het plan in vijf blokken.
 | Blok D — veilig centraal | open, volgende stap |
 | Blok C — execution plane | open |
 | B2 — socratische chat | open |
+| Blok E — het rapportcontract | **open, urgent** (gevonden 2026-08-16) |
 
 Gemeten na blok 0 + A: 70 tests groen (51 bestaand, 19 nieuw in `tests/test_rag_archive.py`);
 index 2915 chunks uit 13 lokale slugs en 57 WP-slugs; `draft.md` levert 547 chunks;
@@ -160,6 +161,51 @@ in-memory dict: server herstart of tweede worker en de brainstorm is weg.
 
 ---
 
+### 1.6 Het rapportcontract klopt niet met de parser
+
+Gevonden op 2026-08-16, tijdens een revisieronde op `intentie-2-wat-intentie-is`. Vier
+defecten, waarvan twee die stil de verkeerde kant op falen.
+
+**a. De parser leest het eerste json-blok, de subagents vullen onderaan aan.**
+`verdicts.parse_findings` gebruikt `_JSON_FENCE.search`, dus het eerste ```json-blok in het
+bestand wint. De subagent-instructies vragen bij een herkeuring om een nieuwe gedateerde
+ronde *onder* het bestaande rapport. Die twee afspraken staan haaks op elkaar: de
+herkeuring wordt genegeerd en de gate handelt naar de oudste ronde.
+
+Reproductie (uitgevoerd, niet beredeneerd): een rapport met een blocking-bevinding in ronde
+1 en een advisory in ronde 2 levert via `parse_findings` uitsluitend de bevinding uit ronde
+1 op. Op 16 augustus ging het alleen goed doordat de ronde van vóór die dag nog geen
+json-blok had; het eerste blok in het bestand was toevallig het nieuwste.
+
+Dit is het schadelijkste defect van de vier: het rapport meldt iets, de gate handelt ernaar,
+en niets in de keten laat zien dat het over een tekst gaat die niet meer bestaat.
+
+**b. Rapporten dragen geen vingerafdruk.** `repository.draft_fingerprint` en `stale_phases`
+bewaken of een *fase* nog bij de huidige draft hoort, maar een rapport zelf legt niet vast
+op welke versie van `draft.md` het is gebaseerd. Waargenomen gevolg: `stijlcheck.md` meldde
+drie blokkerende bevindingen terwijl twee van de drie zinnen al uit de draft waren
+verwijderd. De gate kan verouderde bevindingen niet onderscheiden van actuele.
+
+**c. `approve --deploy` zet de post op `done` zonder te deployen.** Het goedkeuren van de
+deploy-gate en het uitvoeren van `deploy_post.py` zijn twee losse handelingen, maar de
+statusmachine gedraagt zich alsof de eerste de tweede omvat. Waargenomen: `state.json`
+meldde `phase: done` terwijl WordPress nog de vorige tekst bevatte. Alleen doordat de
+deploy daarna met de hand is gedraaid, viel het op.
+
+**d. De foutmelding bij een onleesbare fase noemt één bestand.** `PHASE_REPORTS["style"]`
+bevat `stijlcheck.md` én `leesbaarheid.md`. Eén onleesbaar rapport laat de hele fase
+omvallen, en de melding noemt alleen het eerste bestand. Dat kostte tijd: de stijl-check
+was in orde, de leesbaarheid-check was het probleem.
+
+**Wat er ontbreekt als begrip.** Er is geen manier om vast te leggen dat een bevinding is
+gezien en bewust geaccepteerd. Op 16 augustus wilde Edwin een kwantor in de kernquote laten
+staan, onderbouwd door een citaat tien regels verderop. De keuze was: de zwaarte in het
+rapport verlagen (dan zegt het rapport iets anders dan de check vond) of hem blocking laten
+(dan blokkeert hij voorgoed). Beide zijn fout. `synthesis.record_decision` heeft de goede
+vorm al: een besluit met verplichte motivering, los van de bevinding zelf.
+
+---
+
 ## 2. Plan
 
 ### Dwingende volgordes
@@ -275,6 +321,34 @@ keer onderhouden tenzij de `.claude/agents/*.md` bestanden als gedeelde bron wor
 gebruiken. Twee machines die tegelijk in een gesynchroniseerde map `state.json` en een 3,7 MB
 index schrijven gaat mis.
 
+### Blok E — Het rapportcontract
+
+Lost 1.6 op. Klein, goedkoop, en het hoort vóór blok C: zodra een worker fases autonoom
+draait, draait hij ook checks opnieuw, en dan gaat 1.6a vanzelf mis zonder dat iemand
+meekijkt.
+
+- **E1. Eén ronde per rapport.** Kies één regel en maak beide kanten er passend op. De
+  eenvoudigste: een controlerapport wordt *vervangen*, niet aangevuld. Pas de
+  subagent-instructies in `.claude/agents/*.md` daarop aan en laat `parse_findings` falen op
+  een tweede json-blok in plaats van het te negeren. Stil de oudste ronde lezen is erger dan
+  weigeren.
+- **E2. Vingerafdruk in het rapport.** Laat elke check de sha256 van `draft.md` in zijn
+  json-blok opnemen, en laat `collect_findings` de staat `verouderd` melden zodra die
+  afwijkt. De machinerie bestaat al in `repository.py`; ze moet alleen een niveau lager.
+- **E3. Splits goedkeuren en deployen.** `approve --deploy` mag de gate openen maar de fase
+  niet op `done` zetten. `done` volgt pas nadat `deploy_post.py` een post-id heeft
+  teruggegeven. Bewijs is het `wp_post_id` plus de `modified`-timestamp, niet de goedkeuring.
+- **E4. Noem het bestand dat faalt.** `read_phase_findings` moet in de foutmelding zeggen
+  wélk rapport van de fase onleesbaar is.
+- **E5. Een derde uitkomst naast blocking en advisory.** Een bevinding moet erkend en
+  geaccepteerd kunnen worden met een verplichte motivering, zonder dat iemand de zwaarte in
+  het rapport verlaagt. Modelleer het als `synthesis.record_decision`: het besluit staat in
+  `state.json`, het rapport blijft zeggen wat de check vond.
+
+**Verificatiecriterium.** Draai twee keer dezelfde check op één post met een tekstwijziging
+ertussen. De gate moet na de tweede ronde de bevindingen van de tweede ronde melden, en de
+bevindingen van de eerste als verouderd of verdwenen. Nu meldt hij die van de eerste.
+
 ### Blok D — Veilig centraal
 
 Moet af zijn vóór C2 iets publiek benadert.
@@ -286,11 +360,12 @@ Moet af zijn vóór C2 iets publiek benadert.
 ### Volgorde
 
 ```
-Blok 0 → Blok A → B1 stap één → Blok D → Blok C → Blok B rest
+Blok 0 → Blok A → B1 stap één → Blok D → Blok E → Blok C → Blok B rest
 ```
 
 Blok D vóór C omdat het goedkoop is en anders vergeten wordt zodra de eerste centrale deploy
-verleidelijk wordt. B1 stap één vroeg omdat het één regel uitzetten is.
+verleidelijk wordt. Blok E ook vóór C: een worker die fases autonoom draait, draait
+checks opnieuw, en 1.6a faalt stil zodra dat gebeurt. B1 stap één vroeg omdat het één regel uitzetten is.
 
 Blok 0 en blok A horen in één sessie: samenhangende wijziging, klein contextbeslag, één
 duidelijk verificatiecriterium.
