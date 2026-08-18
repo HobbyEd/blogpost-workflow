@@ -56,8 +56,9 @@ De stepper is geen lineaire voortgangsbalk meer.
   waar je vanaf een latere fase naartoe terug kunt met een verplichte opmerking.
 - Tabs volgen de rapporten op schijf, niet een hard gecodeerde subset. Stijl, reeks,
   synthese en visuals waren tot 17 augustus onzichtbaar terwijl de bestanden er lagen.
-- YOLO in modus 2 betekent: sla het klikken over als er niets te beslissen valt. Een
-  blocking-bevinding of een synthesepunt is wél iets te beslissen. De keten stopt dan,
-  met de reden in beeld.
+- YOLO in modus 2 betekent twee dingen: sla Approve over als er niets te beslissen valt,
+  **en start de volgende `run` zelf**. De worker pakt die running fase op, zonder extra
+  klik op *Voer uit*. Een blocking-bevinding, een synthesepunt of deploy zonder akkoord
+  is wél iets te beslissen. Daar stopt de keten, met de reden in beeld.
 
 Modus 1 (brainstorm) is ongewijzigd.

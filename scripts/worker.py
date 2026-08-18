@@ -494,6 +494,7 @@ def run_once(
         "phase": completed["phase"],
         "status": completed["status"],
         "yolo_advanced": completed.get("yolo_advanced"),
+        "auto_started": completed.get("auto_started"),
         "gate": completed.get("gate"),
         "next": completed.get("next"),
     }
@@ -575,6 +576,9 @@ def main(argv: list[str] | None = None) -> int:
             heartbeat.update("idle")
             if not watch:
                 return 0 if result.get("ok") else 2
+            if result.get("auto_started") or find_running_jobs(service, slug=args.post):
+                last_idle = None
+                continue
             time.sleep(max(1, args.interval))
     finally:
         heartbeat.stop()

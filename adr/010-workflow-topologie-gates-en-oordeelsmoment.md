@@ -334,8 +334,8 @@ met de hand opnieuw moesten en waar het misgaan het duurst is.
    - Eerst alleen `outline`. Andere fases blijven approve/reject. De stepper is klikbaar:
      een afgeronde stap openen toont het artefact; op Outline verschijnt het terug-veld
      ook als de keten al verder is.
-   - YOLO slaat deze terug-actie niet over. Hij slaat alleen het klikken over als er niets
-     te beslissen valt.
+   - YOLO slaat deze terug-actie niet over. Hij slaat Approve over als er niets te
+     beslissen valt, en start dan zelf de volgende `run` (18 augustus).
 
    *Goedkeuren met een paar tweaks* op de draft is bewust nog geen derde knop. Dat is een
    ander besluit dan terugsturen (herschrijf) en dan `revisie.md` (na WordPress).

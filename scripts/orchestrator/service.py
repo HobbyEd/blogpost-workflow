@@ -446,11 +446,14 @@ class WorkflowService:
             state["gate"]["pending"] = phase
 
         save_state(pdir, state)
+        auto_started = self._maybe_auto_run(pdir)
+        state = load_state(pdir)
         return {
             "ok": True,
             "phase": state["phase"],
             "status": state["status"],
             "yolo_advanced": yolo_advanced,
+            "auto_started": auto_started,
             "gate": state["gate"],
             "next": compute_next(state, pdir),
         }
@@ -520,12 +523,36 @@ class WorkflowService:
 
         sync_artefact_flags(state, pdir)
         save_state(pdir, state)
+        auto_started = self._maybe_auto_run(pdir)
+        state = load_state(pdir)
         return {
             "ok": True,
             "phase": state["phase"],
             "status": state["status"],
+            "auto_started": auto_started,
             "next": compute_next(state, pdir),
         }
+
+    def _maybe_auto_run(self, pdir: str) -> str | None:
+        """Start de volgende fase als YOLO aanstaat en next een run is.
+
+        YOLO slaat niet alleen Approve over; het zet de volgende stap op running
+        zodat de worker hem pakt. Harde gates en deploy zonder akkoord blijven liggen.
+        """
+        state = load_state(pdir)
+        if not state.get("yolo_mode"):
+            return None
+        nxt = compute_next(state, pdir)
+        if nxt.get("action") != "run" or not nxt.get("phase"):
+            return None
+        fase = nxt["phase"]
+        ran = self.run_phase(phase=fase, post_dir=pdir)
+        if not ran.get("ok"):
+            return None
+        state = load_state(pdir)
+        append_log(state, "yolo_auto_run", phase=fase)
+        save_state(pdir, state)
+        return fase
 
     def reject_gate(
         self,

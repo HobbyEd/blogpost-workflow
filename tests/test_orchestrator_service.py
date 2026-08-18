@@ -408,16 +408,17 @@ class TestServiceYoloAndHardGates(ServiceTestBase):
         pdir = os.path.join(self.tmp_dir, slug)
         self.service.init_post(slug=slug, titel="Yolo Test", yolo=True, post_dir=pdir)
 
-        # Run & complete outline -> yolo auto-approves outline to draft/ready
+        # Run & complete outline -> yolo keurt goed én start draft.
         self.service.run_phase(phase="outline", post_dir=pdir)
         self.create_post_file(slug, "outline.md", "Outline")
         res = self.service.complete_phase(phase="outline", post_dir=pdir)
         self.assertTrue(res["ok"])
         self.assertTrue(res["yolo_advanced"])
+        self.assertEqual(res["auto_started"], "draft")
 
         status = self.service.get_status(post_dir=pdir)
         self.assertEqual(status["phase"], "draft")
-        self.assertEqual(status["status"], "ready")
+        self.assertEqual(status["status"], "running")
 
     def test_yolo_mode_stops_at_hard_gate(self) -> None:
         slug = "yolo-hard-gate"
@@ -442,6 +443,40 @@ class TestServiceYoloAndHardGates(ServiceTestBase):
         res = self.service.complete_phase(phase="synthesis", post_dir=pdir)
         self.assertTrue(res["ok"])
         self.assertFalse(res["yolo_advanced"])  # Hard gate MUST NOT auto-advance
+        self.assertEqual(res["status"], "waiting_gate")
+        self.assertIsNone(res.get("auto_started"))
+
+    def test_yolo_approve_start_volgende_run(self) -> None:
+        slug = "yolo-na-approve"
+        pdir = os.path.join(self.tmp_dir, slug)
+        self.service.init_post(slug=slug, titel="Na approve", yolo=True, post_dir=pdir)
+        self.create_post_file(slug, "outline.md", "Outline")
+        self.create_post_file(slug, "draft.md", "Draft")
+        self.create_post_file(slug, "grok-feedback.md", "Feedback")
+        self.create_post_file(slug, "synthese.md")
+        from scripts.orchestrator.repository import load_state, save_state
+        raw = load_state(pdir)
+        raw["phase"] = "synthesis"
+        raw["status"] = "waiting_gate"
+        raw["gate"]["pending"] = "synthesis"
+        save_state(pdir, raw)
+
+        res = self.service.approve_gate(post_dir=pdir, note="punten klaar")
+        self.assertTrue(res["ok"], res.get("errors"))
+        self.assertEqual(res["auto_started"], "visuals")
+        self.assertEqual(res["phase"], "visuals")
+        self.assertEqual(res["status"], "running")
+
+    def test_zonder_yolo_geen_auto_run(self) -> None:
+        slug = "geen-yolo"
+        pdir = os.path.join(self.tmp_dir, slug)
+        self.service.init_post(slug=slug, titel="Geen yolo", yolo=False, post_dir=pdir)
+        self.service.run_phase(phase="outline", post_dir=pdir)
+        self.create_post_file(slug, "outline.md", "Outline")
+        res = self.service.complete_phase(phase="outline", post_dir=pdir)
+        self.assertTrue(res["ok"])
+        self.assertFalse(res["yolo_advanced"])
+        self.assertIsNone(res.get("auto_started"))
         self.assertEqual(res["status"], "waiting_gate")
 
 

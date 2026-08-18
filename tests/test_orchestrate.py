@@ -242,28 +242,26 @@ class TestLinearPipelineNoYolo(OrchestrateTestCase):
 
 
 class TestYoloMode(OrchestrateTestCase):
-    """Yolo advanceert alleen soft gates, en dat stapsgewijs — geen auto-chain."""
+    """Yolo keurt zachte gates goed en start de volgende run zelf."""
 
-    def _advance_through_style(self) -> None:
+    def test_soft_gates_starten_de_volgende_run(self) -> None:
         self.init_state(yolo=True)
         self.cli("run", "outline")
         self.write("outline.md")
         code, payload, err = self.cli("complete", "outline")
-        self.assertTrue(payload["yolo_advanced"])
-        self.assertEqual(payload["phase"], "draft")
-        self.assertEqual(payload["status"], "ready")
-
-    def test_soft_gates_auto_advance_one_step_at_a_time(self) -> None:
-        self._advance_through_style()
-        # Nog niet automatisch doorgeschoten naar style: expliciete run nodig.
-        code, payload, err = self.cli("run", "draft")
         self.assertEqual(code, 0, err)
+        self.assertTrue(payload["yolo_advanced"])
+        self.assertEqual(payload["auto_started"], "draft")
+        self.assertEqual(payload["phase"], "draft")
+        self.assertEqual(payload["status"], "running")
+
         self.write("draft.md")
         code, payload, err = self.cli("complete", "draft")
         self.assertEqual(code, 0, err)
         self.assertTrue(payload["yolo_advanced"])
+        self.assertEqual(payload["auto_started"], "style")
         self.assertEqual(payload["phase"], "style")
-        self.assertEqual(payload["status"], "ready")
+        self.assertEqual(payload["status"], "running")
 
     def test_hard_gate_synthesis_stops_even_in_yolo(self) -> None:
         self.init_state(yolo=True)
@@ -280,9 +278,8 @@ class TestYoloMode(OrchestrateTestCase):
             self.cli("complete", phase)
 
         self.assertEqual(self.state()["phase"], "synthesis")
-        self.assertEqual(self.state()["status"], "ready")
+        self.assertEqual(self.state()["status"], "running")
 
-        self.cli("run", "synthesis")
         self.write("synthese.md")
         code, payload, err = self.cli("complete", "synthesis")
         self.assertEqual(code, 0, err)
@@ -720,7 +717,8 @@ class TestVisualsDetectie(OrchestrateTestCase):
         code, payload, err = self.cli("complete", "factcheck")
         self.assertEqual(code, 0, err)
         self.assertEqual(self.state()["phase"], "alignment")
-        self.assertEqual(self.state()["status"], "ready")
+        self.assertEqual(self.state()["status"], "running")
+        self.assertEqual(payload["auto_started"], "alignment")
 
     def test_svg_en_png_van_dezelfde_visual_tellen_als_een(self) -> None:
         """De PNG is de render van de SVG, geen tweede visual."""
