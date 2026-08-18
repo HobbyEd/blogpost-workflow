@@ -11,6 +11,7 @@ from .constants import (
     CONDITIONAL_GATES,
     DEPLOY_REQUIRES_FRESH,
     FACTCHECK_PHASES,
+    FIX_OR_CONTINUE_PHASES,
     HARD_GATES,
     MIN_VISUALS,
     PHASE_ARTEFACT_KEY,
@@ -170,6 +171,18 @@ def _compute_next_for_waiting_gate(state: dict[str, Any], phase: str) -> dict[st
             "summary": (
                 "Blokkerende feitencheck. De keten mag niet verder. "
                 "Stuur de punten terug naar de draft."
+            ),
+            "agent_brief": None,
+        }
+    if pending in FIX_OR_CONTINUE_PHASES and has_blocking(state, pending):
+        return {
+            "action": "fix_or_continue",
+            "phase": pending,
+            "gate_type": "hard",
+            "return_allowed": False,
+            "summary": (
+                "Blokkerende bevindingen. Los ze op in de draft, "
+                "of ga bewust verder."
             ),
             "agent_brief": None,
         }

@@ -81,6 +81,7 @@ class TestGateReason(unittest.TestCase):
         self.assertEqual(reden["blocking"], 2)
         self.assertEqual(len(reden["findings"]), 1)
         self.assertIn("blokkerende", reden["headline"])
+        self.assertIn("Los deze punten op", reden["detail"])
         self.assertIn("YOLO", reden["detail"])
 
     def test_reeks_zonder_blocking_geen_waiting(self) -> None:

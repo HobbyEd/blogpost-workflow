@@ -38,6 +38,13 @@ RUNNABLE = {
 # Twee feitenchecks: direct na de draft, en opnieuw vóór alignment/deploy.
 FACTCHECK_PHASES = frozenset({"factcheck_draft", "factcheck"})
 
+# Stijl en reeks mogen blocking-punten terugsturen óf bewust laten staan.
+# Feiten staan hier niet bij: die kennen geen "toch verder".
+FIX_OR_CONTINUE_PHASES = frozenset({"style", "series"})
+
+# Alle controles waarvan blocking-bevindingen in de draft-brief horen.
+FINDINGS_TO_DRAFT_PHASES = FACTCHECK_PHASES | FIX_OR_CONTINUE_PHASES
+
 # Soft gates may auto-approve when yolo_mode is on.
 SOFT_GATES = {
     "outline",

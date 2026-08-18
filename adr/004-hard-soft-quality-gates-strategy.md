@@ -67,5 +67,7 @@ aanstond. Dat is de gate, geen defect.
 weigert zolang er punten open zijn.
 
 De UI toont bij een voorwaardelijke stop *waarom* (aantal blocking, de regels, dat YOLO
-deze gate niet overslaat) en opent het rapport van die stap. Zonder die zin leest *Keur
-goed* als een kapotte YOLO-schakelaar.
+deze gate niet overslaat) en opent het rapport van die stap. Sinds 18 augustus heten de
+knoppen bij stijl en reeks *Los deze punten op* en *Ga verder ondanks deze punten*
+(ADR-010 §3.6). *Keur goed* op dat scherm is verdwenen: die naam zei niet of de
+schrijver aan de bak moest of de keten doorging.

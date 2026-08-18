@@ -560,6 +560,11 @@ function renderControls(nextAction, statusInfo) {
     return;
   }
 
+  if (act === 'fix_or_continue') {
+    bar.innerHTML = renderFixOrContinueControls(statusInfo);
+    return;
+  }
+
   if (act === 'decide_synthesis' || (statusInfo.phase === 'synthesis' && (statusInfo.synthesis || {}).open > 0)) {
     bar.innerHTML = renderSynthesisControls(statusInfo);
     return;
@@ -705,6 +710,58 @@ async function executeFactsToDraft() {
     }
   } catch (err) {
     showNotification(`Terug naar draft mislukt: ${err.message}`, 'error');
+  }
+}
+
+function renderFixOrContinueControls(statusInfo) {
+  const r = statusInfo.gate_reason || {};
+  const items = (r.findings || []).slice(0, 5).map(f => {
+    const waar = f.waar ? ` (${escapeHTML(f.waar)})` : '';
+    return `<li><strong>${escapeHTML(f.categorie || 'bevinding')}</strong>${waar} — ${escapeHTML(f.wat || '')}</li>`;
+  }).join('');
+  return `
+    <div class="gate-reason gate-reason-blocking">
+      <div class="gate-reason-text">
+        <strong>${escapeHTML(r.headline || 'Blokkerende bevindingen.')}</strong>
+        <p class="return-hint">Los deze punten op: ze gaan terug naar de schrijver. Ga verder: je laat ze bewust staan.</p>
+        ${items ? `<ul>${items}</ul>` : ''}
+      </div>
+    </div>
+    <button class="btn btn-warning" type="button" onclick="executeFixFindings()">↺ Los deze punten op</button>
+    <button class="btn btn-secondary" type="button" onclick="executeContinueDespite()">Ga verder ondanks deze punten</button>
+  `;
+}
+
+async function executeFixFindings() {
+  if (!activeSlug) return;
+  try {
+    const res = await fetchJSON(`/api/posts/${activeSlug}/return`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phase: 'draft', note: '' }),
+    });
+    assertActionOk(res, 'terug naar de schrijver geweigerd');
+    lastKnownPostStatus = res.status || 'running';
+    selectedPhase = 'draft';
+    showNotification('Punten gaan terug naar de schrijver.', 'info');
+    loadPostDetail(activeSlug);
+    if (!workerStatus.alive) {
+      showNotification('Worker draait niet. Start scripts/worker.py --watch.', 'warning', 8000);
+    }
+  } catch (err) {
+    showNotification(`Terug naar de schrijver mislukt: ${err.message}`, 'error');
+  }
+}
+
+async function executeContinueDespite() {
+  if (!activeSlug) return;
+  try {
+    const res = await fetchJSON(`/api/posts/${activeSlug}/approve`, { method: 'POST' });
+    assertActionOk(res, 'doorgaan geweigerd');
+    showNotification('Akkoord: de punten blijven staan, de keten gaat verder.', 'success');
+    loadPostDetail(activeSlug);
+  } catch (err) {
+    showNotification(`Doorgaan mislukt: ${err.message}`, 'error');
   }
 }
 

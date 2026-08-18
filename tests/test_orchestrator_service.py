@@ -1000,6 +1000,51 @@ class TestVoorwaardelijkeGates(ServiceTestBase):
 
         volgende = self.service.get_next(post_dir=pdir)
         self.assertEqual(volgende["gate_type"], "hard")
+        self.assertEqual(volgende["action"], "fix_or_continue")
+
+    def test_punten_oplossen_gaat_terug_naar_de_schrijver(self) -> None:
+        pdir = self._op_style("gate-fix", BLOKKEREND_RAPPORT, LEEG_RAPPORT)
+        self.create_post_file("gate-fix", "outline.md")
+        self.service.complete_phase(phase="style", post_dir=pdir)
+
+        res = self.service.return_facts_to_draft(post_dir=pdir)
+        self.assertTrue(res["ok"], res.get("errors"))
+        self.assertEqual(res["returned_to"], "draft")
+        self.assertEqual(res["auto_started"], "draft")
+        self.assertIn("stijl-controle", res["return_note"])
+        self.assertIn("misquote", res["return_note"])
+
+        status = self.service.get_status(post_dir=pdir)
+        self.assertEqual(status["phase"], "draft")
+        self.assertEqual(status["status"], "running")
+        brief = self.service.get_next(post_dir=pdir)["agent_brief"]
+        self.assertIn("stijl-controle", brief["instruction"])
+        self.assertIn("misquote", brief["instruction"])
+
+    def test_toch_verder_laat_de_punten_staan(self) -> None:
+        pdir = self._op_style("gate-door", BLOKKEREND_RAPPORT, LEEG_RAPPORT)
+        self.service.complete_phase(phase="style", post_dir=pdir)
+
+        res = self.service.approve_gate(post_dir=pdir, note="bewust door")
+        self.assertTrue(res["ok"], res.get("errors"))
+        self.assertEqual(res["phase"], "series")
+        self.assertEqual(res["status"], "ready")
+
+    def test_reeks_blocking_heeft_dezelfde_keuze(self) -> None:
+        from scripts.orchestrator.repository import load_state, save_state
+
+        slug = "gate-reeks"
+        pdir = os.path.join(self.tmp_dir, slug)
+        self.service.init_post(slug=slug, titel="Reeks", post_dir=pdir)
+        self.create_post_file(slug, "draft.md")
+        self.create_post_file(slug, "reeks-check.md", BLOKKEREND_RAPPORT)
+        s = load_state(pdir)
+        s["phase"], s["status"] = "series", "ready"
+        save_state(pdir, s)
+        self.service.run_phase(phase="series", post_dir=pdir)
+        res = self.service.complete_phase(phase="series", post_dir=pdir)
+        self.assertEqual(res["status"], "waiting_gate")
+        self.assertEqual(res["next"]["action"], "fix_or_continue")
 
     def test_bevinding_in_het_tweede_rapport_telt_ook(self) -> None:
         pdir = self._op_style("gate-tweede", LEEG_RAPPORT, BLOKKEREND_RAPPORT)

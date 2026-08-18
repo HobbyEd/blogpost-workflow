@@ -138,7 +138,10 @@ def gate_reason(state: dict[str, Any]) -> dict[str, Any] | None:
             "blocking": blocking,
             "advisory": advisory,
             "headline": f"Gestopt: {blocking} blokkerende {woord} in {_korte_label(phase).lower()}.",
-            "detail": "YOLO slaat deze gate niet over: er is iets voor te leggen.",
+            "detail": (
+                "Los deze punten op in de draft, of ga bewust verder. "
+                "YOLO slaat deze gate niet over."
+            ),
             "findings": blocking_rows,
         }
 

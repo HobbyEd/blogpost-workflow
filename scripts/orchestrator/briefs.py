@@ -111,8 +111,9 @@ def agent_brief(phase: str, post_dir: str, state: dict[str, Any]) -> dict[str, A
             "outputs": [f"{rel}/draft.md"],
             "instruction": (
                 "Roep blogpost-schrijver aan. Schrijf draft.md in huisstijl op basis van outline.md. "
-                "Geen feiten buiten de outline. Komt de opdracht van een feitencheck, werk "
-                "dan alleen de genoemde blokkerende punten bij; verzin geen nieuwe claims."
+                "Geen feiten buiten de outline. Komt de opdracht van een terugstuur "
+                "(stijl, reeks of feiten), werk dan alleen de genoemde blokkerende "
+                "punten bij; verzin geen nieuwe claims."
             ),
         },
         "factcheck_draft": {

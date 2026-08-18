@@ -19,6 +19,8 @@ from .constants import (
     BLOCK_LABELS,
     CONDITIONAL_GATES,
     FACTCHECK_PHASES,
+    FINDINGS_TO_DRAFT_PHASES,
+    FIX_OR_CONTINUE_PHASES,
     FLAG_NAMES,
     PHASE_LABELS,
     PHASES,
@@ -102,8 +104,16 @@ def _format_blocking_facts(state: dict[str, Any], phase: str) -> str:
     ]
     if not rijen:
         return ""
+    if phase in FACTCHECK_PHASES:
+        bron = "De feitencheck"
+    elif phase == "style":
+        bron = "De stijl-controle"
+    elif phase == "series":
+        bron = "De reeks-check"
+    else:
+        bron = "De controle"
     kop = (
-        f"De feitencheck ({phase}) vond {len(rijen)} blokkerende punt(en). "
+        f"{bron} ({phase}) vond {len(rijen)} blokkerende punt(en). "
         "Werk alleen deze punten bij in draft.md. Verzin geen nieuwe claims."
     )
     return kop + "\n" + "\n".join(rijen)
@@ -598,18 +608,21 @@ class WorkflowService:
         post_dir: str | None = None,
         note: str | None = None,
     ) -> dict[str, Any]:
-        """Stuur een blokkerende feitencheck terug naar de draft.
+        """Stuur blokkerende bevindingen terug naar de draft.
 
-        De keten mag een tekst met openstaande feitelijke fouten niet vooruit
-        schuiven. De bevindingen landen in de draft-brief, niet in revisie.md.
+        Voor feiten is dit de enige actie: de keten mag niet vooruit. Voor stijl
+        en reeks is het de keuze 'los deze punten op'; 'toch verder' blijft
+        approve. De bevindingen landen in de draft-brief, niet in revisie.md.
         """
         pdir = self.resolve_dir(post, post_dir)
         state = load_state(pdir)
         phase = state["gate"].get("pending") or state["phase"]
-        if phase not in FACTCHECK_PHASES:
+        if phase not in FINDINGS_TO_DRAFT_PHASES:
             return {
                 "ok": False,
-                "errors": [f"Terug naar draft is voor de feitencheck, niet voor {phase}."],
+                "errors": [
+                    f"Terug naar draft is voor controlebevindingen, niet voor {phase}."
+                ],
             }
         if state["status"] not in {"waiting_gate", "blocked", "ready"}:
             return {
@@ -623,7 +636,9 @@ class WorkflowService:
         if extra:
             tekst = f"{bevindingen}\n\nOpmerking van de auteur: {extra}" if bevindingen else extra
         if not tekst:
-            tekst = "Blokkerende feitencheck: werk de genoemde feiten bij in draft.md."
+            tekst = (
+                "Blokkerende bevindingen: werk de genoemde punten bij in draft.md."
+            )
 
         state["phase"] = "draft"
         state["status"] = "ready"
@@ -640,7 +655,15 @@ class WorkflowService:
         append_log(state, "facts_returned_to_draft", note=tekst, phase=phase)
         save_state(pdir, state)
 
-        auto = self._maybe_auto_run(pdir)
+        started = None
+        # Stijl/reeks: de schrijver moet nu echt aan de bak. Feiten blijven
+        # ready tot YOLO of een handmatige run; dat pad is al getest.
+        if phase in FIX_OR_CONTINUE_PHASES:
+            ran = self.run_phase(phase="draft", post_dir=pdir)
+            if ran.get("ok"):
+                started = "draft"
+        if not started:
+            started = self._maybe_auto_run(pdir)
         state = load_state(pdir)
         return {
             "ok": True,
@@ -648,7 +671,7 @@ class WorkflowService:
             "returned_to": "draft",
             "phase": state["phase"],
             "status": state["status"],
-            "auto_started": auto,
+            "auto_started": started,
             "return_note": tekst,
             "next": compute_next(state, pdir),
         }
@@ -705,7 +728,7 @@ class WorkflowService:
         state = load_state(pdir)
         huidige = state["gate"].get("pending") or state["phase"]
         doel = (phase or "").strip()
-        if huidige in FACTCHECK_PHASES and doel in {"", "draft"}:
+        if huidige in FINDINGS_TO_DRAFT_PHASES and doel in {"", "draft"}:
             return self.return_facts_to_draft(post=post, post_dir=post_dir, note=note)
 
         text = (note or "").strip()

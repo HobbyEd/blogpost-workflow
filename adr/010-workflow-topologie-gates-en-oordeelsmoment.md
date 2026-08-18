@@ -197,6 +197,44 @@ hoort bij de auteur.
 Eerst `feitencheck.md` en `archief-consistentie.md`, want dat zijn de twee die op 15 augustus
 met de hand opnieuw moesten en waar het misgaan het duurst is.
 
+### 3.6 Een gate-knop noemt de volgende staat van de tekst
+
+Op 18 augustus stond deel 3 op stijl met twee blocking-bevindingen. De UI bood *Keur goed*
+en *Wijs af*. Beide namen zijn de generieke gate-acties uit de control plane, niet het
+besluit dat er lag. *Keur goed* kon betekenen "ja, die punten kloppen, stuur ze naar de
+schrijver" of "ik accepteer de tekst zo, ga verder". *Wijs af* draaide alleen dezelfde
+check opnieuw.
+
+Dat is dezelfde klasse fout als de 49 stempels: een knop die niet zegt wat hij met de
+tekst doet, wordt geraden. De betekenis van een gate-actie hoort daarom in deze ADR,
+niet in een apart functioneel document. De topologie *is* het contract.
+
+| Situatie | Actie | Volgende staat |
+|---|---|---|
+| Outline | Keur goed | volgende fase |
+| Outline | Terug met opmerking | dezelfde fase opnieuw; de opmerking landt in de brief |
+| Feiten, blocking | Terug naar draft | `draft` start; de punten staan in de schrijversbrief. `approve` weigert. |
+| Feiten, geen blocking | (geen knop) | automatisch door |
+| Stijl of reeks, blocking | Los deze punten op | `draft` start; de punten staan in de schrijversbrief |
+| Stijl of reeks, blocking | Ga verder ondanks deze punten | volgende fase; de punten blijven in het rapport staan |
+| Stijl of reeks, geen blocking | (geen knop) | automatisch door |
+| Synthese, open punten | per punt beslissen | `approve` weigert tot elk punt een keuze heeft |
+| Archief, bevinding | voortschrijdend inzicht of inhoudelijke fout | ADR-007 |
+
+Twee regels die de tabel afdwingt:
+
+1. **Feiten kennen geen "toch verder".** Een blokkerende feitencheck is geen oordeel dat
+   je mag laten staan. Stijl en reeks wel: een superlatief zonder bron is een afweging,
+   een citaat dat niet in de bron staat niet.
+2. **Reject (dezelfde check opnieuw) staat niet op het blocking-scherm** van stijl en
+   reeks. Die actie bestaat in de CLI; in de UI is hij de verwarring die deze paragraaf
+   oplost. YOLO kiest nooit tussen "oplossen" en "toch verder".
+
+Dit is geen functionele spec naast de ADR. Een tweede document zou dezelfde tabel
+moeten bijhouden en zou verouderen zodra de keten een actie bijtelt. Nieuwe
+gate-gedragingen horen hier, als beslissing over wat de mens mag doen met een
+bevinding.
+
 ---
 
 ## 4. Consequenties & Trade-offs
@@ -353,9 +391,20 @@ met de hand opnieuw moesten en waar het misgaan het duurst is.
 
    Het tabblad Bevindingen blijft het overzicht (telling). Vertrouwen komt van het rapport
    zelf.
+9. ~~Gate-knoppen noemen de volgende staat, niet approve/reject (3.6).~~ **Uitgevoerd
+   2026-08-18.** `next.action` is `fix_or_continue` bij een blocking stijl- of
+   reeksbevinding, en `return_facts_to_draft` bij een blocking feitencheck. De UI toont
+   de namen uit de tabel in 3.6.
+
+   *Los deze punten op* hergebruikt het terug-naar-draft-pad van de feitencheck: de
+   blocking-rijen worden `gate.last_decision.note`, de schrijver start, en
+   `_with_return_note` zet ze in de draft-brief. *Ga verder ondanks deze punten* is
+   `approve`: de keten schuift door, het rapport blijft staan. Feiten hebben die tweede
+   knop niet; `approve` weigert daar.
 
 Stap 1 tot en met 3 waren losstaand bruikbaar; vanaf stap 4 is de vorm van de workflow
-zichtbaar veranderd. Stap 7 en 8 maken de gates die er al waren ook bruikbaar in de UI.
+zichtbaar veranderd. Stap 7 tot en met 9 maken de gates die er al waren ook bruikbaar
+in de UI.
 
 ## 7. Wat hierna nog open staat
 
