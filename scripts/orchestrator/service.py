@@ -26,6 +26,7 @@ from .constants import (
     RETURN_ALLOWED_PHASES,
 )
 from .engine import (
+    _is_catchup_early_factcheck,
     _precheck_run_clean,
     apply_approve_advance,
     compute_next,
@@ -33,6 +34,7 @@ from .engine import (
     postcheck_complete,
     returnable_phases,
 )
+from .probes import probe_artefacts
 from .formatters import (
     build_block_summary,
     build_phase_table,
@@ -40,7 +42,6 @@ from .formatters import (
     render_phase_table_md,
 )
 from .views import build_artefact_views, gate_reason
-from .probes import probe_artefacts
 from .repository import (
     append_log,
     draft_fingerprint,
@@ -371,6 +372,15 @@ class WorkflowService:
                 phase=state["phase"],
             )
             state["phase"] = "visuals"
+
+        if _is_catchup_early_factcheck(phase, state, probe_artefacts(pdir)):
+            append_log(
+                state,
+                "factcheck_draft_catchup",
+                note=f"eerst feiten na herschreven draft (stond op {state['phase']})",
+                phase=state["phase"],
+            )
+            state["phase"] = "factcheck_draft"
 
         state["status"] = "running"
         state["blocked_reason"] = None

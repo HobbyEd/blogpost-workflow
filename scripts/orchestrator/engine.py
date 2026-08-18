@@ -119,6 +119,9 @@ def compute_next(state: dict[str, Any], post_dir: str) -> dict[str, Any]:
         }
 
     if status == "ready":
+        catchup = _next_catchup_early_factcheck(state, post_dir)
+        if catchup:
+            return catchup
         return _compute_next_for_ready_status(state, phase, post_dir)
 
     return {"action": "unknown", "summary": f"Geen actie voor {phase}/{status}", "agent_brief": None}
@@ -274,17 +277,30 @@ def _precheck_run_clean(phase: str, state: dict[str, Any], post_dir: str) -> lis
         reason = state.get("blocked_reason") or "geen reden"
         return [f"Status blocked: {reason}. Eerst herstellen."]
 
+    probed = probe_artefacts(post_dir)
     defer_visuals = _is_defer_visuals_active(phase, state)
+    catchup_feiten = _is_catchup_early_factcheck(phase, state, probed)
 
-    if state["status"] == "waiting_gate" and not defer_visuals:
+    if state["status"] == "waiting_gate" and not defer_visuals and not catchup_feiten:
         return ["Wacht op gate (approve/reject); run is niet toegestaan."]
-    if not defer_visuals and state["phase"] != phase:
+    if not defer_visuals and not catchup_feiten and state["phase"] != phase:
         return [f"Phase is '{state['phase']}', gevraagd run '{phase}'."]
-    if not defer_visuals and state["status"] not in {"ready", "running"}:
+    if not defer_visuals and not catchup_feiten and state["status"] not in {"ready", "running"}:
         return [f"Status '{state['status']}' laat run niet toe."]
 
-    probed = probe_artefacts(post_dir)
     return _check_run_phase_artefact_requirements(phase, state, probed, post_dir)
+
+
+def _is_catchup_early_factcheck(
+    phase: str, state: dict[str, Any], probed: dict[str, str]
+) -> bool:
+    """Na een feit-terugloop kan de post op style staan zonder feitencheck-draft.md."""
+    return (
+        phase == "factcheck_draft"
+        and state["phase"] in {"style", "series", "critique", "synthesis", "visuals"}
+        and probed.get("factcheck_draft") != "present"
+        and not state["flags"].get("skip_factcheck")
+    )
 
 
 def _is_defer_visuals_active(phase: str, state: dict[str, Any]) -> bool:
@@ -308,7 +324,7 @@ def _check_run_phase_artefact_requirements(
     if phase in {"factcheck_draft", "style", "series", "critique", "visuals", "factcheck", "deploy"} and probed["draft"] != "present":
         errors.append("draft.md ontbreekt of is leeg.")
 
-    if _heeft_blokkerende_feiten(state) and phase not in {"draft", "factcheck_draft", "factcheck"}:
+    if _heeft_blokkerende_feiten(state, post_dir) and phase not in {"draft", "factcheck_draft", "factcheck"}:
         errors.append(
             "Blokkerende feitencheck. Werk de draft bij; de keten mag geen tekst "
             "aanbieden met openstaande feitelijke fouten."
@@ -464,9 +480,33 @@ def _validate_synthesis_completion(
     return []
 
 
-def _heeft_blokkerende_feiten(state: dict[str, Any]) -> bool:
-    """True als een van beide feitenchecks een blocking-bevinding heeft."""
-    return any(has_blocking(state, fase) for fase in FACTCHECK_PHASES)
+def _next_catchup_early_factcheck(state: dict[str, Any], post_dir: str) -> dict[str, Any] | None:
+    """Als de vroege feitencheck ontbreekt, die eerst, niet style."""
+    probed = probe_artefacts(post_dir)
+    if state["flags"].get("skip_factcheck"):
+        return None
+    if probed.get("factcheck_draft") == "present":
+        return None
+    if state["phase"] not in {"style", "series", "critique", "synthesis", "visuals"}:
+        return None
+    return {
+        "action": "run",
+        "phase": "factcheck_draft",
+        "summary": "Voer uit: run factcheck_draft (eerst de feiten na de herschreven draft)",
+        "agent_brief": agent_brief("factcheck_draft", post_dir, state),
+    }
+
+
+def _heeft_blokkerende_feiten(state: dict[str, Any], post_dir: str) -> bool:
+    """True als een actuele feitencheck blocking heeft. Verouderde verdicts tellen niet."""
+    verouderd = set(stale_phases(state, post_dir, FACTCHECK_PHASES))
+    for fase in FACTCHECK_PHASES:
+        if not has_blocking(state, fase):
+            continue
+        if fase in verouderd:
+            continue
+        return True
+    return False
 
 
 def _validate_named_factcheck(probed: dict[str, str], phase: str, post_dir: str) -> list[str]:

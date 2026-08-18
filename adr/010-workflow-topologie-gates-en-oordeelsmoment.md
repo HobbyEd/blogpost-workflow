@@ -364,6 +364,11 @@ zichtbaar veranderd. Stap 7 en 8 maken de gates die er al waren ook bruikbaar in
   echt opnieuw moet, maar de volgorde dwingt nog steeds een wandeling af. Dat is
   alternatief C uit §2, de afhankelijkheidsgraaf.
 - **`synthesis` staat nog onder Bouwen** in plaats van Oordelen (zie stap 5).
+- **Herhaalronde na feiten is lichter dan de eerste ronde.** Style, reeks en critique
+  lopen opnieuw (de tekst is veranderd). Visuals worden gecontroleerd, niet standaard
+  opnieuw gebouwd: bijschriften en getallen tegen de draft, alleen vervangen als ze
+  feitelijk fout zijn. Synthese blijft een harde gate. Een verouderd blocking-verdict
+  van de *vorige* draft houdt de nieuwe tekst niet tegen.
 - **Twee feitenchecks.** Sinds 18 augustus staat de eerste direct na de draft
   (`factcheck_draft` → `feitencheck-draft.md`) en blijft de tweede op de oude plek
   (`factcheck` → `feitencheck.md`, herkeuring na visuals). Een blocking-bevinding in

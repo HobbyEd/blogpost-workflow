@@ -244,6 +244,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // --- API Calls ---
 
+function assertActionOk(data, fallback) {
+  if (data && data.ok === false) {
+    const msg = (data.errors && data.errors.join(' ')) || fallback || 'Actie geweigerd.';
+    throw new Error(msg);
+  }
+  return data;
+}
+
 async function fetchJSON(url, options = {}) {
   try {
     const res = await fetch(url, options);
@@ -682,11 +690,12 @@ function renderFactsReturnControls(statusInfo) {
 async function executeFactsToDraft() {
   if (!activeSlug) return;
   try {
-    await fetchJSON(`/api/posts/${activeSlug}/return`, {
+    const res = await fetchJSON(`/api/posts/${activeSlug}/return`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ phase: 'draft', note: '' }),
     });
+    assertActionOk(res, 'terug naar draft geweigerd');
     lastKnownPostStatus = 'running';
     selectedPhase = 'draft';
     showNotification('Terug naar de draft met de feitenpunten.', 'info');
@@ -760,7 +769,8 @@ function renderRunningControls(phase, statusInfo) {
 async function executeRun(phase) {
   if (!activeSlug) return;
   try {
-    await fetchJSON(`/api/posts/${activeSlug}/run/${phase}`, { method: 'POST' });
+    const res = await fetchJSON(`/api/posts/${activeSlug}/run/${phase}`, { method: 'POST' });
+    assertActionOk(res, `run ${phase} geweigerd`);
     showNotification(`Fase '${phase}' gestart.`, 'info');
     lastKnownPostStatus = 'running';
     loadPostDetail(activeSlug);
@@ -796,7 +806,8 @@ async function executeRetry(phase) {
 async function executeComplete(phase) {
   if (!activeSlug) return;
   try {
-    await fetchJSON(`/api/posts/${activeSlug}/complete/${phase}`, { method: 'POST' });
+    const res = await fetchJSON(`/api/posts/${activeSlug}/complete/${phase}`, { method: 'POST' });
+    assertActionOk(res, `complete ${phase} geweigerd`);
     showNotification(`Fase '${phase}' afgerond.`, 'success');
     loadPostDetail(activeSlug);
   } catch (err) {
@@ -807,7 +818,8 @@ async function executeComplete(phase) {
 async function executeApprove() {
   if (!activeSlug) return;
   try {
-    await fetchJSON(`/api/posts/${activeSlug}/approve`, { method: 'POST' });
+    const res = await fetchJSON(`/api/posts/${activeSlug}/approve`, { method: 'POST' });
+    assertActionOk(res, 'approve geweigerd');
     showNotification(`Akkoord gegeven!`, 'success');
     loadPostDetail(activeSlug);
   } catch (err) {

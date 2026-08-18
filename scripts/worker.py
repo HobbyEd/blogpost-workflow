@@ -198,6 +198,17 @@ def iter_post_statuses(
     return found
 
 
+def _nudge_yolo_ready(service: WorkflowService, slug: str | None = None) -> None:
+    """YOLO-posts die op ready/run staan, zelf starten. Vangt een gemiste auto-run op."""
+    for status in iter_post_statuses(service, slug=slug):
+        if not status.get("yolo_mode") or status.get("status") != "ready":
+            continue
+        nxt = status.get("next") or {}
+        if nxt.get("action") != "run" or not nxt.get("phase"):
+            continue
+        service.run_phase(phase=nxt["phase"], post_dir=status.get("post_dir"))
+
+
 def find_running_jobs(
     service: WorkflowService,
     slug: str | None = None,
@@ -408,6 +419,7 @@ def run_once(
     on_claim: OnClaim | None = None,
 ) -> dict[str, Any]:
     """Pak één running fase, voer de brief uit, roep complete aan. Nooit approve."""
+    _nudge_yolo_ready(service, slug=slug)
     jobs = find_running_jobs(service, slug=slug)
     if slug and not jobs:
         try:

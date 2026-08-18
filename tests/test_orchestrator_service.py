@@ -462,6 +462,7 @@ class TestServiceYoloAndHardGates(ServiceTestBase):
         self.service.init_post(slug=slug, titel="Na approve", yolo=True, post_dir=pdir)
         self.create_post_file(slug, "outline.md", "Outline")
         self.create_post_file(slug, "draft.md", "Draft")
+        self.create_post_file(slug, "feitencheck-draft.md")
         self.create_post_file(slug, "grok-feedback.md", "Feedback")
         self.create_post_file(slug, "synthese.md")
         from scripts.orchestrator.repository import load_state, save_state
@@ -1136,6 +1137,46 @@ class TestFactcheckNaDraft(ServiceTestBase):
         self.assertIn("blokkerende", res["return_note"])
         brief = self.service.run_phase(phase="draft", post_dir=pdir)["agent_brief"]
         self.assertIn("blokkerende", brief["instruction"])
+
+    def test_verouderde_late_blocking_houdt_style_niet_tegen(self) -> None:
+        slug = "fc-stale"
+        pdir = os.path.join(self.tmp_dir, slug)
+        self.service.init_post(slug=slug, titel="Stale", post_dir=pdir)
+        self.create_post_file(slug, "outline.md")
+        self.create_post_file(slug, "draft.md", "# oud\n")
+        from scripts.orchestrator.repository import load_state, save_state
+        s = load_state(pdir)
+        s["phase"] = "style"
+        s["status"] = "ready"
+        s["verdicts"] = {
+            "factcheck": {
+                "blocking": 2,
+                "advisory": 0,
+                "findings": [{"severity": "blocking", "categorie": "x", "waar": "r.1", "wat": "fout"}],
+            }
+        }
+        s["derived_from"] = {"factcheck": "niet-de-huidige-sha"}
+        save_state(pdir, s)
+        self.create_post_file(slug, "feitencheck-draft.md")
+        res = self.service.run_phase(phase="style", post_dir=pdir)
+        self.assertTrue(res["ok"], res.get("errors"))
+
+    def test_zonder_vroege_check_is_next_factcheck_draft(self) -> None:
+        slug = "fc-catchup"
+        pdir = os.path.join(self.tmp_dir, slug)
+        self.service.init_post(slug=slug, titel="Catchup", post_dir=pdir)
+        self.create_post_file(slug, "outline.md")
+        self.create_post_file(slug, "draft.md")
+        from scripts.orchestrator.repository import load_state, save_state
+        s = load_state(pdir)
+        s["phase"], s["status"] = "style", "ready"
+        save_state(pdir, s)
+        nxt = self.service.get_next(post_dir=pdir)
+        self.assertEqual(nxt["action"], "run")
+        self.assertEqual(nxt["phase"], "factcheck_draft")
+        res = self.service.run_phase(phase="factcheck_draft", post_dir=pdir)
+        self.assertTrue(res["ok"], res.get("errors"))
+        self.assertEqual(self.service.get_status(post_dir=pdir)["phase"], "factcheck_draft")
 
 
 class TestRapportActualiteit(ServiceTestBase):

@@ -9,6 +9,27 @@ from typing import Any
 from .constants import AGENT_FOR_PHASE
 
 
+def _visuals_instruction(rel: str, post_dir: str) -> str:
+    """Bestaande visuals niet opnieuw bouwen; alleen controleren na een feiten-lus."""
+    vdir = os.path.join(post_dir, "visuals")
+    heeft = os.path.isdir(vdir) and any(
+        n.lower().endswith((".png", ".svg")) and not n.startswith(".")
+        for n in os.listdir(vdir)
+    )
+    if heeft:
+        return (
+            "Er staan al visuals. Roep blogpost-visuals aan om te CONTROLEREN, niet om "
+            "opnieuw te bouwen. Check bijschriften, getallen en verwijzingen in draft.md "
+            "tegen de bestaande SVG/PNG. Maak alleen een nieuwe visual als een bestaande "
+            "feitelijk fout is of de draft hem niet meer gebruikt. Laat kloppende beelden "
+            "ongemoeid."
+        )
+    return (
+        "Roep blogpost-visuals aan. Spaarzame SVG's, render via scripts/render_svg.py, "
+        f"zet ![alt](visuals/....png) in {rel}/draft.md."
+    )
+
+
 def rag_search_step(onderwerp: str, top_k: int = 12) -> str:
     """De verplichte openingsstap: eerst het eigen archief bevragen (ADR-006).
 
@@ -179,8 +200,7 @@ def agent_brief(phase: str, post_dir: str, state: dict[str, Any]) -> dict[str, A
             "inputs": [f"{rel}/draft.md", "reference/huisstijl.md"],
             "outputs": [f"{rel}/visuals/", "beeldrefs in draft.md"],
             "instruction": (
-                "Roep blogpost-visuals aan. Spaarzame SVG's, render via scripts/render_svg.py, "
-                "zet ![alt](visuals/....png) in draft.md."
+                _visuals_instruction(rel, post_dir)
             ),
         },
         "factcheck": {
