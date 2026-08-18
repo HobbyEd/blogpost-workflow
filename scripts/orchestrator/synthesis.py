@@ -13,8 +13,7 @@ Daarom drie dingen, mechanisch afgedwongen in plaats van opgeschreven als voorne
 
 1. De agent legt de varianten **neutraal** voor met hun gevolg. Geen aanbeveling.
 2. **Verwerpen is bij elk punt een optie**, even zichtbaar als aannemen.
-3. De auteur beslist **per punt**, met een motivering. `complete synthesis` weigert zolang
-   er punten open staan.
+3. De auteur beslist **per punt**. Een motivering mag, is niet verplicht.
 """
 
 from __future__ import annotations
@@ -135,14 +134,9 @@ def record_decision(
     geldig = [o["key"] for o in punt["opties"]]
     if keuze not in geldig:
         raise ValueError(f"Onbekende keuze '{keuze}' voor punt {punt['id']}. Kies uit: {', '.join(geldig)}.")
-    if not motivering.strip():
-        raise ValueError(
-            "Een motivering is verplicht. Zonder reden is de beslissing achteraf niet te "
-            "volgen, en dat is precies hoe de Sinek-sectie bleef staan."
-        )
     state.setdefault("synthese_besluiten", {})[punt["id"]] = {
         "keuze": keuze,
-        "motivering": motivering.strip(),
+        "motivering": (motivering or "").strip(),
         "at": tijdstip,
     }
 

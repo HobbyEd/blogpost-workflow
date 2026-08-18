@@ -762,10 +762,14 @@ class TestSyntheseBeslismoment(ServiceTestBase):
         self.assertEqual(status["status"], "waiting_gate")
         self.assertEqual(status["next"]["action"], "approve_or_reject")
 
-    def test_motivering_is_verplicht(self) -> None:
+    def test_lege_motivering_mag(self) -> None:
         pdir = self._op_synthese("syn-motief", SYNTHESE_MET_PUNT)
-        with self.assertRaises(ValueError):
-            self.service.decide_point(punt_id="p1", keuze="verwerpen", motivering="   ", post_dir=pdir)
+        res = self.service.decide_point(
+            punt_id="p1", keuze="verwerpen", motivering="   ", post_dir=pdir
+        )
+        self.assertTrue(res["ok"])
+        self.assertEqual(res["points"][0]["keuze"], "verwerpen")
+        self.assertEqual(res["points"][0]["motivering"], "")
 
     def test_onbekende_keuze_wordt_geweigerd(self) -> None:
         pdir = self._op_synthese("syn-keuze", SYNTHESE_MET_PUNT)

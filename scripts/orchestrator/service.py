@@ -206,7 +206,7 @@ class WorkflowService:
     ) -> dict[str, Any]:
         """Leg de beslissing van de auteur bij één kritiekpunt vast (ADR-010 §3.3).
 
-        Per punt, met een motivering. Akkoord op het geheel is geen beslissing: zo bleef
+        Per punt. Akkoord op het geheel is geen beslissing: zo bleef
         bij deel 2 een sectie staan die eruit had gemoeten.
         """
         pdir = self.resolve_dir(post, post_dir)
@@ -222,7 +222,7 @@ class WorkflowService:
         append_log(
             state,
             "synthese_besluit",
-            note=f"{punt_id}: {keuze} — {motivering.strip()}",
+            note=f"{punt_id}: {keuze}" + (f" — {motivering.strip()}" if (motivering or "").strip() else ""),
             phase="synthesis",
         )
         # Een eerdere complete zette dit op blocked omdat er nog open punten waren.
@@ -503,7 +503,7 @@ class WorkflowService:
                     "ok": False,
                     "errors": [
                         f"{len(openstaand)} synthesepunten zijn nog niet beslist: "
-                        f"{', '.join(openstaand)}. Beslis per punt met een motivering."
+                        f"{', '.join(openstaand)}. Beslis per punt."
                     ],
                 }
 

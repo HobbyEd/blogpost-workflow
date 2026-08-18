@@ -293,7 +293,7 @@ met de hand opnieuw moesten en waar het misgaan het duurst is.
    de motivering (3.3).~~ **Uitgevoerd 2026-08-15, UI 2026-08-18.** `synthese.md` opent met
    een json-blok met `points`; elk punt heeft minstens twee varianten met hun gevolg, en
    `verwerpen` is verplicht aanwezig. Beslissen gaat per punt met `orchestrate.py decide`
-   of in de web-UI, met een verplichte motivering, en komt in het logboek.
+   of in de web-UI. Een motivering mag, is niet verplicht. De keuze komt in het logboek.
 
    Bijwerking 18 augustus: `complete synthesis` weigert **niet** meer op open punten. Een
    geldig rapport met onbesliste punten is `waiting_gate`, geen `blocked`. `approve` weigert

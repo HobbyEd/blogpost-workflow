@@ -389,6 +389,8 @@ function renderPostDetail(detail, resetTab) {
   if (controlsBar) controlsBar.style.display = 'flex';
   if (viewerCard) viewerCard.style.display = 'block';
 
+  const drafts = takeSynthesisDrafts();
+  const composing = !resetTab && isSynthesisComposerFocused();
   const syntheseOpen = detail.phase === 'synthesis' && ((detail.synthesis || {}).open > 0);
   const gewenst = resetTab
     ? (syntheseOpen && isTabAvailable(detail, 'synthesis')
@@ -397,7 +399,12 @@ function renderPostDetail(detail, resetTab) {
         ? detail.phase
         : (isTabAvailable(detail, selectedPhase) ? selectedPhase : 'status')))
     : (isTabAvailable(detail, activeTab) ? activeTab : 'status');
+  if (composing && gewenst === 'synthesis') {
+    markActiveTab('synthesis');
+    return;
+  }
   showTab(gewenst);
+  restoreSynthesisDrafts(drafts);
 }
 
 function renderStepper(detail) {
@@ -840,12 +847,51 @@ async function toggleFlag(flagName, value) {
   }
 }
 
-function showTab(tab) {
-  activeTab = tab;
-  const navBtns = document.querySelectorAll('.tab-btn');
-  navBtns.forEach(btn => {
+function markActiveTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.classList.toggle('active', btn.getAttribute('data-tab') === tab);
   });
+}
+
+function isSynthesisComposerFocused() {
+  const el = document.activeElement;
+  if (!el || !el.getAttribute) return false;
+  const id = el.id || '';
+  const name = el.getAttribute('name') || '';
+  return id.startsWith('syn-motief-') || name.startsWith('syn-');
+}
+
+function takeSynthesisDrafts() {
+  const drafts = {};
+  document.querySelectorAll('.synthesis-card').forEach(card => {
+    const id = (card.id || '').replace(/^syn-/, '');
+    if (!id || card.classList.contains('is-done')) return;
+    const radio = card.querySelector('input[type="radio"]:checked');
+    const text = card.querySelector('textarea');
+    drafts[id] = {
+      keuze: radio ? radio.value : '',
+      motivering: text ? text.value : '',
+    };
+  });
+  return drafts;
+}
+
+function restoreSynthesisDrafts(drafts) {
+  if (!drafts) return;
+  Object.keys(drafts).forEach(id => {
+    const d = drafts[id];
+    if (d.keuze) {
+      const radio = document.querySelector(`input[name="syn-${id}"][value="${d.keuze}"]`);
+      if (radio && !radio.disabled) radio.checked = true;
+    }
+    const text = document.getElementById(`syn-motief-${id}`);
+    if (text && d.motivering) text.value = d.motivering;
+  });
+}
+
+function showTab(tab) {
+  activeTab = tab;
+  markActiveTab(tab);
 
   const contentEl = document.getElementById('tab-content');
   if (!contentEl) return;
@@ -949,7 +995,7 @@ function renderSynthesisPoint(punt) {
   const actie = beslist
     ? `<p class="synthesis-besluit">Gekozen: <strong>${escapeHTML(punt.keuze)}</strong> — ${escapeHTML(punt.motivering || '')}</p>`
     : `
-      <textarea id="syn-motief-${escapeHTML(punt.id)}" class="form-control" rows="2" placeholder="Waarom deze keuze? (verplicht)"></textarea>
+      <textarea id="syn-motief-${escapeHTML(punt.id)}" class="form-control" rows="2" placeholder="Toelichting (niet verplicht)"></textarea>
       <button class="btn" type="button" onclick="executeSynthesisDecide('${escapeHTML(punt.id)}')">Leg vast</button>
     `;
   return `
@@ -975,10 +1021,6 @@ async function executeSynthesisDecide(puntId) {
     return;
   }
   const motivering = veld ? veld.value.trim() : '';
-  if (!motivering) {
-    showNotification('Een motivering is verplicht.', 'warning');
-    return;
-  }
   try {
     await fetchJSON(`/api/posts/${activeSlug}/synthesis/decide`, {
       method: 'POST',

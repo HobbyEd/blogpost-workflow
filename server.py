@@ -310,7 +310,7 @@ def start_revision_round(slug: str) -> dict[str, Any]:
 class DecidePointRequest(BaseModel):
     punt: str = Field(..., description="Punt-id uit synthese.md")
     keuze: str = Field(..., description="Gekozen variant, bv. 'aannemen' of 'verwerpen'")
-    motivering: str = Field(..., description="Eén regel: waarom deze keuze")
+    motivering: str = Field("", description="Optionele toelichting bij de keuze")
 
 
 @app.get("/api/posts/{slug}/synthesis")

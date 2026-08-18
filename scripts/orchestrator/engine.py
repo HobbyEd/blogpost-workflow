@@ -136,7 +136,7 @@ def _compute_next_for_synthesis(state: dict[str, Any], post_dir: str) -> dict[st
             "totaal": len(punten),
             "summary": (
                 f"{len(openstaand)} van de {len(punten)} synthesepunten zijn nog niet "
-                "beslist. Beslis per punt, met een motivering."
+                "beslist. Beslis per punt."
             ),
             "agent_brief": None,
         }

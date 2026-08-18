@@ -77,7 +77,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_post_args(sp)
     sp.add_argument("--punt", required=True, help="Punt-id uit synthese.md")
     sp.add_argument("--keuze", required=True, help="Gekozen variant, bv. aannemen of verwerpen")
-    sp.add_argument("--motivering", required=True, help="Eén regel: waarom deze keuze")
+    sp.add_argument("--motivering", default="", help="Optionele toelichting bij de keuze")
 
     sp = sub.add_parser("synthesis", help="Kritiekpunten met varianten en genomen besluiten")
     add_post_args(sp)
