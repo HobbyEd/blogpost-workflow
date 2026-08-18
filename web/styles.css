@@ -669,6 +669,11 @@ header {
   overflow: hidden;
 }
 
+.visual-card a {
+  display: block;
+  cursor: zoom-in;
+}
+
 .visual-card img {
   display: block;
   width: 100%;

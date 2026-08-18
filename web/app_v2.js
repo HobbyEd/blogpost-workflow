@@ -1067,12 +1067,16 @@ function renderVisualsGallery(view) {
       ? '<em>Visuals worden gemaakt. Beelden verschijnen hier zodra ze op schijf staan.</em>'
       : '<em>Nog geen visuals.</em>';
   }
-  const kaarten = files.map(f => `
+  const kaarten = files.map(f => {
+    const src = `/api/posts/${encodeURIComponent(currentPostDetail.slug)}/media/${encodeURIComponent(f.path).replace(/%2F/g, '/')}`;
+    return `
     <figure class="visual-card">
-      <img src="/api/posts/${encodeURIComponent(currentPostDetail.slug)}/media/${encodeURIComponent(f.path).replace(/%2F/g, '/')}" alt="${escapeHTML(f.stem)}">
+      <a href="${src}" target="_blank" rel="noopener noreferrer" title="Open ${escapeHTML(f.stem)} in een nieuw tabblad">
+        <img src="${src}" alt="${escapeHTML(f.stem)}">
+      </a>
       <figcaption>${escapeHTML(f.stem)}</figcaption>
-    </figure>
-  `).join('');
+    </figure>`;
+  }).join('');
   return `<div class="visual-grid">${kaarten}</div>`;
 }
 
