@@ -232,6 +232,29 @@ def get_post_detail(slug: str) -> dict[str, Any]:
         raise HTTPException(status_code=404, detail=str(e))
 
 
+_MEDIA_EXT = {".png", ".svg", ".jpg", ".jpeg", ".webp"}
+
+
+@app.get("/api/posts/{slug}/media/{rel_path:path}")
+def get_post_media(slug: str, rel_path: str) -> FileResponse:
+    """Geef een visual uit de postmap. Alleen visuals/ met een beeldextensie."""
+    delen = [p for p in rel_path.split("/") if p]
+    if not delen or delen[0] != "visuals" or ".." in delen:
+        raise HTTPException(status_code=404, detail="Alleen visuals/ is opvraagbaar.")
+    ext = os.path.splitext(delen[-1])[1].lower()
+    if ext not in _MEDIA_EXT:
+        raise HTTPException(status_code=404, detail="Dit bestandstype is geen visual.")
+    try:
+        pdir = service.resolve_dir(post=slug)
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    pad = os.path.abspath(os.path.join(pdir, *delen))
+    wortel = os.path.abspath(pdir) + os.sep
+    if not pad.startswith(wortel) or not os.path.isfile(pad):
+        raise HTTPException(status_code=404, detail="Bestand niet gevonden.")
+    return FileResponse(pad)
+
+
 class RevisionRequest(BaseModel):
     opmerking: str = Field(..., description="Opmerking van de auteur na het lezen")
     waar: str = Field("", description="Waar in de post, bv. 'sectie 6'")

@@ -38,6 +38,7 @@ from .formatters import (
     parse_state_md,
     render_phase_table_md,
 )
+from .views import build_artefact_views, gate_reason
 from .probes import probe_artefacts
 from .repository import (
     append_log,
@@ -66,7 +67,7 @@ from .archival_validator import (
 from .rag_archive import archive_vectorstore
 from . import revision
 from . import worker_status
-from .synthesis import read_points, record_decision
+from .synthesis import open_points, read_points, record_decision
 from .synthesis import summarize as synthesis_summary
 from .verdicts import (
     collect_findings,
@@ -86,6 +87,14 @@ def _record_deploy_approval(state: dict[str, Any], post_dir: str) -> None:
         "draft_sha": draft_fingerprint(post_dir),
         "at": now_iso(),
     }
+
+
+def _synthesis_status(state: dict[str, Any], post_dir: str) -> dict[str, Any] | None:
+    """Stand van de synthese, of None als er geen geldig rapport is."""
+    try:
+        return synthesis_summary(state, read_points(post_dir))
+    except (FileNotFoundError, ValueError):
+        return None
 
 
 class WorkflowService:
@@ -157,6 +166,9 @@ class WorkflowService:
             "verdicts": state.get("verdicts") or {},
             "next": action,
             "returnable_phases": returnable_phases(state, pdir),
+            "artefact_views": build_artefact_views(state, pdir),
+            "gate_reason": gate_reason(state),
+            "synthesis": _synthesis_status(state, pdir),
         }
 
     def get_findings(
@@ -213,6 +225,13 @@ class WorkflowService:
             note=f"{punt_id}: {keuze} — {motivering.strip()}",
             phase="synthesis",
         )
+        # Een eerdere complete zette dit op blocked omdat er nog open punten waren.
+        # Dat is het beslismoment, geen uitvoeringsfout.
+        if state["phase"] == "synthesis" and state["status"] == "blocked":
+            state["status"] = "waiting_gate"
+            state["gate"]["pending"] = "synthesis"
+            state["blocked_reason"] = None
+            append_log(state, "synthesis_gate_opened", note="open punten → waiting_gate", phase="synthesis")
         save_state(pdir, state)
         return {"ok": True, "punt": punt_id, "keuze": keuze, **synthesis_summary(state, punten)}
 
@@ -472,6 +491,20 @@ class WorkflowService:
                 return {
                     "ok": False,
                     "errors": [f"Approve alleen bij waiting_gate (nu: {state['status']})."],
+                }
+
+        if state["phase"] == "synthesis":
+            try:
+                openstaand = open_points(state, read_points(pdir))
+            except (ValueError, FileNotFoundError) as e:
+                return {"ok": False, "errors": [str(e)]}
+            if openstaand:
+                return {
+                    "ok": False,
+                    "errors": [
+                        f"{len(openstaand)} synthesepunten zijn nog niet beslist: "
+                        f"{', '.join(openstaand)}. Beslis per punt met een motivering."
+                    ],
                 }
 
         if state["phase"] == "deploy" and state["status"] == "waiting_gate":

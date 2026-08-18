@@ -60,6 +60,8 @@ class TestServerAPI(unittest.TestCase):
         detail_data = detail_res.json()
         self.assertEqual(detail_data["slug"], slug)
         self.assertIn("markdown_table", detail_data)
+        self.assertIn("artefact_views", detail_data)
+        self.assertTrue(any(v["id"] == "outline" for v in detail_data["artefact_views"]))
 
         # 4. Gate goedkeuren (intake -> outline ready)
         app_res = self.client.post(
@@ -179,6 +181,26 @@ class TestServerAPI(unittest.TestCase):
             json={"note": "Nog een keer."},
         )
         self.assertEqual(te_vroeg.status_code, 400)
+
+    def test_media_alleen_visuals(self) -> None:
+        slug = "api-media-post"
+        self.client.post(
+            "/api/posts/init",
+            json={"slug": slug, "titel": "Media", "yolo": False},
+        )
+        vdir = os.path.join(self.tmp_dir, slug, "visuals")
+        os.makedirs(vdir, exist_ok=True)
+        with open(os.path.join(vdir, "kaart.png"), "wb") as f:
+            f.write(b"\x89PNG\r\n")
+
+        ok = self.client.get(f"/api/posts/{slug}/media/visuals/kaart.png")
+        self.assertEqual(ok.status_code, 200)
+
+        verboden = self.client.get(f"/api/posts/{slug}/media/draft.md")
+        self.assertEqual(verboden.status_code, 404)
+
+        traversal = self.client.get(f"/api/posts/{slug}/media/visuals/../state.json")
+        self.assertEqual(traversal.status_code, 404)
 
     def test_return_vanuit_draft_ready(self) -> None:
         slug = "api-return-vanuit-draft"

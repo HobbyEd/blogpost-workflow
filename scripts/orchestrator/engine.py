@@ -90,6 +90,10 @@ def compute_next(state: dict[str, Any], post_dir: str) -> dict[str, Any]:
     if phase == "done" or status == "done":
         return {"action": "none", "summary": "Pipeline done.", "agent_brief": None}
 
+    synthese_next = _compute_next_for_synthesis(state, post_dir)
+    if synthese_next:
+        return synthese_next
+
     if status == "blocked":
         reason = state.get("blocked_reason") or "geen reden"
         return {
@@ -113,6 +117,37 @@ def compute_next(state: dict[str, Any], post_dir: str) -> dict[str, Any]:
         return _compute_next_for_ready_status(state, phase, post_dir)
 
     return {"action": "unknown", "summary": f"Geen actie voor {phase}/{status}", "agent_brief": None}
+
+
+def _compute_next_for_synthesis(state: dict[str, Any], post_dir: str) -> dict[str, Any] | None:
+    """Open synthesepunten gaan voor blocked/retry: dat is het beslismoment, geen fout."""
+    if state.get("phase") != "synthesis":
+        return None
+    try:
+        punten = read_points(post_dir)
+    except (ValueError, FileNotFoundError):
+        return None
+    openstaand = open_points(state, punten)
+    if openstaand:
+        return {
+            "action": "decide_synthesis",
+            "phase": "synthesis",
+            "open": openstaand,
+            "totaal": len(punten),
+            "summary": (
+                f"{len(openstaand)} van de {len(punten)} synthesepunten zijn nog niet "
+                "beslist. Beslis per punt, met een motivering."
+            ),
+            "agent_brief": None,
+        }
+    if state.get("status") == "blocked":
+        return {
+            "action": "complete",
+            "phase": "synthesis",
+            "summary": "Alle punten zijn beslist. Rond de synthese af.",
+            "agent_brief": None,
+        }
+    return None
 
 
 def _compute_next_for_waiting_gate(state: dict[str, Any], phase: str) -> dict[str, Any]:
@@ -390,12 +425,8 @@ def _validate_synthesis_completion(
     except (ValueError, FileNotFoundError) as e:
         return [str(e)]
 
-    openstaand = open_points(state, punten)
-    if openstaand:
-        return [
-            f"{len(openstaand)} van de {len(punten)} punten zijn nog niet beslist: "
-            f"{', '.join(openstaand)}. Beslis per punt met `decide`, met een motivering."
-        ]
+    # Open punten horen bij de gate, niet bij complete. Een geldig rapport met
+    # onbesliste punten is waiting_gate, geen blocked (ADR-010 §3.3).
     return []
 
 

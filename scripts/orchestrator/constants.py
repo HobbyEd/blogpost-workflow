@@ -90,6 +90,18 @@ PHASE_REPORTS = {
     # alignment houdt het verdictformaat uit ADR-007 en staat hier niet bij.
 }
 
+# Bestanden die de detailweergave per fase toont. Visuals is een map, geen markdown.
+PHASE_VIEW_FILES = {
+    "outline": (ARTEFACT_FILES["outline"],),
+    "draft": (ARTEFACT_FILES["draft"],),
+    "style": PHASE_REPORTS["style"],
+    "series": PHASE_REPORTS["series"],
+    "critique": (ARTEFACT_FILES["grok_feedback"],),
+    "synthesis": (ARTEFACT_FILES["synthese"],),
+    "factcheck": PHASE_REPORTS["factcheck"],
+    "alignment": (ARTEFACT_FILES["alignment"],),
+}
+
 # Fases waarvan de gate alleen stopt bij een blokkerende bevinding (ADR-010 §3.1). De
 # overige gates blijven onvoorwaardelijk: intake en outline zijn de Richten-gate, deploy
 # is de Oordelen-gate, en synthesis is het beslismoment over de kritiekpunten.

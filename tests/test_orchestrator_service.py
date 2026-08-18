@@ -719,23 +719,48 @@ class TestSyntheseBeslismoment(ServiceTestBase):
         save_state(pdir, s)
         return pdir
 
-    def test_open_punt_blokkeert_complete(self) -> None:
+    def test_open_punt_zet_waiting_gate_niet_blocked(self) -> None:
         pdir = self._op_synthese("syn-open", SYNTHESE_MET_PUNT)
         res = self.service.complete_phase(phase="synthesis", post_dir=pdir)
-        self.assertFalse(res["ok"])
-        fouten = " ".join(res["errors"])
-        self.assertIn("p1", fouten)
-        self.assertIn("niet beslist", fouten)
+        self.assertTrue(res["ok"], res.get("errors"))
+        self.assertEqual(res["status"], "waiting_gate")
+        self.assertEqual(res["next"]["action"], "decide_synthesis")
+        self.assertIn("p1", res["next"]["open"])
 
-    def test_beslissing_met_motivering_maakt_complete_mogelijk(self) -> None:
+        afgewezen = self.service.approve_gate(post_dir=pdir, note="toch maar")
+        self.assertFalse(afgewezen["ok"])
+        self.assertIn("niet beslist", " ".join(afgewezen["errors"]))
+
+    def test_beslissing_met_motivering_maakt_approve_mogelijk(self) -> None:
         pdir = self._op_synthese("syn-beslist", SYNTHESE_MET_PUNT)
+        self.service.complete_phase(phase="synthesis", post_dir=pdir)
         self.service.decide_point(
             punt_id="p1", keuze="schrappen",
             motivering="De sectie draagt het betoog niet; alleen de claim blijft.",
             post_dir=pdir,
         )
-        res = self.service.complete_phase(phase="synthesis", post_dir=pdir)
+        res = self.service.approve_gate(post_dir=pdir, note="punten afgehandeld")
         self.assertTrue(res["ok"], res.get("errors"))
+        self.assertEqual(res["phase"], "visuals")
+
+    def test_blocked_door_oude_complete_wordt_beslismoment(self) -> None:
+        from scripts.orchestrator.repository import load_state, save_state
+
+        pdir = self._op_synthese("syn-blocked", SYNTHESE_MET_PUNT)
+        s = load_state(pdir)
+        s["status"] = "blocked"
+        s["blocked_reason"] = "1 van de 1 punten zijn nog niet beslist: p1."
+        save_state(pdir, s)
+
+        nxt = self.service.get_next(post_dir=pdir)
+        self.assertEqual(nxt["action"], "decide_synthesis")
+
+        self.service.decide_point(
+            punt_id="p1", keuze="verwerpen", motivering="Niet overnemen.", post_dir=pdir
+        )
+        status = self.service.get_status(post_dir=pdir)
+        self.assertEqual(status["status"], "waiting_gate")
+        self.assertEqual(status["next"]["action"], "approve_or_reject")
 
     def test_motivering_is_verplicht(self) -> None:
         pdir = self._op_synthese("syn-motief", SYNTHESE_MET_PUNT)

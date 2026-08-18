@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Blogpost Command Center UI</title>
-  <link rel="stylesheet" href="/static/styles.css?v=1.10.0">
+  <link rel="stylesheet" href="/static/styles.css?v=1.12.0">
 </head>
 <body>
 
@@ -24,7 +24,7 @@
     <div class="brand">
       <div class="brand-icon">B</div>
       <h1>Blogpost Command Center</h1>
-      <span style="background: var(--accent-primary); color: white; font-weight: bold;">v1.10</span>
+      <span style="background: var(--accent-primary); color: white; font-weight: bold;">v1.12</span>
     </div>
 
     <!-- Mode Switcher -->
@@ -128,13 +128,7 @@
         <!-- Artefact / Markdown Viewer Card -->
         <div class="card viewer-card" id="viewer-card" style="display: none;">
           <div class="tab-nav" id="tab-nav">
-            <button class="tab-btn active" onclick="showTab('status')">Statustabel</button>
-            <button class="tab-btn" onclick="showTab('outline')">Outline.md</button>
-            <button class="tab-btn" onclick="showTab('draft')">Draft.md</button>
-            <button class="tab-btn" onclick="showTab('grok')">Grok-Feedback</button>
-            <button class="tab-btn" onclick="showTab('factcheck')">Feitencheck</button>
-            <button class="tab-btn" onclick="showTab('bevindingen')">🔎 Bevindingen</button>
-            <button class="tab-btn" onclick="showTab('archief')">📚 Archief Consistentie (RAG)</button>
+            <!-- Gevuld door app_v2.js uit artefact_views -->
           </div>
           <div class="markdown-preview" id="tab-content">
             Selecteer een tabblad om de inhoud te bekijken.
@@ -353,6 +347,6 @@
       }
     }
   </script>
-  <script src="/static/app_v2.js?v=1.10.0"></script>
+  <script src="/static/app_v2.js?v=1.12.0"></script>
 </body>
 </html>

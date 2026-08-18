@@ -98,12 +98,18 @@ def _normalize(item: Any, idx: int) -> dict[str, Any]:
             "hoort bij elk punt een even zichtbare optie te zijn (ADR-010 §3.3)."
         )
 
+    extra = {}
+    for veld in ("wat_de_draft_nu_zegt", "wat_het_archief_zegt"):
+        tekst = str(item.get(veld) or "").strip()
+        if tekst:
+            extra[veld] = tekst
     return {
         "id": str(item["id"]).strip(),
         "bron": str(item.get("bron") or "grok").strip(),
         "punt": str(item["punt"]).strip(),
         "raakt": str(item.get("raakt") or "sectie").strip(),
         "opties": genormaliseerd,
+        **extra,
     }
 
 

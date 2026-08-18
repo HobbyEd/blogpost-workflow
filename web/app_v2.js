@@ -221,13 +221,10 @@ const BLOCKS = [
   { id: "oordelen", label: "Oordelen", gate: "lezen in WordPress, dan beslissen" }
 ];
 
-const TAB_FOR_PHASE = {
-  outline: 'outline',
-  draft: 'draft',
-  critique: 'grok',
-  factcheck: 'factcheck',
-  alignment: 'archief',
-};
+const META_TABS = [
+  { id: 'status', label: 'Statustabel' },
+  { id: 'bevindingen', label: 'Bevindingen' },
+];
 
 document.addEventListener('DOMContentLoaded', () => {
   loadPostsList();
@@ -237,6 +234,7 @@ document.addEventListener('DOMContentLoaded', () => {
     await refreshWorkerStatus();
     if (activeSlug && currentMode === 2) {
       await loadPostDetail(activeSlug, false);
+      loadPostsList();
     } else if (currentMode === 2) {
       loadPostsList();
     }
@@ -378,6 +376,7 @@ function renderPostDetail(detail, resetTab) {
 
   renderStepper(detail);
   renderControls(detail.next, detail);
+  renderTabNav(detail);
 
   const yoloEl = document.getElementById('toggle-yolo');
   const skipEl = document.getElementById('toggle-skip-synth');
@@ -390,11 +389,15 @@ function renderPostDetail(detail, resetTab) {
   if (controlsBar) controlsBar.style.display = 'flex';
   if (viewerCard) viewerCard.style.display = 'block';
 
-  if (resetTab) {
-    showTab('status');
-  } else {
-    showTab(activeTab);
-  }
+  const syntheseOpen = detail.phase === 'synthesis' && ((detail.synthesis || {}).open > 0);
+  const gewenst = resetTab
+    ? (syntheseOpen && isTabAvailable(detail, 'synthesis')
+      ? 'synthesis'
+      : ((detail.status === 'waiting_gate' && isTabAvailable(detail, detail.phase))
+        ? detail.phase
+        : (isTabAvailable(detail, selectedPhase) ? selectedPhase : 'status')))
+    : (isTabAvailable(detail, activeTab) ? activeTab : 'status');
+  showTab(gewenst);
 }
 
 function renderStepper(detail) {
@@ -485,10 +488,15 @@ function selectPhase(phaseId) {
     return;
   }
   selectedPhase = phaseId;
-  const tab = TAB_FOR_PHASE[phaseId];
-  if (tab) showTab(tab);
   renderStepper(currentPostDetail);
   renderControls(currentPostDetail.next, currentPostDetail);
+  renderTabNav(currentPostDetail);
+  if (isTabAvailable(currentPostDetail, phaseId)) {
+    showTab(phaseId);
+  } else {
+    showTab('status');
+    showNotification(`Nog geen rapport voor ${PHASES[idx].label}.`, 'info');
+  }
 }
 
 function takeReturnDraft() {
@@ -531,6 +539,11 @@ function renderControls(nextAction, statusInfo) {
     return;
   }
 
+  if (act === 'decide_synthesis' || (statusInfo.phase === 'synthesis' && (statusInfo.synthesis || {}).open > 0)) {
+    bar.innerHTML = renderSynthesisControls(statusInfo);
+    return;
+  }
+
   if (statusInfo.status === 'blocked' || act === 'unblock') {
     const reden = statusInfo.blocked_reason || nextAction.summary || 'geen reden';
     bar.innerHTML = `
@@ -543,17 +556,20 @@ function renderControls(nextAction, statusInfo) {
   const returnable = statusInfo.returnable_phases || [];
   const gekozen = selectedPhase || statusInfo.phase;
   if (returnable.includes(gekozen)) {
-    bar.innerHTML = renderReturnControls(gekozen, nextAction, statusInfo);
+    bar.innerHTML = renderGateReason(statusInfo, gekozen)
+      + renderReturnControls(gekozen, nextAction, statusInfo);
     restoreReturnDraft(draft);
     return;
   }
 
+  const reden = renderGateReason(statusInfo, gekozen);
+
   if (act === 'run') {
-    bar.innerHTML = `
+    bar.innerHTML = reden + `
       <button class="btn" onclick="executeRun('${phase}')">▶ Voer uit: run ${phase}</button>
     `;
   } else if (act === 'approve_or_reject') {
-    bar.innerHTML = `
+    bar.innerHTML = reden + `
       <button class="btn btn-success" onclick="executeApprove()">✓ Keur goed (Approve)</button>
       <button class="btn btn-danger" onclick="executeReject()">✗ Wijs af (Reject)</button>
     `;
@@ -566,6 +582,85 @@ function renderControls(nextAction, statusInfo) {
   } else {
     bar.innerHTML = `<span style="font-size: 0.85rem; color: var(--text-secondary);">${escapeHTML(nextAction.summary || '')}</span>`;
   }
+}
+
+function renderGateReason(statusInfo, selected) {
+  const r = statusInfo.gate_reason;
+  if (!r) return '';
+  if (selected && selected !== r.phase && selected !== statusInfo.phase) return '';
+  const items = (r.findings || []).slice(0, 3).map(f => {
+    const waar = f.waar ? ` (${escapeHTML(f.waar)})` : '';
+    return `<li><strong>${escapeHTML(f.categorie || 'bevinding')}</strong>${waar} — ${escapeHTML(f.wat || '')}</li>`;
+  }).join('');
+  const extra = (r.findings || []).length > 3
+    ? `<li>… en ${r.findings.length - 3} meer in het rapport</li>`
+    : '';
+  const open = r.phase
+    ? `<button class="btn btn-secondary" type="button" onclick="selectPhase('${r.phase}')">Open rapport</button>`
+    : '';
+  const detail = r.detail ? `<p class="return-hint">${escapeHTML(r.detail)}</p>` : '';
+  return `
+    <div class="gate-reason gate-reason-${escapeHTML(r.kind || 'soft')}">
+      <div class="gate-reason-text">
+        <strong>${escapeHTML(r.headline || '')}</strong>
+        ${detail}
+        ${items ? `<ul>${items}${extra}</ul>` : ''}
+      </div>
+      ${open}
+    </div>
+  `;
+}
+
+function visibleArtefactViews(detail) {
+  const views = detail.artefact_views || [];
+  return views.filter(v => (
+    v.present
+    || v.phase === detail.phase
+    || v.phase === selectedPhase
+  ));
+}
+
+function isTabAvailable(detail, tabId) {
+  if (!tabId) return false;
+  if (META_TABS.some(t => t.id === tabId)) return true;
+  return visibleArtefactViews(detail).some(v => v.id === tabId);
+}
+
+function renderTabNav(detail) {
+  const nav = document.getElementById('tab-nav');
+  if (!nav) return;
+  const views = visibleArtefactViews(detail);
+  const knoppen = META_TABS.map(t => (
+    `<button class="tab-btn" data-tab="${t.id}" onclick="showTab('${t.id}')">${escapeHTML(t.label)}</button>`
+  ));
+  views.forEach(v => {
+    let badge = '';
+    if (v.verdict && v.verdict.blocking) {
+      badge = `<span class="tab-badge tab-badge-blocking">${v.verdict.blocking}</span>`;
+    } else if (!v.present && v.phase === detail.phase && detail.status === 'running') {
+      badge = '<span class="tab-badge tab-badge-running">bezig</span>';
+    }
+    const label = (PHASES.find(p => p.id === v.phase) || {}).label || v.label;
+    knoppen.push(
+      `<button class="tab-btn" data-tab="${v.id}" onclick="showTab('${v.id}')">${escapeHTML(label)}${badge}</button>`
+    );
+  });
+  nav.innerHTML = knoppen.join('');
+}
+
+function renderSynthesisControls(statusInfo) {
+  const syn = statusInfo.synthesis || {};
+  const open = syn.open != null ? syn.open : ((statusInfo.next || {}).open || []).length;
+  const totaal = syn.totaal != null ? syn.totaal : ((statusInfo.next || {}).totaal || open);
+  return `
+    <div class="gate-reason gate-reason-blocking">
+      <div class="gate-reason-text">
+        <strong>${open} van de ${totaal} synthesepunten zijn nog niet beslist.</strong>
+        <p class="return-hint">Dit is geen fout. Kies per punt een variant en schrijf waarom. Opnieuw draaien levert dezelfde punten op.</p>
+      </div>
+      <button class="btn" type="button" onclick="showTab('synthesis')">Open de punten</button>
+    </div>
+  `;
 }
 
 function renderReturnControls(targetPhase, nextAction, statusInfo) {
@@ -748,10 +843,9 @@ async function toggleFlag(flagName, value) {
 function showTab(tab) {
   activeTab = tab;
   const navBtns = document.querySelectorAll('.tab-btn');
-  navBtns.forEach(btn => btn.classList.remove('active'));
-
-  const currentBtn = Array.from(navBtns).find(b => b.getAttribute('onclick') === `showTab('${tab}')`);
-  if (currentBtn) currentBtn.classList.add('active');
+  navBtns.forEach(btn => {
+    btn.classList.toggle('active', btn.getAttribute('data-tab') === tab);
+  });
 
   const contentEl = document.getElementById('tab-content');
   if (!contentEl) return;
@@ -761,24 +855,168 @@ function showTab(tab) {
   }
 
   if (tab === 'status') {
-    // De orkestrator levert de tabel; die is gegroepeerd per blok (ADR-010 §3.1).
-    // renderStatusMarkdown blijft als terugval voor een oude server zonder dat veld.
     contentEl.innerHTML = currentPostDetail.markdown_table
       ? `<pre style="white-space: pre-wrap; font-family: inherit;">${escapeHTML(currentPostDetail.markdown_table)}</pre>`
       : renderStatusMarkdown(currentPostDetail);
-  } else if (tab === 'bevindingen') {
-    loadBevindingenTab(contentEl);
-  } else if (tab === 'archief') {
-    loadArchiefTabContent(contentEl);
-  } else {
-    const artKey = tab === 'grok' ? 'grok_feedback' : tab;
-    const content = currentPostDetail.artefact_contents ? currentPostDetail.artefact_contents[artKey] : null;
-    if (content) {
-      contentEl.innerHTML = `<pre style="white-space: pre-wrap; font-family: inherit;">${escapeHTML(content)}</pre>`;
-    } else {
-      contentEl.innerHTML = `<em>Artefact '${tab}' ontbreekt of is leeg voor deze post.</em>`;
-    }
+    return;
   }
+  if (tab === 'bevindingen') {
+    loadBevindingenTab(contentEl);
+    return;
+  }
+
+  const view = (currentPostDetail.artefact_views || []).find(v => v.id === tab);
+  if (view) {
+    renderArtefactView(contentEl, view);
+    return;
+  }
+
+  contentEl.innerHTML = `<em>Geen weergave voor '${escapeHTML(tab)}'.</em>`;
+}
+
+function renderArtefactView(container, view) {
+  if (view.phase === 'synthesis') {
+    renderSynthesisView(container, view);
+    return;
+  }
+  const kop = renderVerdictBanner(view);
+  if (view.kind === 'visuals') {
+    container.innerHTML = kop + renderVisualsGallery(view);
+    return;
+  }
+
+  if (!view.present) {
+    const bezig = currentPostDetail.phase === view.phase && currentPostDetail.status === 'running';
+    container.innerHTML = kop + (
+      bezig
+        ? `<em>De worker schrijft dit rapport nu. Het verschijnt hier zodra het bestand er is.</em>`
+        : `<em>Nog geen rapport voor ${escapeHTML(view.label)}. Deze stap is nog niet gedraaid.</em>`
+    );
+    return;
+  }
+
+  const contents = currentPostDetail.artefact_contents || {};
+  const stukken = (view.files || []).map(f => {
+    const tekst = contents[f.name] || contents[f.name.replace(/\.md$/, '').replace(/-/g, '_')] || '';
+    if (!f.present || !tekst) {
+      return `<section class="artefact-doc"><h3>${escapeHTML(f.name)}</h3><em>Ontbreekt of is leeg.</em></section>`;
+    }
+    return `<section class="artefact-doc"><h3>${escapeHTML(f.name)}</h3><pre>${escapeHTML(tekst)}</pre></section>`;
+  }).join('');
+
+  const extra = view.phase === 'alignment'
+    ? `<div style="margin-bottom: 12px;"><button class="btn" onclick="refreshAlignmentVerdict()">🔄 Verdict opnieuw inlezen</button></div>`
+    : '';
+  container.innerHTML = kop + extra + (stukken || `<em>Geen bestanden in ${escapeHTML(view.label)}.</em>`);
+}
+
+function renderSynthesisView(container, view) {
+  const syn = (currentPostDetail && currentPostDetail.synthesis) || {};
+  const punten = syn.points || [];
+  if (!view.present || !punten.length) {
+    const contents = currentPostDetail.artefact_contents || {};
+    const raw = contents['synthese.md'] || contents.synthese || '';
+    if (raw) {
+      container.innerHTML = `<section class="artefact-doc"><h3>synthese.md</h3><pre>${escapeHTML(raw)}</pre></section>`;
+      return;
+    }
+    container.innerHTML = '<em>Nog geen synthese. Deze stap is nog niet gedraaid.</em>';
+    return;
+  }
+
+  const kop = `<div class="verdict-banner ${syn.open ? 'verdict-blocking' : 'verdict-ok'}">${syn.open ? `${syn.open} van ${syn.totaal} nog te beslissen` : `alle ${syn.totaal} punten beslist`}</div>`;
+  const kaarten = punten.map(renderSynthesisPoint).join('');
+  container.innerHTML = kop + `<div class="synthesis-list">${kaarten}</div>`;
+}
+
+function renderSynthesisPoint(punt) {
+  const beslist = !!(punt.keuze);
+  const opties = (punt.opties || []).map(o => {
+    const checked = punt.keuze === o.key ? ' checked' : '';
+    return `
+      <label class="synthesis-optie">
+        <input type="radio" name="syn-${escapeHTML(punt.id)}" value="${escapeHTML(o.key)}"${checked}${beslist ? ' disabled' : ''}>
+        <span>
+          <strong>${escapeHTML(o.key)}</strong>
+          <span class="synthesis-gevolg">${escapeHTML(o.gevolg)}</span>
+        </span>
+      </label>`;
+  }).join('');
+  const extra = [
+    punt.wat_de_draft_nu_zegt ? `<p><strong>Draft nu:</strong> ${escapeHTML(punt.wat_de_draft_nu_zegt)}</p>` : '',
+    punt.wat_het_archief_zegt ? `<p><strong>Archief:</strong> ${escapeHTML(punt.wat_het_archief_zegt)}</p>` : '',
+  ].join('');
+  const actie = beslist
+    ? `<p class="synthesis-besluit">Gekozen: <strong>${escapeHTML(punt.keuze)}</strong> — ${escapeHTML(punt.motivering || '')}</p>`
+    : `
+      <textarea id="syn-motief-${escapeHTML(punt.id)}" class="form-control" rows="2" placeholder="Waarom deze keuze? (verplicht)"></textarea>
+      <button class="btn" type="button" onclick="executeSynthesisDecide('${escapeHTML(punt.id)}')">Leg vast</button>
+    `;
+  return `
+    <article class="synthesis-card ${beslist ? 'is-done' : ''}" id="syn-${escapeHTML(punt.id)}">
+      <header>
+        <span class="synthesis-id">${escapeHTML(punt.id)}</span>
+        <span class="synthesis-raakt">${escapeHTML(punt.raakt || '')}</span>
+      </header>
+      <p class="synthesis-punt">${escapeHTML(punt.punt)}</p>
+      ${extra}
+      <div class="synthesis-opties">${opties}</div>
+      ${actie}
+    </article>
+  `;
+}
+
+async function executeSynthesisDecide(puntId) {
+  if (!activeSlug) return;
+  const gekozen = document.querySelector(`input[name="syn-${puntId}"]:checked`);
+  const veld = document.getElementById(`syn-motief-${puntId}`);
+  if (!gekozen) {
+    showNotification('Kies eerst een variant.', 'warning');
+    return;
+  }
+  const motivering = veld ? veld.value.trim() : '';
+  if (!motivering) {
+    showNotification('Een motivering is verplicht.', 'warning');
+    return;
+  }
+  try {
+    await fetchJSON(`/api/posts/${activeSlug}/synthesis/decide`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ punt: puntId, keuze: gekozen.value, motivering }),
+    });
+    showNotification(`${puntId}: ${gekozen.value} vastgelegd.`, 'success');
+    await loadPostDetail(activeSlug, false);
+    showTab('synthesis');
+  } catch (err) {
+    showNotification(`Beslissing vastleggen mislukt: ${err.message}`, 'error');
+  }
+}
+
+function renderVerdictBanner(view) {
+  const v = view.verdict;
+  if (!v) return '';
+  if (v.blocking) {
+    return `<div class="verdict-banner verdict-blocking">${v.blocking} blokkerend · ${v.advisory} ter overweging</div>`;
+  }
+  return `<div class="verdict-banner verdict-ok">geen blokkerende bevinding · ${v.advisory} ter overweging</div>`;
+}
+
+function renderVisualsGallery(view) {
+  const files = view.files || [];
+  if (!files.length) {
+    const bezig = currentPostDetail.phase === 'visuals' && currentPostDetail.status === 'running';
+    return bezig
+      ? '<em>Visuals worden gemaakt. Beelden verschijnen hier zodra ze op schijf staan.</em>'
+      : '<em>Nog geen visuals.</em>';
+  }
+  const kaarten = files.map(f => `
+    <figure class="visual-card">
+      <img src="/api/posts/${encodeURIComponent(currentPostDetail.slug)}/media/${encodeURIComponent(f.path).replace(/%2F/g, '/')}" alt="${escapeHTML(f.stem)}">
+      <figcaption>${escapeHTML(f.stem)}</figcaption>
+    </figure>
+  `).join('');
+  return `<div class="visual-grid">${kaarten}</div>`;
 }
 
 // De bevindingen van alle controlefases in één lijst (ADR-010 §6, stap 3). Ze worden bij
